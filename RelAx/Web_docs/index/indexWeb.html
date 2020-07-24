@@ -1,0 +1,562 @@
+<!doctype html>
+<html>
+
+<head>
+    <link rel="icon" href="data:,">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Система управления</title>
+    <link rel="stylesheet" href="picnic.css">
+    <style>
+        .slidecontainer {
+            width: 100%;
+        }
+
+        .slider {
+            -webkit-appearance: none;
+            width: 240px;
+            height: 15px;
+            border-radius: 5px;
+            background: #eee;
+            outline: none;
+            opacity: 1;
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+        }
+
+        .slider:hover {
+            opacity: 0.8;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 10%;
+            background: #50bbb4;
+            cursor: pointer;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 25px;
+            height: 25px;
+            border-radius: 10%;
+            background: #50bbb4;
+            cursor: pointer;
+        }
+    </style>
+    <script src="login.js"></script>
+    <script>
+
+        function sliderRef() {
+            var slider = document.getElementById("myRange");
+            document.getElementById('gps_time').innerHTML = slider.value;
+        }
+
+        function lol() {
+            var i = Number(document.getElementById('slaven').value);
+            i += 240;
+            i = i.toString() - 1;
+            document.getElementById('slaveip').value = '10.200.1.' + i;
+        };
+
+        function sm() {
+            var x = new XMLHttpRequest();
+            x.open("POST", "/lol", true);
+            var s = "";
+            if (document.getElementById('tab-1').checked)
+                s = "1|";
+            else
+                s = document.getElementById('slaven').value + "|";
+
+            s += document.getElementById('masterip').options.selectedIndex + 1;
+
+            x.onreadystatechange = function() {
+                lol();
+            };
+            x.send(s);
+        };
+
+        function smap() {
+            fr = new FileReader();
+            fr.onload = function() {
+                parser = new DOMParser();
+                xmlDoc = parser.parseFromString(this.result, "text/xml");
+                console.log(xmlDoc);
+                f = xmlDoc.children[0].children;
+
+                var v = 0;
+                var s = 0;
+
+                function nudes() {
+                    document.getElementById('map_st').innerHTML = "Загрузка " + v + "/" + f.length;
+                    console.log("nudes " + v);
+                    if (v < f.length) {
+                        x = new XMLHttpRequest();
+                        x.open("POST", "/ass", true);
+                        s = f[v].getElementsByTagName("varname")[0].childNodes[0].nodeValue + "\n";
+                        s += f[v].getElementsByTagName("frname")[0].childNodes[0].nodeValue + "\n";
+                        s += f[v].getElementsByTagName("kmr")[0].childNodes[0].nodeValue + "\n";
+                        s += f[v].getElementsByTagName("mr")[0].childNodes[0].nodeValue + "\n";
+                        s += f[v].getElementsByTagName("signal")[0].childNodes[0].nodeValue + "\n";
+                        s += f[v].getElementsByTagName("typemr")[0].childNodes[0].nodeValue + "\n";
+                        x.onreadystatechange = function() {
+                            if (this.readyState == 4 && this.status == 200)
+                                nudes();
+                        };
+                        x.send(s);
+                        v += 1;
+                    } else {
+                        x = new XMLHttpRequest();
+                        x.open("POST", "/dodo", true);
+                        x.onreadystatechange = function() {
+                            document.getElementById('map_st').innerHTML = "Загрузка успешна";
+                            delay(sm, 5000);
+                        };
+                        x.send();
+                    }
+                }
+
+                var x = new XMLHttpRequest();
+                x.open("POST", "/rerorero", true);
+                x.onreadystatechange = function() {
+                    if (this.readyState == 4 && this.status == 200)
+                        nudes();
+                };
+                x.send();
+            };
+            fr.readAsText(document.getElementById('masterfile').files[0]);
+
+        };
+
+        function getDataJSON() {
+            var x = new XMLHttpRequest();
+            x.open('GET', '/data.json');
+            x.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    console.log(x.responseText);
+                    obj = JSON.parse(this.responseText);
+                    document.getElementById('rssi').innerHTML = obj.rssi;
+                    document.getElementById('rsrq').innerHTML = obj.rsrq;
+                    document.getElementById('snr').innerHTML = obj.snr;
+                    document.getElementById('rxlen').innerHTML = obj.rxlen;
+                    document.getElementById('spn').innerHTML = obj.spn;
+                    document.getElementById('3d_fix').innerHTML = obj.threed_fix;
+                    document.getElementById('gps_cords').innerHTML = obj.gps_cords;
+                    document.getElementById('sys_time').innerHTML = obj.sys_time;
+                    document.getElementById('num_sput').innerHTML = obj.num_sput;
+                    document.getElementById('reg_in_mesh').innerHTML = obj.reg_in_mesh;
+                    document.getElementById('mobile_data').innerHTML = obj.mobile_data;
+                    document.getElementById('imsi').innerHTML = obj.imsi;
+                    document.getElementById('imei').innerHTML = obj.imei;
+                    document.getElementById('uptime').innerHTML = obj.uptime;
+                    document.getElementById('carrige_mileage').innerHTML = obj.carrige_mileage;
+                    document.getElementById('last_mileage').innerHTML = obj.last_mileage;
+                    document.getElementById('power_type').innerHTML = obj.power_type;
+                }
+            };
+            x.send();
+            var t = setTimeout(getDataJSON, 2000);
+        }
+        function getLogJSON() {
+            var x = new XMLHttpRequest();
+            x.open('GET', '/log.json');
+            x.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    console.log(x.responseText);
+                    obj = JSON.parse(this.responseText);
+                    document.getElementById('log').innerHTML = obj.log;
+                }
+            };
+            x.send();
+            var t = setTimeout(getLogJSON, 2000);
+        }
+
+        function checkTime(i) {
+            if (i < 10) {
+                i = "0" + i
+            }; // add zero in front of numbers < 10
+            return i;
+        }
+
+        document.onkeydown = function(e) {
+            if (e.keyCode == 27) {
+                var mods = document.querySelectorAll('.modal > [type=checkbox]');
+                [].forEach.call(mods, function(mod) {
+                    mod.checked = false;
+                });
+            }
+        }
+
+        function SMS_send() {
+            var phone_num = document.getElementById("phone_num").value;
+            var SMS_text = document.getElementById("SMS_text").value;
+
+            nesne.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    var mods = document.querySelectorAll('.modal > [type=checkbox]');
+                    [].forEach.call(mods, function(mod) {
+                        mod.checked = false;
+                    });
+                }
+            };
+
+            nesne.open("post", "", true);
+            nesne.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+            nesne.send("SMS_send\n" + phone_num + " " + SMS_text);
+        }
+
+        function save_netstat() {
+            var gps_time = document.getElementById("myRange").value;
+            var inet = document.getElementById("inet").value;
+            var netmask = document.getElementById("netmask").value;
+            nesne.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+
+            }
+        };
+        let www = "http://" + inet
+        window.location = www;
+        //window.location.reload(true);
+        nesne.open("post", "", true);
+        nesne.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+        nesne.send("save_netstat\n" + inet + " " + netmask + " " + gps_time);
+        }
+    </script>
+</head>
+
+<body onload="getDataJSON(); getLogJSON(); sliderRef();">
+    <div class="flex center middle">
+        <br>
+        <h1>Добро пожаловать в панель управления!</h1>
+    </div>
+    <div class="flex three">
+
+        <div class="flex middle">
+            <img alt=""
+                src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMQAAAA9CAYAAADyO8a6AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyFpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuNi1jMTQyIDc5LjE2MDkyNCwgMjAxNy8wNy8xMy0wMTowNjozOSAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENDIChXaW5kb3dzKSIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDoxNkVBM0UxNDQzMUIxMUU5OTVBQ0JEMkI3NDg4ODYxNiIgeG1wTU06RG9jdW1lbnRJRD0ieG1wLmRpZDoxNkVBM0UxNTQzMUIxMUU5OTVBQ0JEMkI3NDg4ODYxNiI+IDx4bXBNTTpEZXJpdmVkRnJvbSBzdFJlZjppbnN0YW5jZUlEPSJ4bXAuaWlkOjE2RUEzRTEyNDMxQjExRTk5NUFDQkQyQjc0ODg4NjE2IiBzdFJlZjpkb2N1bWVudElEPSJ4bXAuZGlkOjE2RUEzRTEzNDMxQjExRTk5NUFDQkQyQjc0ODg4NjE2Ii8+IDwvcmRmOkRlc2NyaXB0aW9uPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiA8P3hwYWNrZXQgZW5kPSJyIj8+WQNehgAACrJJREFUeNrsnX+UVVUV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" />
+        </div>
+
+        <div class="tabs five middle" style="width: 650px;">
+            <!--<label class="" for="tab-1">Меню:</label>-->
+            <input id='tab-1' type='radio' name='t' checked />
+            <label class="pseudo button toggle" for="tab-1">Монитор<br>параметров</label>
+            <input id='tab-2' type='radio' name='t'>
+            <label class="pseudo button toggle" for="tab-2">Сетевые<br>настройки</label>
+            <input id='tab-3' type='radio' name='t'>
+            <label class="pseudo button toggle" for="tab-3">УПВС</label>
+            <input id='tab-4' type='radio' name='t'>
+            <label class="pseudo button toggle" for="tab-4">Система</label>
+            <input id='tab-5' type='radio' name='t'>
+            <label class="pseudo button toggle" for="tab-5">СМС</label>
+            <div class="row">
+                <div>
+                    <!-- tab master -->
+                    <br>
+                    <div class="flex three midlle">
+                        <div style="width: 650px;">
+                            <form class="pure-form pure-form-aligned">
+                                <fieldset>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">RSSI:</label>
+                                        <label style="width: auto;" id="rssi"></label>
+                                    </div>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">RSRQ:</label>
+                                        <label style="width: auto;" id="rsrq"></label>
+                                    </div>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">SNR:</label>
+                                        <label style="width: auto;" id="snr"></label>
+                                    </div>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">RXLEN:</label>
+                                        <label style="width: auto;" id="rxlen"></label>
+                                    </div>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">SPN:</label>
+                                        <label style="width: auto;" id="spn"></label>
+                                    </div>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">3D FIX:</label>
+                                        <label style="width: auto;" id="3d_fix"></label>
+                                    </div>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">Координаты GPS:</label>
+                                        <label style="width: auto;" id="gps_cords"></label>
+                                    </div>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">Системное время:</label>
+                                        <label style="width: auto;" id="sys_time"></label>
+                                    </div>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">Количество спутников:</label>
+                                        <label style="width: auto;" id="num_sput"></label>
+                                    </div>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">Регистрация в сети:</label>
+                                        <label style="width: auto;" id="reg_in_mesh"></label>
+                                    </div>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">Мобильные данные:</label>
+                                        <label style="width: auto;" id="mobile_data"></label>
+                                    </div>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">IMSI:</label>
+                                        <label style="width: auto;" id="imsi"></label>
+                                    </div>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">IMEI:</label>
+                                        <label style="width: auto;" id="imei"></label>
+                                    </div>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">UPTIME:</label>
+                                        <label style="width: auto;" id="uptime"></label>
+                                    </div>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">Пробег вагона:</label>
+                                        <label style="width: auto;" id="carrige_mileage"></label>
+                                    </div>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">Промежуточный пробег:</label>
+                                        <label style="width: auto;" id="last_mileage"></label>
+                                    </div>
+                                    <div class="pure-control-group">
+                                        <label style="width: 11em;">Тип питания(Бат/сеть):</label>
+                                        <label style="width: auto;" id="power_type"></label>
+                                    </div>
+                                </fieldset>
+                            </form>
+                        </div>
+                    </div>
+                </div> <!-- tab master -->
+                <div>
+                    <!-- tab slave -->
+                    <br>
+                    <form class="pure-form pure-form-aligned">
+                        <fieldset>
+                            <div class="pure-control-group">
+                                <label for="inet">Выбрать IP</label>
+                                <select id="inet" class="pure-input-1" selected>
+                                    <option>10.7.254.1</option>
+                                    <option>10.7.254.2</option>
+                                    <option>10.7.254.5</option>
+                                    <option>10.7.254.4</option>
+                                    <option>10.7.254.3</option>
+                                    <option>10.7.254.6</option>
+                                    <option>10.7.254.7</option>
+                                    <option>10.7.254.8</option>
+                                    <option>10.7.254.9</option>
+                                    <option>10.7.254.10</option>
+                                    <option>10.7.254.11</option>
+                                    <option>10.7.254.12</option>
+                                    <option>10.7.254.13</option>
+                                    <option>10.7.254.14</option>
+                                    <option>10.7.254.15</option>
+                                </select>
+                                <span class="pure-form-message-inline">Адрес со стороны КУД</span>
+                            </div>
+
+                            <div class="pure-control-group">
+                                <label for="slaven">Маска подсети</label>
+                                <input type="text" id="netmask" value="255.255.255.0">
+                            </div>
+                            <br>
+                            <div class="pure-control-group">
+                                <label for="slaven">DHCP</label>
+                                <label>
+                                    <input type="checkbox">
+                                    <span class="checkable">Включить</span>
+                                </label>
+                            </div>
+                            <br>
+                            <div class="pure-control-group">
+                                <label for="slaven">Интервал связи со спутником GPS</label>
+                                <label>
+                                    <div class="slidecontainer" onclick="sliderRef()" onmousemove="sliderRef()">
+                                        <input type="range" min="5" max="20" value="12" class="slider" id="myRange">
+                                    </div>
+                                    <span class="pure-form-message-inline" id="gps_time">x</span>
+                                </label>
+                            </div>
+
+                            <br>
+                            <div class="pure-control-group">
+                                <label for="masterip">Подключенные устройства</label>
+                                <label>
+                                    <table class="primary">
+                                        <thead>
+                                            <tr>
+                                                <th>Имя устройства</th>
+                                                <th>IP адресс</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>Чайник</td>
+                                                <td>1.1.1.1</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Туалет</td>
+                                                <td>1.1.1.2</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Купе</td>
+                                                <td>1.1.1.3</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Холодильник</td>
+                                                <td>1.1.1.4</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </label>
+                            </div>
+
+                            <div class="pure-controls">
+                                <br>
+                                <button type="button" onclick="save_netstat()" class="pure-button pure-button-primary">
+                                    Сохранить</button>
+                            </div>
+                        </fieldset>
+                    </form>
+                </div> <!-- tab slave -->
+                <div>
+                    <!-- tab slave -->
+                    <br>
+                    <form class="pure-form pure-form-aligned">
+                        <fieldset>
+
+                            <div class="pure-control-group">
+
+                                <label for="slaveip">Broadcast IP</label>
+                                <input id="slaveip" type="text" placeholder="10.7.255.255" readonly>
+                            </div>
+                            <div class="pure-control-group">
+                                <label for="slaveip">Broadcast PORT</label>
+                                <input id="slaveip" type="text" placeholder="19000" readonly>
+                            </div>
+
+                            <div class="pure-control-group">
+                                <label style="width: 11em;">Версия УПВС:</label>
+                                <label style="width: auto;" id="map_st">???</label>
+                            </div>
+                            <div class="pure-control-group">
+                                <label style="width: 11em;">Тип устройства:</label>
+                                <label style="width: auto;" id="map_st">???</label>
+                            </div>
+                            <div class="pure-control-group">
+                                <label style="width: 11em;">Имя устройства:</label>
+                                <label style="width: auto;" id="map_st">???</label>
+                            </div>
+                            <div class="pure-control-group">
+                                <label style="width: 11em;">Производитель:</label>
+                                <label style="width: auto;" id="map_st">ООО "КСК" Элком</label>
+                            </div>
+                            <div class="pure-control-group">
+                                <label style="width: 11em;">Страна производства:</label>
+                                <label style="width: auto;" id="map_st">Россия</label>
+                            </div>
+                            <div class="pure-controls">
+                                <br>
+                                <button type="button" onclick="sm()" class="pure-button pure-button-primary">Сохранить</button>
+                            </div>
+                        </fieldset>
+                    </form>
+                </div> <!-- tab slave -->
+                <div>
+                    <!-- tab slave -->
+                    <br>
+                    <form class="pure-form pure-form-aligned">
+                        <fieldset>
+                            <div class="pure-control-group">
+                                <label for="slaven">Лог событий:</label>
+                                <textarea placeholder="Textarea" style="resize:vertical; width : 420px; max-height: 400px; min-height: 70px" id="log"></textarea>
+                            </div>
+                            <div class="pure-control-group">
+                                <label for="slaven">Принятые SMS:</label>
+                                <textarea placeholder="Textarea" style="resize:vertical; width : 420px; max-height: 200px; min-height: 70px" id = "sms_r"></textarea>
+                            </div>
+                            <div class="pure-controls">
+                                <button type="button" onclick="sm()" class="pure-button pure-button-primary">Тест SMS</button>
+                            </div>
+                            <div class="pure-controls">
+                                <label for="modal_1" class="button">Отправить SMS</label>
+                                <div class="modal">
+                                    <input id="modal_1" type="checkbox" />
+                                    <label for="modal_1" class="overlay"></label>
+                                    <article>
+                                        <header>
+                                            <h3>Отправка SMS</h3>
+                                            <label for="modal_1" class="close">&times;</label>
+                                        </header>
+                                        <section class="content">
+                                            <div class="pure-control-group">
+                                                <label for="phone_num">Номер:</label>
+                                                <input id="phone_num" type="text" placeholder="+79101234567">
+                                            </div>
+                                            <div class="pure-control-group">
+                                                <label for="slaven">Текст SMS:</label>
+                                                <textarea placeholder="Textarea" style="resize:vertical; width : 420px; max-height: 100px; min-height: 70px " id="SMS_text"></textarea>
+                                            </div>
+                                        </section>
+                                        <footer>
+                                            <button type="button" onclick="SMS_send()" class="pure-button pure-button-primary">Отправить</button>
+                                            <label for="modal_1" class="button dangerous">
+                                                Отменить
+                                            </label>
+                                        </footer>
+                                    </article>
+                                </div>
+                            </div>
+
+
+
+                            <div class="pure-controls">
+                                <button type="button" onclick="sm()" class="pure-button pure-button-primary">Сбросить ВСЕ настройки</button>
+                            </div>
+                            <div class="pure-controls">
+                                <button type="button" onclick="sm()" class="pure-button pure-button-primary">Перезагрузка</button>
+                            </div>
+                            <div class="pure-controls">
+                                <button type="button" onclick="logout()" class="pure-button pure-button-primary">Выйти из профиля</button>
+                            </div>
+                        </fieldset>
+                    </form>
+                </div> <!-- tab slave -->
+                <div>
+                    <!-- tab slave -->
+                    <br>
+                    <form class="pure-form pure-form-aligned">
+                        <fieldset>
+                            <div class="pure-control-group">
+                                <label for="slaven">Тип сообщения</label>
+                                <select id="slaven" class="pure-input-1" onChange="lol()" selected>
+                                    <option>Отправленные</option>
+                                    <option>Исходящие</option>
+                                    <option>Входящие</option>
+                                    <option>Удаленные</option>
+                                </select>
+                            </div>
+
+                            <div class="pure-control-group">
+                                <label for="slaveip">IP адрес</label>
+                                <input id="slaveip" type="text" placeholder="xxx.xxx.xxx.xxx" readonly>
+                                <span class="pure-form-message-inline">Адрес со стороны сети МСУЕВ</span>
+                            </div>
+
+                            <div class="pure-controls">
+                                <button type="button" onclick="sm()" class="pure-button pure-button-primary">Установить конфигурацию</button>
+                            </div>
+                        </fieldset>
+                    </form>
+                </div> <!-- tab slave -->
+            </div>
+        </div> <!-- tab end -->
+        <div></div>
+    </div>
+
+</body>
+
+</html>
