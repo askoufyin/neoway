@@ -7,11 +7,15 @@ set(CMAKE_SYSROOT /home/devel/rasp-pi-rootfs)
 set(CMAKE_STAGING_PREFIX /home/devel/stage)
 
 # SYSROOT.
+set(NEOWAY_CROSSTOOL_PATH ../NeowaySDK/tool/neoway-arm-oe-linux)
+set(ENV{PATH} ${NEOWAY_CROSSTOOL_PATH}/sysroots/x86_64-oesdk-linux/usr/bin:${NEOWAY_CROSSTOOL_PATH}/sysroots/x86_64-oesdk-linux/usr/bin/arm-oe-linux-gnueabi:$PATH)
 set(sdkroot /home/skuf1973/NeowaySDK)
 set(tools ${sdkroot}/tool/neoway-arm-oe-linux/sysroots/armv7a-vfp-neon-oe-linux-gnueabi)
 
-set(CMAKE_C_COMPILER {$tools}/arm-oe-linux-gnueabi-gcc -march=armv7-a -marm -mfpu=neon -mfloat-abi=hard --sysroot=${tools})
-set(CMAKE_CXX_COMPILER ${tools}/arm-oe-linux-gnueabi-g++ -march=armv7-a -marm -mfpu=neon -mfloat-abi=hard --sysroot=${tools})
+set(CMAKE_C_COMPILER arm-oe-linux-gnueabi-gcc)
+set(CMAKE_C_FLAGS -march=armv7-a -marm -mfpu=neon -mfloat-abi=hard --sysroot=${tools})
+set(CMAKE_CXX_COMPILER arm-oe-linux-gnueabi-g++)
+set(CMAKE_CPP_FLAGS -march=armv7-a -marm -mfpu=neon -mfloat-abi=hard --sysroot=${tools})
 
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)

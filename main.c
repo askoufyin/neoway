@@ -3,6 +3,7 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <signal.h>
 #include <termios.h>
 #include <time.h>
 #include <pthread.h>
@@ -1595,11 +1596,11 @@ static void* UDP_server (void *arg)
 
 static void* HeartBit (void *arg)
 {
-        bool flag = false;
+        int flag = 0;
         while (1)
         {
                 nwy_gpio_set_val(NWY_GPIO_76, flag);
-                flag = !flag;
+                flag = 1 - flag;
         }
 }
 

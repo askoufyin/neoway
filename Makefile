@@ -23,7 +23,8 @@ USR_LIB_FILES =	-L/home/skuf1973/NeowaySDK/libs -lnwy_device -lnwy_common -lnwy_
 #--------------------------------------------------------------
 # Source code files
 #--------------------------------------------------------------
-DIRS = $(shell find . -maxdepth 3 -type d)
+DIRS = . lib 
+#$(shell find . -maxdepth 3 -type d)
 LOCAL_SRC_FILES = $(foreach dir, $(DIRS), $(wildcard $(dir)/*.c)) 
 LOCAL_OBJECTS = $(notdir $(patsubst %.c, %.o,$(LOCAL_SRC_FILES)))
 		
