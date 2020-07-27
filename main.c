@@ -14,6 +14,8 @@
 #include <netinet/ip.h> /* superset of previous */
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <stdbool.h> //
+#include <signal.h> //
 
 #include "nwy_loc.h"
 #include "nwy_uart.h"
@@ -1287,8 +1289,10 @@ static void* tcp_web_thread_main (void *arg)
         Start_Socket();                         //Запуск Socket+bind+listen
         At_init();                         //Инициализация для работы с AT
         //Работа с клиентом
+        printf("AT OK");
         while(1)
         {
+                printf("TCP_web wait ACCEPT");
                 new_tcp_socket = accept(server_fd, NULL, NULL);                                                 //(struct sockaddr *)&address, (socklen_t*)&addrlen);
                 if (new_tcp_socket == -1)
                 {
