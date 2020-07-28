@@ -824,30 +824,28 @@ app_init(options_t *opts)
 
 char buffer[65000]  = {0};    //Буфер для вычитывания файлов и принятия внешних запросов
 //Переменные, для вычитывания данных из внешнего запроса
-char method[10]     = {0},    //Метод Post, get или что то еще
+char method[10]     = {0},                //Метод Post, get или что то еще
      fileadrr[100]  = {0},                //Адрес файла к которому обращение
      filetype[10]   = {0},                //Расширение файла
      postcomand[20] = {0},                //Команда для сервера через POST
      postbody[1000] = {0};                //Тело Post запроса
 //Переменные, для хранения основных параметров монитора
-char rssi[10] = {0},
-     rsrq[10] = {0},
-     snr[10] = {0},
-     rxlen[10] = {0},
-     spn[10] = {0},
-     threed_fix[10] = {0},
-     gps_cords[30] = {0},
-     reg_in_mesh[10] = {0},
-     mobile_data[10] = {0},
-     imsi[20] = {0},
-     imei[20] = {0},
-     carrige_mileage[10] = {0},
-     last_mileage[10] = {0},
-     power_type[10] = {0},
-     up_time_string[20] = {"0 : 0 : 0\0"};
+// char rssi [10] = {0},
+//      rsrq[10] = {0},
+//      snr[10] = {0},
+//      spn[10] = {0},
+//      threed_fix[10] = {0},
+//      gps_cords[30] = {0},
+//      reg_in_mesh[10] = {0},
+//      mobile_data[10] = {0},
+//      imsi[20] = {0},
+//      imei[20] = {0},
+//      carrige_mileage[10] = {0},
+//      last_mileage[10] = {0},
+//      power_type[10] = {0},
+//      up_time_string[20] = {"0 : 0 : 0\0"};
 
-int rssi_val = 0,
-    rsrq_val = 0,
+int rsrq_val = 0,
     snr_val = 0,
     rxlen_val = 0,
     spn_val = 0,
@@ -858,7 +856,7 @@ int rssi_val = 0,
     last_mileage_val = 0,
     power_type_val = 0;
 
-char country_cod[10], operator_cod[10];
+// char country_cod[10], operator_cod[10];
 int hh, mm, ss, ms;                 //Переменные времени от GPS идут в системное время
 char fix_state;                     //Состояние фиксации спутниками нет/плоскость/3-х мерное пространство
 int lat_D, lon_D;
@@ -866,8 +864,8 @@ float lat_M = 0, lon_M = 0, lat = 0, lon = 0;
 char lat_sign = '\0', lon_sign= '\0';
 
 char phone_num[13], sms_text[200]={'\0'}; //Переменные для работы с смс
-char sms_queue_to_send[1000][200];
-char sms_queue_to_recv[1000][200];
+//char sms_queue_to_send[1000][200];
+//char sms_queue_to_recv[1000][200];
 char sms_sended[1000][200];
 char sms_recived[1000][200];
 char sms_deleted[1000][200];
@@ -875,6 +873,8 @@ int sms_sended_index = 0;
 int sms_recived_index = 0;
 int sms_deleted_index = 0;
 int sms_queue_to_send_index = 0;
+char phohe_queue [100][12] = {'\0'};
+char msg_queue [100][200] = {'\0'};
 
 char web_log[64000]= {0};
 char inet_web[20] = {0};
@@ -892,11 +892,11 @@ int addrlen = sizeof(address);
 
 void Header_Parse();        //Функция которая разбирает ключевые заголовки из buffer и складывает в предназначенные для этого массивы
 void Start_Socket();             //Socket+bind+listen
-void At_init();            //Инициализация для работы с AT
-void send_at_cmd(char *at_com);    //Отправка АТ команды
+void At_init(void *web_opts);            //Инициализация для работы с AT
+void send_at_cmd(char *at_com, void *web_opts);    //Отправка АТ команды
 static void at_free(char **p);
-static void* TCP_server (void *arg);
-static void* UDP_server (void *arg);
+//static void* TCP_server (void *arg);
+//static void* UDP_server (void *arg);
 static void* HeartBit (void *arg);
 static int do_send_sms(char *number, int encoding, int length, char *context, int async);
 static void test_sms_evt_handler(nwy_mt_sms_event_t ind_type, void *ind_struct);
@@ -1029,8 +1029,9 @@ void Header_Parse()
         if (filetype[0] == '\0') {filetype[0] = 'h'; filetype[1] = 't'; filetype[2] = 'm'; filetype[3] = 'l'; filetype[4] = '\0';}
 }
 
-void At_init()
+void At_init(void *web_opts)
 {
+        options_t *opts = (options_t*)web_opts;
         ret = nwy_at_port_init(NWY_AT_PORT);
         if (ret != 0)
         {
@@ -1038,12 +1039,14 @@ void At_init()
         }
         else
         {
-                send_at_cmd("AT$MYGPSPWR=1\0");
+                send_at_cmd("AT$MYGPSPWR=1\0", opts);
+                printf("AT OK");
         }
 }
 
-void send_at_cmd(char *at_com)
+void send_at_cmd(char *at_com, void *web_opts)
 {
+        options_t *opts = (options_t*)web_opts;
         char *p_resp = NULL;
         char *p_result = NULL;
         int ret;
@@ -1067,11 +1070,12 @@ void send_at_cmd(char *at_com)
                         i++;
                         while (p_resp[i]!=',')
                         {
-                                rssi[j]=p_resp[i];
+                                opts->rssi[j]=p_resp[i];
                                 i++; j++;
                         }
-                        rssi[j]='\0';
-                        rssi_val = -113 + atoi(rssi)*2;
+                        opts->rssi[j]='\0';
+                        int rssi_val = -113 + atoi(opts->rssi)*2;
+                        sprintf(opts->rssi,"%d", rssi_val);
                 }
                 else if (!strcmp(at_com,"AT+CIMI\0"))
                 {
@@ -1082,59 +1086,59 @@ void send_at_cmd(char *at_com)
                         i++;
                         while (p_resp[i]!= '\0')
                         {
-                                imsi[j]=p_resp[i];
+                                opts->imsi[j]=p_resp[i];
                                 if(j <= 2)
                                 {
-                                        country_cod[j] = p_resp[i];
-                                        country_cod[j+1] = '\0';
+                                        opts->country_cod[j] = p_resp[i];
+                                        opts->country_cod[j+1] = '\0';
                                 }
                                 if(j == 3 || j == 4)
                                 {
-                                        operator_cod[j-3] = p_resp[i];
-                                        operator_cod[j-2] = '\0';
+                                        opts->operator_cod[j-3] = p_resp[i];
+                                        opts->operator_cod[j-2] = '\0';
                                 }
                                 i++; j++;
                         }
-                        switch (atoi(country_cod))
+                        switch (atoi(opts->country_cod))
                         {
                         case 250:
-                                sprintf(country_cod, "RUS\0");
+                                sprintf(opts->country_cod, "RUS\0");
                                 break;
                         default:
-                                sprintf(country_cod, "\0");
+                                sprintf(opts->country_cod, "\0");
                                 break;
                         }
-                        switch (atoi(operator_cod))
+                        switch (atoi(opts->operator_cod))
                         {
                         case 1:
-                                sprintf(operator_cod, "MTS\0");
+                                sprintf(opts->operator_cod, "MTS\0");
                                 break;
                         case 2:
-                                sprintf(operator_cod, "Megafon\0");
+                                sprintf(opts->operator_cod, "Megafon\0");
                                 break;
                         case 11:
-                                sprintf(operator_cod, "Yota\0");
+                                sprintf(opts->operator_cod, "Yota\0");
                                 break;
                         case 14:
-                                sprintf(operator_cod, "Megafon\0");
+                                sprintf(opts->operator_cod, "Megafon\0");
                                 break;
                         case 20:
-                                sprintf(operator_cod, "Tele2\0");
+                                sprintf(opts->operator_cod, "Tele2\0");
                                 break;
                         case 28:
-                                sprintf(operator_cod, "Beeline\0");
+                                sprintf(opts->operator_cod, "Beeline\0");
                                 break;
                         case 62:
-                                sprintf(operator_cod, "Tinkoff\0");
+                                sprintf(opts->operator_cod, "Tinkoff\0");
                                 break;
                         case 99:
-                                sprintf(operator_cod, "Beeline\0");
+                                sprintf(opts->operator_cod, "Beeline\0");
                                 break;
                         default:
-                                sprintf(operator_cod, "\0");
+                                sprintf(opts->operator_cod, "\0");
                                 break;
                         }
-                        imsi[j]='\0';
+                        opts->imsi[j]='\0';
                 }
                 else if (!strcmp(at_com,"AT+CGSN\0"))
                 {
@@ -1145,10 +1149,10 @@ void send_at_cmd(char *at_com)
                         i++;
                         while (p_resp[i]!= '\0')
                         {
-                                imei[j]=p_resp[i];
+                                opts->imei[j]=p_resp[i];
                                 i++; j++;
                         }
-                        imei[j]='\0';
+                        opts->imei[j]='\0';
                 }
                 else if (!strcmp(at_com,"AT$MYGPSPOS=3\0"))
                 {
@@ -1182,15 +1186,15 @@ void send_at_cmd(char *at_com)
                         {
                                 if(p_resp[i]=='1')
                                 {
-                                        sprintf(threed_fix, "invalid\0");
+                                        sprintf(opts->threed_fix, "invalid\0");
                                 }
                                 if(p_resp[i]=='2')
                                 {
-                                        sprintf(threed_fix, "2D FIX\0");
+                                        sprintf(opts->threed_fix, "2D FIX\0");
                                 }
                                 if(p_resp[i]=='3')
                                 {
-                                        sprintf(threed_fix, "3D FIX\0");
+                                        sprintf(opts->threed_fix, "3D FIX\0");
                                 }
                                 i++;
                         }
@@ -1208,7 +1212,7 @@ void send_at_cmd(char *at_com)
                                 }
                                 i++;
                         }
-                        gps_cords[j]=' ';
+                        opts->gps_cords[j]=' ';
                         j++;
                         while (p_resp[i]!=',')
                         {
@@ -1217,7 +1221,7 @@ void send_at_cmd(char *at_com)
                         i++;
                         while (p_resp[i]!= ',')
                         {
-                                gps_cords[j]=p_resp[i];
+                                opts->gps_cords[j]=p_resp[i];
                                 i++; j++;
                                 if(j == 15)
                                 {
@@ -1229,7 +1233,7 @@ void send_at_cmd(char *at_com)
                                         i++;
                                 }
                         }
-                        gps_cords[j]='\0';
+                        opts->gps_cords[j]='\0';
                 }
                 else if (!strcmp(at_com,"AT$MYSYSINFO\0"))
                 {
@@ -1241,20 +1245,19 @@ void send_at_cmd(char *at_com)
                         switch (atoi(&p_resp[i]))
                         {
                         case 0:
-                                sprintf(mobile_data,"No Signal\0");
+                                sprintf(opts->mobile_data,"No Signal\0");
                                 break;
                         case 2:
-                                sprintf(mobile_data,"2G\0");
+                                sprintf(opts->mobile_data,"2G\0");
                                 break;
                         case 3:
-                                sprintf(mobile_data,"3G\0");
+                                sprintf(opts->mobile_data,"3G\0");
                                 break;
                         case 4:
-                                sprintf(mobile_data,"LTE\0");
+                                sprintf(opts->mobile_data,"LTE\0");
                                 break;
                         }
                 }
-
         }
         else
                 printf("Recv at response:\n%s\n", p_result);
@@ -1278,6 +1281,7 @@ static void at_free(char **p)
 
 static void* tcp_web_thread_main (void *arg)
 {
+        options_t *opts = (options_t *)arg;
         nwy_sms_add_mtmessage_handler(test_sms_evt_handler, NULL);
         char *at_com = malloc(sizeof(char)*100);
         int i = 0;
@@ -1286,12 +1290,10 @@ static void* tcp_web_thread_main (void *arg)
         long int nFileLen;                            //Сюда пишем позицию
         signal(SIGPIPE,SIG_IGN);                         //Игнорим ситуацию если пакет послан, но не был принят
         Start_Socket();                         //Запуск Socket+bind+listen
-        At_init();                         //Инициализация для работы с AT
+        At_init(opts);                         //Инициализация для работы с AT
         //Работа с клиентом
-        printf("AT OK");
         while(1)
         {
-                printf("TCP_web wait ACCEPT");
                 new_tcp_socket = accept(server_fd, NULL, NULL);                                                 //(struct sockaddr *)&address, (socklen_t*)&addrlen);
                 if (new_tcp_socket == -1)
                 {
@@ -1342,11 +1344,11 @@ static void* tcp_web_thread_main (void *arg)
                                 send(new_tcp_socket, "HTTP/1.1 200 Ok \r\n\r\n", strlen("HTTP/1.1 200 Ok \r\n\r\n"), 0);
                                 if(user_id == 2)
                                 {
-                                    sprintf(web_log, "%s%s%s", web_log, up_time_string, "Admin is unlogged\\n");
+                                    sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "Admin is unlogged\\n");
                                 }
                                 else if (user_id == 1)
                                 {
-                                    sprintf(web_log, "%s%s%s", web_log, up_time_string, "User is unlogged\\n");
+                                    sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "User is unlogged\\n");
                                 }
                                 user_id = 0;
                         }
@@ -1403,7 +1405,7 @@ static void* tcp_web_thread_main (void *arg)
                                 char sys_com[100] = {0};
                                 sprintf (sys_com, "ifconfig bridge0 inet %s netmask %s\n", inet_web, netmask_web);
                                 system(sys_com);
-                                sprintf(web_log, "%s%sСетевая конфигурация обновлена!\\nip:%s\\nnetmask:%s\\n", web_log, up_time_string, inet_web, netmask_web);
+                                sprintf(web_log, "%s[%s] Сетевая конфигурация обновлена!\\nip:%s\\nnetmask:%s\\n", web_log, opts->up_time_string, inet_web, netmask_web);
                                 //printf("%s", sys_com);
                                 // j = 0; i++;
                         }
@@ -1438,7 +1440,7 @@ static void* tcp_web_thread_main (void *arg)
                                 if (!strcmp(fileadrr,"index.html\0"))
                                 {
                                         sprintf(fileadrr, "indexWebViewer.html");
-                                        sprintf(web_log, "%s%s%s", web_log, up_time_string, "User is logged\\n");
+                                        sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "User is logged\\n");
                                 }
                                 printf ("Hallo User :)\n");
                                 break;
@@ -1446,7 +1448,7 @@ static void* tcp_web_thread_main (void *arg)
                                 if (!strcmp(fileadrr,"index.html\0"))
                                 {
                                         sprintf(fileadrr, "indexWeb.html");
-                                        sprintf(web_log, "%s%s%s", web_log, up_time_string, "Admin is logged\\n");
+                                        sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "Admin is logged\\n");
                                 }
                                 printf ("Hallo Admin :)\n");
                                 break;
@@ -1494,18 +1496,18 @@ static void* tcp_web_thread_main (void *arg)
                         if (!strcmp(fileadrr,"data.json\0"))
                         {
                                 //strcpy(at_com, "AT+CSQ\0");
-                                send_at_cmd("AT+CSQ\0");
-                                send_at_cmd("AT+CIMI\0");
-                                send_at_cmd("AT+CGSN\0");
-                                send_at_cmd("AT$MYGPSPOS=1\0");
-                                send_at_cmd("AT$MYGPSPOS=3\0");
-                                send_at_cmd("AT$MYSYSINFO\0");
+                                send_at_cmd("AT+CSQ\0",opts);
+                                send_at_cmd("AT+CIMI\0",opts);
+                                send_at_cmd("AT+CGSN\0",opts);
+                                send_at_cmd("AT$MYGPSPOS=1\0",opts);
+                                send_at_cmd("AT$MYGPSPOS=3\0",opts);
+                                send_at_cmd("AT$MYSYSINFO\0",opts);
                                 //strcpy(at_com, "AT+CIMI\0");
                                 //send_at_cmd(at_com);
                                 end = time(NULL);
                                 //float time_f = difftime(end, start);
-                                sprintf (up_time_string, "%2d : %2d : %2d\0", (int)(difftime(end, start)/3600)%60, (int)(difftime(end, start)/60)%60, (int)difftime(end, start)%60);
-                                sprintf(buffer, "{\"rssi\" : \"%d дБм\",\n\"rsrq\" : \" - \",\n\"snr\" : \" - \",\n\"rxlen\" : \" - \"\n,\"spn\" : \" -\"\n,\"threed_fix\" : \"%s\"\n,\"gps_cords\" : \" %c %f\xC2\xB0 %c %f\xC2\xB0\"\n,\"sys_time\" : \" %d:%d:%d (GMT +3)\"\n,\"num_sput\" : \"%d\"\n,\"reg_in_mesh\" : \" %s %s\"\n,\"mobile_data\" : \"%s\"\n,\"imsi\" : \"%s\"\n,\"imei\" : \"%s\"\n,\"uptime\" : \"%s\"\n,\"carrige_mileage\" : \" - \"\n,\"last_mileage\" : \" -\"\n,\"power_type\" : \" -\"\n}\0", rssi_val, threed_fix, lat_sign, lat, lon_sign, lon, hh+3, mm, ss,num_sput_val, operator_cod, country_cod, mobile_data, imsi, imei, up_time_string);
+                                sprintf (opts->up_time_string, "%2d : %2d : %2d\0", (int)(difftime(end, start)/3600)%60, (int)(difftime(end, start)/60)%60, (int)difftime(end, start)%60);
+                                sprintf(buffer, "{\"rssi\" : \"%s дБм\",\n\"rsrq\" : \" - \",\n\"snr\" : \" - \",\n\"rxlen\" : \" - \"\n,\"spn\" : \" -\"\n,\"threed_fix\" : \"%s\"\n,\"gps_cords\" : \" %c %f\xC2\xB0 %c %f\xC2\xB0\"\n,\"sys_time\" : \" %d:%d:%d (GMT +3)\"\n,\"num_sput\" : \"%d\"\n,\"reg_in_mesh\" : \" %s %s\"\n,\"mobile_data\" : \"%s\"\n,\"imsi\" : \"%s\"\n,\"imei\" : \"%s\"\n,\"uptime\" : \"%s\"\n,\"carrige_mileage\" : \" - \"\n,\"last_mileage\" : \" -\"\n,\"power_type\" : \" -\"\n}\0", opts->rssi, opts->threed_fix, lat_sign, lat, lon_sign, lon, hh+3, mm, ss,num_sput_val, opts->operator_cod, opts->country_cod, opts->mobile_data, opts->imsi, opts->imei, opts->up_time_string);
                                 send(new_tcp_socket, buffer, strlen(buffer), 0);
                                 at_com = NULL;
                         }
@@ -1610,6 +1612,8 @@ static void* HeartBit (void *arg)
 
 static int do_send_sms(char *number, int encoding, int length, char *context, int async)
 {
+
+        options_t *opts;
         int result = 0;
         /*
            char phone_num[NWY_SMS_MAX_ADDR_LENGTH];
@@ -1622,8 +1626,6 @@ static int do_send_sms(char *number, int encoding, int length, char *context, in
 
         strcpy(sms_data.phone_num, number);
         sms_data.msg_context_len = length;
-
-
 
         if (encoding == 1) {
                 sms_data.msg_format = NWY_SMS_MSG_FORMAT_TEXT_UTF8;
@@ -1677,6 +1679,16 @@ static int do_send_sms(char *number, int encoding, int length, char *context, in
            }
            else {*/
         result = nwy_sms_send_message(&sms_data);
+        if (result != 0)
+        {
+            sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "SMS_send failed\\n");
+            //memcpy(phone_queue[j][0], phone[0], 12);
+            //memcpy(msg_queue[j][0], text[0], 200);
+        }
+        else
+        {
+            sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "SMS_send ok\\n");
+        }
         printf("%d", result);
         //}
 

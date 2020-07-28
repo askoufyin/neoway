@@ -54,6 +54,18 @@ options_init(options_t *o)
     o->broadcast_period = BROADCAST_PERIOD;
     o->modem_fd = -1;
     o->uart_fd = -1;
+    /*--web interface--*/
+    //o->rssi[10] = strdup(NULL);
+    memset(o->rssi, 0, sizeof(o->rssi));
+    memset(o->threed_fix, 0, sizeof(o->threed_fix));
+    memset(o->imei, 0, sizeof(o->imei));
+    memset(o->imsi, 0, sizeof(o->imsi));
+    memset(o->reg_in_mesh, 0, sizeof(o->reg_in_mesh));
+    memset(o->country_cod, 0, sizeof(o->country_cod));
+    memset(o->operator_cod, 0, sizeof(o->operator_cod));
+    memset(o->gps_cords, 0, sizeof(o->gps_cords));
+    memset(o->mobile_data, 0, sizeof(o->mobile_data));
+    memset(o->up_time_string, 0, sizeof(o->up_time_string));
 }
 
 
