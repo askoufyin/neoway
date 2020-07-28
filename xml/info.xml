@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+    <device>
+        <UUID>%s</UUID>
+        <deviceType>Интеллектуальная Система Технического Контроля</deviceType>
+        <serialNumber>000000000000</serialNumber>
+        <modelName>Neoway N720</modelName>
+        <friendlyName>ИСТК</friendlyName>
+        <company>КСК Элком</company>
+        <country>Россия</country>
+        <version>0.1</version>
+        <serviceList>
+             <service>
+                 <serviceType>СМС шлюз</serviceType>
+                 <serviceID>SMSG</serviceID>
+             </service>
+             <service>
+                 <serviceType>Роутинг трафика</serviceType>
+                 <serviceID>ROUTING</serviceID>
+             </service>
+        </serviceList>
+    </device>
+</root>
+

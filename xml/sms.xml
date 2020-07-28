@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scpd urn="%s">
+        <actionList>
+                <action>
+                        <name>Отослать SMS</name>
+                        <argumentList>
+                                <argument>
+                                        <name>telno</name>
+                                        <direction>IN</direction>
+                                </argument>
+                                <argument>
+                                        <name>text</name>
+                                        <direction>IN</direction>
+                                </argument>
+                                <argument>
+                                        <name>pin</name>
+                                        <direction>IN</direction>
+                                </argument>
+                        </argumentList>
+                </action>
+        </actionList>
+        <serviceStateTable>
+                <stateVariable>
+                        <name>telno</name>
+                        <friendlyName>Номер телефона</friendlyName>
+                        <dataType>string</dataType>
+                </stateVariable>
+                <stateVariable>
+                        <name>text</name>
+                        <friendlyName>Сообщение</friendlyName>
+                        <dataType>string</dataType>
+                </stateVariable>
+                <stateVariable>
+                        <name>pin</name>
+                        <friendlyName>PIN-код</friendlyName>
+                        <dataType>string</dataType>
+                </stateVariable>
+        </serviceStateTable>
+</scpd>
