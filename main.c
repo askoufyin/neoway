@@ -489,60 +489,163 @@ receive_command(options_t *opts, fd_set *fds)
 }
 
 
+char *
+get_file_contents(const char *fn)
+{
+    FILE *fp = fopen(fn, "rb");
+    char *data;
+    long flen;
+
+    if(NULL == fp) {
+        perror("fopen()");
+        return strdup("");
+    }
+
+    fseek(fp, 0, SEEK_END);
+    flen = ftell(fp);
+
+    printf("Reading %s (%ld bytes)\n", fn, flen);
+
+    data = (char *)malloc(flen+3);
+    if(NULL == data) {
+        data = strdup("");
+        perror("malloc()");
+    } else {
+        fseek(fp, 0, SEEK_SET);
+        fread(data, sizeof(char), flen, fp);
+
+        data[flen++] = '\r';
+        data[flen++] = '\n';
+        data[flen++] = '\0';
+    }
+
+    fclose(fp);
+    return data;
+}
+
+
+enum {
+    XML_INFO = 0,
+    XML_SMS,
+    XML_ROUTER,
+    XML_QUERY_STATE_VARIABLE,
+//
+    XML_MAX
+};
+
+
+char *xmls[XML_MAX];
+
+
+void
+read_xmls()
+{
+    xmls[XML_INFO] = get_file_contents("/data/xml/info.xml");
+    xmls[XML_SMS] = get_file_contents("/data/xml/sms.xml");
+    xmls[XML_ROUTER] = get_file_contents("/data/xml/routing.xml");
+    xmls[XML_QUERY_STATE_VARIABLE] = get_file_contents("/data/xml/queryvariable.xml");
+}
+
+
+static void
+queryStateVariable(options_t *opts)
+{
+    char value[256];
+
+    sprintf(value, "%s", "Пока нет");
+    _sendbuflen = sprintf(_sendbuf, xmls[XML_QUERY_STATE_VARIABLE], opts->uuid, opts->xml_variable, value, opts->xml_variable);
+    _sendbuf[_sendbuflen] = 0;
+    printf(_sendbuf);
+}
+
+
 static void
 process_get(options_t *opts)
 {
     char *p = strchr(opts->r_uuid, ':');
 
     if(NULL == p) {
-        _sendbuflen = sprintf(_sendbuf,
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-            "<root>\n"
-                "<device>\n"
-                    "<UUID>%s</UUID>\n"
-                    "<deviceType></deviceType>\n"
-                    "<serialNumber>000000000000</serialNumber>\n"
-                    "<modelName>Neoway N720</modelName>\n"
-                    "<friendlyName>Neoway</friendlyName>\n"
-                    "<company>KSC Elcom</company>\n"
-                    "<country>Russia</country>\n"
-                    "<version>0.1</version>\n"
-                    "<serviceList>\n"
-                        "<service>\n"
-                            "<serviceType>SMS gate</serviceType>\n"
-                            "<serviceID>SMSG</serviceID>\n"
-                        "</service>\n"
-                    "</serviceList>\n"
-                "</device>\n"
-            "</root>\r\n",
-            opts->uuid
-        );
+        switch(opts->elem) {
+            case XML_BODY:
+                if(XML_CMD_QUERY_STATE_VARIABLE == opts->xml_cmd) {
+                    queryStateVariable(opts);
+                }
+                break;
+            default:
+                _sendbuflen = sprintf(_sendbuf, xmls[XML_INFO], opts->uuid);
+                break;
+        }
+
     } else {
         ++p;
         if(0 == strcasecmp(p, "SMSG")) {
-            _sendbuflen = sprintf(_sendbuf,
-                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-                "<scpd urn=\"%s\">\n"
-                    "<actionList>\n"
-                        "<action>\n"
-                            "<name>Send SMS</name>\n"
-                            "<argumentList>\n"
-                                "<name>Text</name>\n"
-                                "<direction>IN</direction>\n"
-                            "</argumentList>\n"
-                        "</action>\n"
-                    "</actionList>\n"
-                    "<serviceStateTable>\n"
-                        "<stateVariable>\n"
-                            "<name>text</name>\n"
-                            "<dataType>string</dataType>\n"
-                        "</stateVariable>\n"
-                    "</serviceStateTable>\n"
-                "</scpd>\r\n",
-                opts->r_uuid
-            );
+            _sendbuflen = sprintf(_sendbuf, xmls[XML_SMS], opts->r_uuid);
+        } else if(0 == strcasecmp(p, "ROUTING")) {
+            _sendbuflen = sprintf(_sendbuf, xmls[XML_ROUTER], opts->r_uuid);
         }
     }
+}
+
+
+static void
+action_send_sms(options_t *opts)
+{
+    int webs;
+    struct hostent *hent;
+    struct sockaddr_in addr;
+    struct in_addr *localhost;
+    char req[1024];
+    int reqlen;
+
+    reqlen = snprintf(req, sizeof(req),
+        "POST / HTTP/1.1\r\n"
+        "Connection: close\r\n"
+        "Content-type: application/x-www-form-urlencoded\r\n"
+        "\r\n"
+        "SMS_send\n"
+        "%s %s\r\n", opts->phone_number, opts->sms_text
+    );
+
+    hent = gethostbyname("localhost");
+    if(NULL == hent) {
+        herror("gethostbyname()");
+        return;
+
+    }
+
+    localhost = (struct in_addr *)hent->h_addr_list[0];
+
+    printf("IP=%s\n", inet_ntoa(*localhost));
+
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = localhost->s_addr;
+    addr.sin_port = htons(80);
+
+    webs = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if(webs < 0) {
+        perror("socket()");
+        return;
+    }
+
+    if(connect(webs, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        perror("connect()");
+        return;
+    }
+
+    if(send(webs, req, reqlen, 0) < 0) {
+        perror("send()");
+    }
+
+    int len = recv(webs, req, sizeof(req), 0);
+    if(len < 0) {
+        perror("recv()");
+    } else {
+        req[len] = 0;
+        printf("RECV: %s\n", req);
+    }
+
+    shutdown(webs, SHUT_RDWR);
+    close(webs);
 }
 
 
@@ -550,12 +653,38 @@ static void XMLCALL
 process_character_data(void *userdata, const XML_Char *text, int len)
 {
     options_t *opts = (options_t *)userdata;
+    char temp[1024];
 
     switch(opts->elem) {
         case XML_UUID:
             strncpy(opts->r_uuid, text, len);
             opts->r_uuid[len] = 0;
             printf("UUID = %s\n", opts->r_uuid);
+            break;
+        case XML_NAME:
+            strncpy(temp, text, len);
+            temp[len] = 0;
+            printf("Action name = %s\n", temp);
+            memset(opts->phone_number, 0, sizeof(opts->phone_number));
+            memset(opts->sms_text, 0, sizeof(opts->sms_text));
+            opts->xml_action = action_send_sms;
+            break;
+        case XML_VALUE:
+            strncpy(temp, text, len);
+            temp[len] = 0;
+            printf("SET %s = %s\n", opts->xml_variable, temp);
+            if(0 == strcasecmp("telno", opts->xml_variable)) {
+                strcpy(opts->phone_number, temp);
+                printf("telno %s\n", opts->phone_number);
+            } else if(0 == strcasecmp("text", opts->xml_variable)) {
+                strcpy(opts->sms_text, temp);
+                printf("text %s\n", opts->sms_text);
+            } else if(0 == strcasecmp("pin", opts->xml_variable) && 4 == len) {
+                opts->pin[0] = text[0];
+                opts->pin[1] = text[1];
+                opts->pin[2] = text[2];
+                opts->pin[3] = text[3];
+            }
             break;
     }
 }
@@ -565,17 +694,78 @@ static void XMLCALL
 process_element_start(void *userdata, const XML_Char *name, const XML_Char **attrs)
 {
     options_t *opts = (options_t *)userdata;
+    int i;
 
-    printf("%s\n", name);
+    if(0 == opts->level) {
+        opts->xml_cmd = XML_CMD_NONE;
+    }
+
+    if(1 == opts->level) {
+        if(0 == strcasecmp(name, "queryStateVariable")) {
+            opts->xml_cmd = XML_CMD_QUERY_STATE_VARIABLE;
+            printf("Mode = %d\n", opts->xml_cmd);
+        } else if(0 == strcasecmp(name, "action")) {
+            opts->xml_cmd = XML_CMD_ACTION;
+            printf("ACTION\n");
+        }
+    }
+
+    if(2 == opts->level) {
+        switch(opts->xml_cmd) {
+            case XML_CMD_QUERY_STATE_VARIABLE:
+                memset(opts->xml_variable, 0, sizeof(opts->xml_variable));
+                strcpy(opts->xml_variable, name);
+                break;
+
+            case XML_CMD_ACTION:
+                if(0 == strcasecmp(name, "name")) {
+                    opts->elem = XML_NAME;
+                    //opts->xml_cmd = XML_CMD_ACTION_NAME;
+                } else if(0 == strcasecmp(name, "argumentList")) {
+                    opts->xml_cmd = XML_CMD_ACTION_ARGS;
+                    printf("Expecting action argument list\n");
+                }
+                break;
+        }
+    }
+
+    if(3 == opts->level) {
+        if(XML_CMD_ACTION_ARGS == opts->xml_cmd) {
+            memset(opts->xml_variable, 0, sizeof(opts->xml_variable));
+            strcpy(opts->xml_variable, name);
+            printf("Arg: %s\n", name);
+        }
+    }
+
+
+    if(4 == opts->level) {
+        if(XML_CMD_ACTION_ARGS == opts->xml_cmd && 0 == strcasecmp("value", name)) {
+            opts->elem = XML_VALUE;
+        } else {
+            opts->elem = XML_NONE;
+        }
+    }
+
+    printf("%d %s\n", opts->level, name);
 
     if(0 == strcasecmp(name, "get")) {
         printf("XML_GET\n");
         opts->elem = XML_GET;
-    }
-
-    if(0 == strcasecmp(name, "UUID")) {
+    } else if(0 == strcasecmp(name, "UUID")) {
         opts->elem = XML_UUID;
         printf("XML_UUID\n");
+    } else if(0 == strcasecmp(name, "body")) {
+        opts->elem = XML_BODY;
+        printf("XML_BODY\n");
+        if(NULL != attrs) {
+            for(i=0; NULL != attrs[i]; i += 2) {
+                if(0 == strcasecmp("urn", attrs[i])) {
+                    memset(opts->r_uuid, 0, sizeof(opts->r_uuid));
+                    strcpy(opts->r_uuid, attrs[i+1]);
+                    printf("R_UUID = %s\n", attrs[i+1]);
+                }
+            }
+        }
     }
 
     ++opts->level;
@@ -590,7 +780,6 @@ process_element_end(void *userdata, const XML_Char *name)
     (void)name;
 
     if(--opts->level == 0) {
-        printf("process_get()\n");
         process_get(opts);
     }
 }
@@ -611,6 +800,8 @@ network_thread_main(void *arg)
     parser = XML_ParserCreate(NULL);
 
     printf("Network thread start\n");
+
+    read_xmls();
 
     last_ts = time(NULL);
     for(;;) {
@@ -649,8 +840,11 @@ network_thread_main(void *arg)
                 res = recv(sock, buf, sizeof(buf), 0);
                 if(res > 0) {
                     memset(_sendbuf, 0, sizeof(_sendbuf));
+                    _sendbuflen = 0;
 
-                    printf("%s", buf);
+                    //printf("%s", buf);
+                    opts->level = 0;
+                    opts->xml_action = NULL;
 
                     XML_SetUserData(parser, opts);
                     XML_SetStartElementHandler(parser, process_element_start);
@@ -660,8 +854,14 @@ network_thread_main(void *arg)
 
                     process_get(opts);
 
-                    printf("%s", _sendbuf);
-                    res = send(sock, _sendbuf, _sendbuflen, 0);
+                    if(NULL != opts->xml_action) {
+                        opts->xml_action(opts);
+                    }
+
+                    //printf("%s", _sendbuf);
+                    if(0 != _sendbuflen) {
+                        res = send(sock, _sendbuf, _sendbuflen, 0);
+                    }
 
                     XML_ParserReset(parser, NULL);
                 }
@@ -1517,8 +1717,12 @@ static void* tcp_web_thread_main (void *arg)
                         }
                         else
                         {
+                            char path[512];
+
+                            sprintf(path, "/data/%s", fileadrr);
+
                                 //sprintf(fileadrr, "/data/www/Server/", fileadrr);
-                                sFile = fopen (fileadrr,"r");
+                                sFile = fopen (path,"rb");
                                 if (sFile == NULL) printf ("ошибка\n");
                                 else printf ("выполнено\n");
                                 fseek (sFile, 0, SEEK_END);                                    //Открываем файл и перемещаем каретку в конечное положение
