@@ -30,6 +30,7 @@
 #include "nmea.h"
 #include "at_commands.h"
 #include "thread_funcs.h"
+#include "uart.h"
 #include "modem.h"
 #include "utils.h"
 //#include "tcp_web.h"   пока не добавлено
@@ -41,10 +42,10 @@ static u_int32_t _readptr;
 static u_int32_t _writeptr;
 static u_int32_t _count;
 
-static int uart_fd, modem_fd;
+static int modem_fd;
 static unsigned int _serial = 0;
-static char _sendbuf[MAX_MESSAGE_LENGTH+1];
-static size_t _sendbuflen = 0;
+char _sendbuf[MAX_MESSAGE_LENGTH+1];
+size_t _sendbuflen = 0;
 
 
 static void
@@ -205,21 +206,6 @@ agps_init()
 
 
 int
-uart_init(char *devname, uint32_t baudrate)
-{
-    int fd;
-
-    printf("Init: UART\n");
-    printf("Opening device %s\nBaudrate %u\n", devname, baudrate);
-    fd = nwy_uart_open(devname, baudrate, FC_NONE);
-    if(-1 == fd)
-        perror("nwy_uart_open()");
-
-    return fd;
-}
-
-
-int
 network_init(options_t *opts)
 {
     unsigned char mac[6];
@@ -317,110 +303,6 @@ agps_thread_main(void *arg)
             } else {
                 printf("-----\nnwy_loc_get_curr_location() failed, returned value was %d\n", result);
                 printf("Trying to recover\n-----\n");
-            }
-        }
-    }
-}
-
-
-static int
-process_command(char *buffer) {
-    static int turn = 1;
-
-    for(;'\0' != *buffer; ++buffer) {
-        if(*buffer != ' ' && *buffer != '\t' && *buffer != '\n')
-            break;
-    }
-
-    if('\0' == *buffer)
-        return 0;
-
-    if(0 == strcasecmp("RUN_SERVICE", buffer)) {
-        printf("OK\n");
-        _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "OK (%d)\r", turn++);
-        pthread_cond_signal(&msg_ready);
-    }
-
-    return 0;
-}
-
-
-static void *
-uart_read_thread_main(void *arg)
-{
-    options_t *opts = (options_t *)arg;
-    int res, len;
-    fd_set rfds;
-    size_t bufsize, cmdsize;
-    char buffer[MAX_MESSAGE_LENGTH+1];
-    char *crlf;
-    int maxfd;
-
-    printf("UART_READ thread start\n");
-
-//
-    bufsize = 0;
-    for(;;) {
-        FD_ZERO(&rfds);
-        FD_SET(uart_fd, &rfds);
-        FD_SET(modem_fd, &rfds);
-
-        res = select(uart_fd+1, &rfds, NULL, NULL, NULL); // blocking read
-        if(-1 == res) {
-            if(EINTR == errno)
-                continue;
-            perror("UART_READ select() failed");
-            break;
-        }
-
-        if(FD_ISSET(uart_fd, &rfds)) {
-            //memset(buffer, 0, sizeof(buffer));
-            do {
-                len = nwy_uart_read(uart_fd, (unsigned char *)buffer + bufsize, sizeof(buffer)-bufsize);
-                if(len > 0) {
-                    bufsize += len;
-                    crlf = strchr(buffer, '\r');
-                    if(NULL != crlf) {
-                        cmdsize = (crlf+1) - buffer;
-                        *crlf = '\0';
-                        printf("%s\n", buffer);
-                        process_command(buffer);
-                        memmove(buffer, crlf+1, bufsize - cmdsize);
-                        bufsize -= cmdsize;
-                    }
-                }
-            } while(len > 0);
-        }
-    }
-}
-
-
-static void *
-uart_write_thread_main(void *arg)
-{
-    int res, len;
-    fd_set wfds;
-//    struct timeval tm;
-
-    (void)arg;
-
-    printf("UART_WRITE thread start\n");
-    for(;;) {
-        pthread_cond_wait(&msg_ready, &msg_interlock);
-
-        FD_ZERO(&wfds);
-        FD_SET(uart_fd, &wfds);
-
-        res = select(uart_fd+1, NULL, &wfds, NULL, NULL); // Blocking write
-        if(-1 == res) {
-            if(EINTR == errno)
-                continue;
-            perror("select() failed");
-            break;
-        } else {
-            if(FD_ISSET(uart_fd, &wfds)) {
-                nwy_uart_write(uart_fd, (const unsigned char *)_sendbuf, _sendbuflen);
-                pthread_cond_signal(&msg_sent);
             }
         }
     }
@@ -968,13 +850,11 @@ app_init(options_t *opts)
         exit(EXIT_FAILURE);
     }
 
-    uart_fd = uart_init(opts->uart_tty, opts->baud_rate);
-    if(-1 == uart_fd) {
+    opts->uart_fd = uart_init(opts->uart_tty, opts->baud_rate);
+    if(-1 == opts->uart_fd) {
         printf("UART init failed\n");
         exit(EXIT_FAILURE);
     }
-
-    opts->uart_fd = uart_fd;
 
     modem_fd = modem_init(opts->modem_tty, opts->baud_rate);
     if(-1 == modem_fd) {

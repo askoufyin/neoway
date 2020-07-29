@@ -12,11 +12,12 @@
 typedef int pid_t;
 
 
-#define SOCKS_MAX 16
-#define XML_VARIABLE_MAX    32
-#define ACTION_NAME_MAX     32
-#define PHONE_NUMBER_MAX    32
-#define SMS_TEXT_MAX        512 // Bytes, not chars!
+#define SOCKS_MAX               16
+#define XML_VARIABLE_MAX        32
+#define ACTION_NAME_MAX         32
+#define PHONE_NUMBER_MAX        32
+#define SMS_TEXT_MAX            512 // Bytes, not chars!
+#define MAX_MESSAGE_LENGTH      8192
 
 
 enum xml_element {

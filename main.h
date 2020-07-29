@@ -2,8 +2,6 @@
 #define MAIN_H
 
 
-#define MAX_MESSAGE_LENGTH      8192
-
 /* Number of records to keep in fixed circular buffer
  */
 #define CIRCULAR_BUFFER_SIZE    100
