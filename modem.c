@@ -3,6 +3,7 @@
 
 #include "utils.h"
 #include "modem.h"
+#include "uart.h"
 
 #include "nwy_uart.h"
 #include "nwy_error.h"

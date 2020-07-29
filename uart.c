@@ -1,4 +1,5 @@
 #include "uart.h"
+#include "modem.h"
 #include "thread_funcs.h"
 
 #include <termios.h>
