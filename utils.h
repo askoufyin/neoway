@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 #include <netinet/in.h>
+#include <pthread.h>
 
 #include "lib/expat.h"
 
@@ -51,22 +52,22 @@ typedef void (*actionhandler_fn)(struct _options *);
 
 
 typedef struct _options {
-    char *pid_file;
-    char *kud_address;
-    char uuid[32];
-    char r_uuid[32];
-    uint32_t baud_rate;
-    char *uart_tty;
-    uint32_t modem_baud_rate;
-    char *modem_tty;
-    int go_daemon;
+    char *pid_file;                 // Name of the Process ID file
+    char *kud_address;              // IP address of the KUD device
+    char uuid[32];                  // Unique ID of the device for the UPVS protocol. Generated based on the device MAC address
+    char r_uuid[32];                // UUID:service ID pair, received from the UPVS master
+    uint32_t baud_rate;             // UART baud rate
+    char *uart_tty;                 // Name of the UART TTY device
+    uint32_t modem_baud_rate;       // Modem baud rate
+    char *modem_tty;                // Name of the modem TTY device
+    int go_daemon;                  // 0 = Run in foreground, any other value - become a daemon on startup
     int udp_broadcast;
     int tcp_sock;
-    int broadcast_period;
+    int broadcast_period;           // Announce broadcast period (sec)
     char *broadcast_addr;
     struct sockaddr_in baddr;
     /* Фсякая бяка для УПВС */
-    int level;
+    int level;                      // Nesting level of the current XML tag
     enum xml_element elem;
     enum xml_cmd xml_cmd;
     enum xml_action action;
@@ -76,6 +77,7 @@ typedef struct _options {
     char phone_number[PHONE_NUMBER_MAX];
     char sms_text[SMS_TEXT_MAX];
     /* -- */
+    pthread_mutex_t mutex;
     int modem_fd;
     int uart_fd;
     /* -web interface- */
