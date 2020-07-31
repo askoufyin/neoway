@@ -10,6 +10,7 @@
 #include <getopt.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <netinet/in.h>
 #include <netinet/ip.h> /* superset of previous */
 #include <netdb.h>
@@ -42,7 +43,6 @@ static u_int32_t _readptr;
 static u_int32_t _writeptr;
 static u_int32_t _count;
 
-static int modem_fd;
 static unsigned int _serial = 0;
 char _sendbuf[MAX_MESSAGE_LENGTH+1];
 size_t _sendbuflen = 0;
@@ -212,7 +212,7 @@ network_init(options_t *opts)
     int sock, res, bcast_enable;
     struct hostent *hent;
     struct sockaddr_in kud;
-    unsigned short broadcast_port = 19000;
+    unsigned short broadcast_port = 19000; // TODO: Move this constant to options_t!
 
     printf("Init: Network\n");
     res = get_UUID(mac);
@@ -856,13 +856,11 @@ app_init(options_t *opts)
         exit(EXIT_FAILURE);
     }
 
-    modem_fd = modem_init(opts->modem_tty, opts->baud_rate);
-    if(-1 == modem_fd) {
+    opts->modem_fd = modem_init(opts->modem_tty, opts->baud_rate);
+    if(-1 == opts->modem_fd) {
         printf("MODEM init failed\n");
         exit(EXIT_FAILURE);
     }
-
-    opts->modem_fd = modem_fd;
 
     if(0 != agps_init()) {
         printf("AGPS init failed\n");
@@ -1805,7 +1803,7 @@ static void test_sms_evt_handler(nwy_mt_sms_event_t ind_type, void *ind_struct)
                         for (i = 0; i < sms_pp->msg_content_len; i++) {
                                 printf("%02x", sms_pp->msg_content[i]);
                         }
-                        printf("\n");;
+                        printf("\n");
                 }
 
                 if (sms_pp->context_decode_type == NWY_SMS_ENCODING_GBK) {
@@ -1849,7 +1847,14 @@ int
 main(int argc, char *argv[])
 {
     options_t opts;
-    thread_main_fn threads[] = { /* agps_thread_main, */ uart_read_thread_main, uart_write_thread_main, network_thread_main, modem_thread_main, tcp_web_thread_main };
+    thread_main_fn threads[] = {
+        /* agps_thread_main, */
+        uart_read_thread_main,
+        uart_write_thread_main,
+        network_thread_main,
+        modem_thread_main,
+        tcp_web_thread_main
+    };
 
     options_init(&opts);
     parse_command_line(&opts, argc, argv);

@@ -1,5 +1,6 @@
 #include <termios.h>
 #include <strings.h>
+#include <sys/select.h>
 
 #include "utils.h"
 #include "modem.h"
@@ -8,6 +9,7 @@
 #include "nwy_uart.h"
 #include "nwy_error.h"
 #include "nwy_common.h"
+#include "nwy_at.h"
 
 
 int
@@ -17,6 +19,7 @@ modem_init(char *device, u_int32_t baudrate)
 
     printf("Init: MODEM\nOpening device %s\nBaudrate %u\n", device, baudrate);
     //fd = nwy_uart_open(device, baudrate, FC_NONE);
+
     fd = open(device, O_RDWR);
     if(fd < 0) {
         printf("nwy_uart_open() failed\n");
@@ -135,7 +138,7 @@ hexdump(iobuf_t *buf)
 {
     static char hexdigits[16] = "0123456789ABCDEF";
     char temp[1024];
-    u_char c;
+    uint8_t c;
     u_int32_t i, n;
 
     for(i=0, n=0; i<buf->len; ++i) {
@@ -144,9 +147,11 @@ hexdump(iobuf_t *buf)
         temp[n++] = hexdigits[c & 0x0F];
         temp[n++] = ' ';
     }
+
     temp[n] = 0;
     printf(temp);
 }
+
 
 void *
 modem_thread_main(void *arg)
@@ -165,7 +170,7 @@ modem_thread_main(void *arg)
     inbuf.len = 0;
     outbuf.len = 0;
 
-    /* Initiate modem setup sequence
+    /* Initiate modem setup sequencer
      */
     strcpy((char *)outbuf.buf, "AT\r\n");
     outbuf.len = 4;

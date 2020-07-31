@@ -10,7 +10,7 @@
 
 typedef struct _iobuf {
     int len;
-    u_char buf[UART_BUF_SIZE];
+    uint8_t buf[UART_BUF_SIZE];
 } iobuf_t;
 
 

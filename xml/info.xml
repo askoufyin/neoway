@@ -2,10 +2,10 @@
 <root>
     <device>
         <UUID>%s</UUID>
-        <deviceType>Интеллектуальная Система Технического Контроля</deviceType>
+        <deviceType>ИСТК</deviceType>
         <serialNumber>000000000000</serialNumber>
         <modelName>Neoway N720</modelName>
-        <friendlyName>ИСТК</friendlyName>
+        <friendlyName>Интеллектуальная Система Технического Контроля</friendlyName>
         <company>КСК Элком</company>
         <country>Россия</country>
         <version>0.1</version>
