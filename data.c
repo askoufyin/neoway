@@ -1,4 +1,5 @@
 #include <netdb.h>
+#include <linux/limits.h>
 
 #include "data.h"
 
@@ -10,7 +11,7 @@
 static char _APN[] = { "217.118.87.98" };
 static char _USER_NAME[] = { "beeline" };
 static char _PASSWORD[] = { "beeline" };
-static char _POST_CONNECT[] = { "post-connect.sh" };
+static char _POST_CONNECT[] = { "/data/post-connect.sh" };
 
 
 int 
@@ -24,10 +25,36 @@ data_thread_init(options_t *opts)
 static void
 data_call_state_cb(int hndl, nwy_data_call_state_t ind_state, void *ind_struct)
 {
+    char dev_name[16];
+    char cmd[PATH_MAX];
+    nwy_data_addr_t_info info;
+    int res, valid_ip_cnt;
+    char ip_str[16], gw_str[16], pdns[16], sdns[16];
+
     switch(ind_state) {
         case NWY_DATA_CALL_CONNECTED:
-            printf("Connected\n");
-            system(_POST_CONNECT);
+            res = nwy_data_get_device_name(hndl, dev_name, sizeof(dev_name));
+            if (NWY_RES_OK != res) {
+                printf("Get device name failed. Error=%d\n", res);
+                return;
+            }
+
+            res = nwy_data_get_ip_addr(hndl, &info, &valid_ip_cnt);
+            if(info.iface_addr_s.valid_addr == 0){
+                printf("Get IP address failed. Error=%d\n", res);
+                return;
+            }
+
+            inet_ntop(AF_INET, info.iface_addr_s.addr.__ss_padding, ip_str, sizeof(ip_str));
+            inet_ntop(AF_INET, info.gtwy_addr_s.addr.__ss_padding, gw_str, sizeof(gw_str));
+            inet_ntop(AF_INET, info.dnsp_addr_s.addr.__ss_padding, pdns, sizeof(pdns));
+            inet_ntop(AF_INET, info.dnsp_addr_s.addr.__ss_padding, sdns, sizeof(sdns));
+
+            printf("Connected, device is %s\n", dev_name);
+            printf("IP %s, Gateway %s, Primary DNS %s, Secondary DNS %s\n", ip_str, gw_str, pdns, sdns);
+
+            sprintf(cmd, "%s %s %s %s %s %s", _POST_CONNECT, dev_name, ip_str, gw_str, pdns, sdns);
+            system(cmd);
             break;
         case NWY_DATA_CALL_DISCONNECTED:
             printf("Disonnected\n");
@@ -48,7 +75,7 @@ establish_data_connection(options_t *opts)
     int res, handle;
 
     
-    printf("Establishing connection...\n");
+    printf("GPRS: Establishing connection...\n");
 
     /* Resolve APN name */
     hent = gethostbyname(_APN);
@@ -64,7 +91,7 @@ establish_data_connection(options_t *opts)
 
     /* Setup profile */
     
-    info.pdp_type = NWY_DATA_PDP_TYPE_PPP;          // PPP dial or IPV4
+    info.pdp_type = NWY_DATA_PDP_TYPE_IPV4;         // PPP dial or IPV4
     strcpy(info.apn, apn_ip);                       // Access point name
     info.auth_proto = NWY_DATA_AUTH_PROTO_PAP_CHAP; // Authorization protocol
     strcpy(info.user_name, _USER_NAME);

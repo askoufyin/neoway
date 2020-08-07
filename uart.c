@@ -32,9 +32,32 @@ uart_init(char *devname, uint32_t baudrate)
 }
 
 
+static unsigned char
+crc8(const char *data, size_t len)
+{
+    size_t i, j;
+    unsigned char crc = 0xFF;
+
+    for(i = 0; i < len; i++) {
+        crc ^= data[i];
+        for(j = 0; j < 8; j++) {
+            if ((crc & 0x80) != 0)
+                crc = (unsigned char)((crc << 1) ^ 0x31);
+            else
+                crc <<= 1;
+        }
+    }
+
+    return crc;
+}
+
+
 static int
 process_command(char *buffer) {
     static int turn = 1;
+    char sim_valid = 'V';
+    int reset_mileage = 0;
+    unsigned char crc;
 
     for(;'\0' != *buffer; ++buffer) {
         if(*buffer != ' ' && *buffer != '\t' && *buffer != '\n')
@@ -43,6 +66,13 @@ process_command(char *buffer) {
 
     if('\0' == *buffer)
         return 0;
+
+    if(0 == strncasecmp("INFO", buffer, 4)) {
+        _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "$INFO,%s,%d,", sim_valid, reset_mileage);
+        crc = crc8(_sendbuf, _sendbuflen);
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen, ",%02X\r\n", crc);
+        pthread_cond_signal(&msg_ready);
+    }
 
     if(0 == strcasecmp("RUN_SERVICE", buffer)) {
         printf("OK\n");
