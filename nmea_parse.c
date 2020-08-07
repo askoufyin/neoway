@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 #include "nmea.h"
 
 
@@ -45,13 +46,16 @@ nmea_system_type(const char *hdr)
 }
 
 
-/* This is local typedef, so we hide it from the outer world */
+/* This is local typedef, so we hide it from the outer world
+ */
 struct _sentence {
     char name[4];
     nmea_sentence_t id;
 };
 
 
+/* This is minimal required subset of NMEA sentences.
+ */
 nmea_sentence_t
 nmea_sentence_id(const char *hdr)
 {
@@ -100,7 +104,7 @@ _parse_gsv(nmea_msg_t *out, char *fields[], int count)
         if('\0' != *fields[i+1])
             out->gsv.satellites[n].elevation = atoi(fields[i+1]);
         if('\0' != *fields[i+2])
-            out->gsv.satellites[n].azimuth = (u_int16_t)atoi(fields[i+2]);
+            out->gsv.satellites[n].azimuth = (unsigned short)atoi(fields[i+2]);
         if('\0' != *fields[i+3])
             out->gsv.satellites[n].snr = (unsigned char)atoi(fields[i+3]);
         if(0 != out->gsv.satellites[n].id)

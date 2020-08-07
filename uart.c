@@ -2,6 +2,7 @@
 #include "modem.h"
 #include "thread_funcs.h"
 
+#include <sys/select.h>
 #include <termios.h>
 
 #include "nwy_loc.h"
@@ -10,6 +11,8 @@
 #include "nwy_common.h"
 
 
+/* TODO: Make this variables static, add functions to manage data in the buffer
+ */
 extern char _sendbuf[MAX_MESSAGE_LENGTH+1];
 extern size_t _sendbuflen;
 
@@ -116,7 +119,7 @@ uart_write_thread_main(void *arg)
         FD_SET(opts->uart_fd, &wfds);
 
         res = select(opts->uart_fd+1, NULL, &wfds, NULL, NULL); // Blocking write
-        if(-1 == res) {
+        if(res < 0) {
             if(EINTR == errno)
                 continue;
             perror("select() failed");
@@ -129,4 +132,3 @@ uart_write_thread_main(void *arg)
         }
     }
 }
-

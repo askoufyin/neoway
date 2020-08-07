@@ -136,7 +136,7 @@ stage_main(options_t *opts, iobuf_t *answ, iobuf_t *reply)
 static void
 hexdump(iobuf_t *buf)
 {
-    static char hexdigits[16] = "0123456789ABCDEF";
+    static char hexdigits[16] = "0123456789ABCDEF"; // lowercase maybe?
     char temp[1024];
     uint8_t c;
     u_int32_t i, n;
@@ -170,7 +170,7 @@ modem_thread_main(void *arg)
     inbuf.len = 0;
     outbuf.len = 0;
 
-    /* Initiate modem setup sequencer
+    /* Initiate modem setup sequence
      */
     strcpy((char *)outbuf.buf, "AT\r\n");
     outbuf.len = 4;

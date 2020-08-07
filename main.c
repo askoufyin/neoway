@@ -29,6 +29,7 @@
 #include "config.h"
 #include "main.h"
 #include "nmea.h"
+#include "data.h"
 #include "at_commands.h"
 #include "thread_funcs.h"
 #include "uart.h"
@@ -212,7 +213,7 @@ network_init(options_t *opts)
     int sock, res, bcast_enable;
     struct hostent *hent;
     struct sockaddr_in kud;
-    unsigned short broadcast_port = 19000; // TODO: Move this constant to options_t!
+    unsigned short broadcast_port = 19001; // TODO: Move this constant to options_t!
 
     printf("Init: Network\n");
     res = get_UUID(mac);
@@ -296,7 +297,7 @@ agps_thread_main(void *arg)
     nwy_loc_location_type_t loc_info;
 
     for(;;) {
-        int result = nwy_loc_get_curr_location(&loc_info, 10); // sec or ms? assuming sec
+        int result = nwy_loc_get_curr_location(&loc_info, 10); 
         if(0 != result) {
             if(-703 == result) {
                 printf("nwy_loc_get_curr_location() timeout\n");
@@ -323,7 +324,7 @@ broadcast(options_t *opts)
              "<URL>%s:%d</URL>\n"
              "<UUID>%s</UUID>\n"
              "<TTL>%d</TTL>\n"
-             "</info>\r\n", GATEWAY_ADDRESS, 19000, opts->uuid, opts->broadcast_period*2
+             "</info>\r\n", GATEWAY_ADDRESS, 19001, opts->uuid, opts->broadcast_period*2
              );
 
     res = sendto(opts->udp_broadcast, buf, len, 0, (const struct sockaddr *)&opts->baddr, sizeof(opts->baddr));
@@ -356,7 +357,7 @@ receive_command(options_t *opts, fd_set *fds)
     if(FD_ISSET(opts->udp_broadcast, fds)) {
         sin.sin_family = AF_INET;
         sin.sin_addr.s_addr = opts->baddr.sin_addr.s_addr;
-        sin.sin_port = htons(19000);
+        sin.sin_port = htons(19001);
         res = recvfrom(opts->udp_broadcast, buf, sizeof(buf), 0, (struct sockaddr *)&sin, &sinsize);
         if(res < 0)
             perror("recvfrom()");
@@ -751,10 +752,11 @@ network_thread_main(void *arg)
                 shutdown(sock, SHUT_RDWR);
                 close(sock);
             }
-
+#if 0
             if(FD_ISSET(opts->udp_broadcast, &rfds)) {
                 receive_command(opts, &rfds);
             }
+#endif
         }
     }
 
@@ -793,7 +795,7 @@ parse_command_line(options_t *opts, int argc, char *argv[])
 
         switch(idx) {
             case 0: // nodaemon
-                opts->go_daemon = 0;
+                opts->go_daemon = TRUE;
                 break;
 
             case 1: // pidfile
@@ -831,7 +833,6 @@ parse_command_line(options_t *opts, int argc, char *argv[])
                 free(opts->modem_tty);
                 opts->modem_tty = strdup(optarg);
                 break;
-
 
             default:
                 break;
@@ -898,7 +899,6 @@ app_init(options_t *opts)
 #define NWY_AT_PORT                "/dev/smd8"
 #define BUFLEN 512 //Max length of buffer
 #define SERVER "10.7.254.6" //Адресс локальной машины пк связанной с железкой сейчас
-
 
 
 char buffer[65000]  = {0};    //Буфер для вычитывания файлов и принятия внешних запросов
@@ -1864,9 +1864,13 @@ main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    establish_data_connection(&opts);
+
     if(opts.go_daemon) {
         daemonize(&opts, 0);
     }
+
+    for(;;);
 
     if(0 == threads_start(&opts, threads, sizeof(threads)/sizeof(threads[0]))) {
         printf("Running\n");

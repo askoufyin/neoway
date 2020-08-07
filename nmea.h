@@ -42,7 +42,7 @@ nmea_sys_type_t;
 typedef struct _nmea_satellite_info {
     unsigned char id;           // ID of the satellite
     char elevation;             // -99 to 99 degrees
-    u_int16_t azimuth;          // 0 to 359 degrees
+    unsigned short azimuth;     // 0 to 359 degrees
     unsigned char snr;          // Signal-to-Noise Ratio, dB (00-99)
 }
 nmea_satellite_info_t;

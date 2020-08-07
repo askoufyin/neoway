@@ -47,3 +47,9 @@ clean:
 	rm -rf  *.o *.a
 
 
+.PHONY: deploy
+deploy:
+	@cp -v $(APP_NAME) /xchg/
+	@cp -r -v xml /xchg/
+	@cp post-connect.sh /xchg/
+	
