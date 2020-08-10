@@ -66,6 +66,9 @@ options_init(options_t *o)
     memset(o->gps_cords, 0, sizeof(o->gps_cords));
     memset(o->mobile_data, 0, sizeof(o->mobile_data));
     memset(o->up_time_string, 0, sizeof(o->up_time_string));
+    memset(o->power_type, 0, sizeof(o->power_type));
+    memset(o->last_mileage, 0, sizeof(o->last_mileage));
+    memset(o->carrige_mileage, 0, sizeof(o->carrige_mileage));
 }
 
 

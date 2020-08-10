@@ -51,6 +51,12 @@ if( attempt <= 0)
 }
 }
 
+document.onkeydown = function(e) {
+    if (e.keyCode == 13) {
+        writeone();
+    }
+}
+
 function logout() {
 nesne.onreadystatechange = function() {
 if (this.readyState == 4 && this.status == 200) {
@@ -61,3 +67,4 @@ nesne.open("post", "", true);
 nesne.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
 nesne.send("logout\n");
 }
+

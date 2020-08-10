@@ -792,10 +792,7 @@ app_init(options_t *opts)
 }
 
 
-//Все говно подряд одним куском
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
+
 // --------------------------Говнокод!-----------------------
 // --------------------------Говнокод!-----------------------
 // --------------------------Говнокод!-----------------------
@@ -816,7 +813,7 @@ app_init(options_t *opts)
 #undef LOG_MSG_MASK
 #define LOG_MSG_MASK     LOG_MASK_STD
 
-#define NWY_AT_PORT                "/dev/smd8"
+#define NWY_AT_PORT      "/dev/smd8"
 #define BUFLEN 512 //Max length of buffer
 #define SERVER "10.7.254.6" //Адресс локальной машины пк связанной с железкой сейчас
 
@@ -830,26 +827,8 @@ char method[10]     = {0},                //Метод Post, get или что �
      postcomand[20] = {0},                //Команда для сервера через POST
      postbody[1000] = {0};                //Тело Post запроса
 //Переменные, для хранения основных параметров монитора
-// char rssi [10] = {0},
-//      rsrq[10] = {0},
-//      snr[10] = {0},
-//      spn[10] = {0},
-//      threed_fix[10] = {0},
-//      gps_cords[30] = {0},
-//      reg_in_mesh[10] = {0},
-//      mobile_data[10] = {0},
-//      imsi[20] = {0},
-//      imei[20] = {0},
-//      carrige_mileage[10] = {0},
-//      last_mileage[10] = {0},
-//      power_type[10] = {0},
-//      up_time_string[20] = {"0 : 0 : 0\0"};
 
-int rsrq_val = 0,
-    snr_val = 0,
-    rxlen_val = 0,
-    spn_val = 0,
-    threed_fix_val = 0,
+int threed_fix_val = 0,
     num_sput_val = 0,
     reg_in_mesh_val = 0,
     carrige_mileage_val = 0,
@@ -897,6 +876,7 @@ void send_at_cmd(char *at_com, void *web_opts);    //Отправка АТ ко�
 static void at_free(char **p);
 //static void* TCP_server (void *arg);
 //static void* UDP_server (void *arg);
+static void del_sms_num(char *but_type, int num, void *web_opts);
 static void* HeartBit (void *arg);
 static int do_send_sms(char *number, int encoding, int length, char *context, int async);
 static void test_sms_evt_handler(nwy_mt_sms_event_t ind_type, void *ind_struct);
@@ -1281,7 +1261,9 @@ static void at_free(char **p)
 
 static void* tcp_web_thread_main (void *arg)
 {
+        end = time(NULL);
         options_t *opts = (options_t *)arg;
+        sprintf (opts->up_time_string, "%2d : %2d : %2d\0", (int)(difftime(end, start)/3600)%60, (int)(difftime(end, start)/60)%60, (int)difftime(end, start)%60);
         nwy_sms_add_mtmessage_handler(test_sms_evt_handler, NULL);
         char *at_com = malloc(sizeof(char)*100);
         int i = 0;
@@ -1291,6 +1273,38 @@ static void* tcp_web_thread_main (void *arg)
         signal(SIGPIPE,SIG_IGN);                         //Игнорим ситуацию если пакет послан, но не был принят
         Start_Socket();                         //Запуск Socket+bind+listen
         At_init(opts);                         //Инициализация для работы с AT
+
+        int s_p;
+        for (s_p = 7; s_p >= 0; s_p--)
+        {
+            opts->sended[s_p].j = 0;
+            opts->deleted[s_p].j = 0;
+            opts->queue[s_p].j = 0;
+            opts->recved[s_p].j = 0;
+        }
+        opts->sended[3].j = 3;
+        //Тестовое заполнение массива сообщений
+        for (i = opts->sended[3].j-1; i >= 0; i--)
+        {       printf ("i = %d\n", i);
+                //int j = opts->sended[s_p].j;
+                sprintf(opts->sended[3].phone[i], "%s\0", "+7910123456"); printf("%s\n", opts->sended[3].phone[i]); sprintf(opts->sended[3].text[i], "%s%d\0", "Text", i); printf("%s\n", opts->sended[3].text[i]);
+        }
+        opts->sended[7].j = 4;
+        //Тестовое заполнение массива сообщений
+        for (i = opts->sended[7].j-1; i >= 0; i--)
+        {       printf ("i = %d\n", i);
+                //int j = opts->sended[s_p].j;
+                sprintf(opts->sended[7].phone[i], "%s\0", "+7910123456"); printf("%s\n", opts->sended[7].phone[i]); sprintf(opts->sended[7].text[i], "%s%d\0", "Text", i); printf("%s\n", opts->sended[7].text[i]);
+        }
+        opts->deleted[5].j = 5;
+        for (i = opts->deleted[5].j-1; i >= 0; i--)
+        {       printf ("i = %d\n", i);
+                //int j = opts->sended[s_p].j;
+                sprintf(opts->deleted[5].phone[i], "%s\0", "+7910123456"); printf("%s\n", opts->deleted[5].phone[i]); sprintf(opts->deleted[5].text[i], "%s%d\0", "Text", i); printf("%s\n", opts->deleted[5].text[i]);
+        }
+
+
+
         //Работа с клиентом
         while(1)
         {
@@ -1409,6 +1423,37 @@ static void* tcp_web_thread_main (void *arg)
                                 //printf("%s", sys_com);
                                 // j = 0; i++;
                         }
+                        else if (!strcmp(postcomand, "del_sms\0"))
+                        {
+                                send(new_tcp_socket, "HTTP/1.1 200 Ok \r\n\r\n", strlen("HTTP/1.1 200 Ok \r\n\r\n"), 0);
+                                int i = 0, j = 0;
+                                char but_selected[10];
+                                char but_num[4];
+                                while(postbody[i] != ' ')
+                                {
+                                        but_selected[j] = postbody[i];
+                                        i++;
+                                        j++;
+                                }
+                                but_selected[j] = '\0';
+                                j = 0; i++;
+                                while(postbody[i] != '\0')
+                                {
+                                        but_num[j] = postbody[i];
+                                        i++;
+                                        j++;
+                                }
+                                but_num[j] = '\0';
+                                printf("Button: %s\nBut_Num: %s\nInt_But: %d\n", but_selected, but_num, atoi(but_num));
+                                del_sms_num(but_selected,atoi(but_num), opts);
+                                //opts->sended[atoi(but_num)];
+                                //char sys_com[100] = {0};
+                                //sprintf (sys_com, "ifconfig bridge0 inet %s netmask %s\n", inet_web, netmask_web);
+                                //system(sys_com);
+                                //sprintf(web_log, "%s[%s] Сетевая конфигурация обновлена!\\nip:%s\\nnetmask:%s\\n", web_log, opts->up_time_string, inet_web, netmask_web);
+                                //printf("%s", sys_com);
+                                // j = 0; i++;
+                        }
                         else
                         {
                                 send(new_tcp_socket, "HTTP/1.1 400 Ok \r\n\r\n", strlen("HTTP/1.1 200 Ok \r\n\r\n"), 0);
@@ -1492,7 +1537,6 @@ static void* tcp_web_thread_main (void *arg)
                                         send(new_tcp_socket, "Content-Type: text/css;charset=utf-8\r\n\r\n", strlen("Content-Type: text/css;charset=utf-8\r\n\r\n"), 0 );
                                 }
                         }
-
                         if (!strcmp(fileadrr,"data.json\0"))
                         {
                                 //strcpy(at_com, "AT+CSQ\0");
@@ -1507,17 +1551,71 @@ static void* tcp_web_thread_main (void *arg)
                                 end = time(NULL);
                                 //float time_f = difftime(end, start);
                                 sprintf (opts->up_time_string, "%2d : %2d : %2d\0", (int)(difftime(end, start)/3600)%60, (int)(difftime(end, start)/60)%60, (int)difftime(end, start)%60);
-                                sprintf(buffer, "{\"rssi\" : \"%s дБм\",\n\"rsrq\" : \" - \",\n\"snr\" : \" - \",\n\"rxlen\" : \" - \"\n,\"spn\" : \" -\"\n,\"threed_fix\" : \"%s\"\n,\"gps_cords\" : \" %c %f\xC2\xB0 %c %f\xC2\xB0\"\n,\"sys_time\" : \" %d:%d:%d (GMT +3)\"\n,\"num_sput\" : \"%d\"\n,\"reg_in_mesh\" : \" %s %s\"\n,\"mobile_data\" : \"%s\"\n,\"imsi\" : \"%s\"\n,\"imei\" : \"%s\"\n,\"uptime\" : \"%s\"\n,\"carrige_mileage\" : \" - \"\n,\"last_mileage\" : \" -\"\n,\"power_type\" : \" -\"\n}\0", opts->rssi, opts->threed_fix, lat_sign, lat, lon_sign, lon, hh+3, mm, ss,num_sput_val, opts->operator_cod, opts->country_cod, opts->mobile_data, opts->imsi, opts->imei, opts->up_time_string);
+                                sprintf(buffer, "{\"rssi\" : \"%s дБм\",\n\"rsrq\" : \" - \",\n\"snr\" : \" - \",\n\"rxlen\" : \" - \"\n,\"spn\" : \" -\"\n,\"threed_fix\" : \"%s\"\n,\"gps_cords\" : \" %c %f\xC2\xB0 %c %f\xC2\xB0\"\n,\"sys_time\" : \" %d:%d:%d (GMT +3)\"\n,\"num_sput\" : \"%d\"\n,\"reg_in_mesh\" : \" %s %s\"\n,\"mobile_data\" : \"%s\"\n,\"imsi\" : \"%s\"\n,\"imei\" : \"%s\"\n,\"uptime\" : \"%s\"\n,\"carrige_mileage\" : \"%s\"\n,\"last_mileage\" : \"%s\"\n,\"power_type\" : \"%s\"\n}\0", opts->rssi, opts->threed_fix, lat_sign, lat, lon_sign, lon, hh+3, mm, ss,num_sput_val, opts->operator_cod, opts->country_cod, opts->mobile_data, opts->imsi, opts->imei, opts->up_time_string, opts->carrige_mileage, opts->last_mileage, opts->power_type);
                                 send(new_tcp_socket, buffer, strlen(buffer), 0);
                                 at_com = NULL;
-                        }
-                        else if (!strcmp(fileadrr,"log.json\0"))
-                        {
+                        } else if (!strcmp(fileadrr,"log.json\0")) {
                                 sprintf(buffer, "{\"log\" : \"%s\"\n}\0", web_log);
                                 send(new_tcp_socket, buffer, strlen(buffer), 0);
-                        }
-                        else
-                        {
+                        } else if (!strcmp(fileadrr,"sms.json\0")) {
+                                printf ("start_sms\n");
+                                int i = 0;
+                                sprintf(buffer, "{\"sended\":[\0");
+                                for (s_p = 7; s_p >= 0; s_p--)
+                                {
+                                    for (i = opts->sended[s_p].j-1; i >= 0; i--)
+                                    {
+                                            char one_sms[600] = {0};
+                                            printf ("i= %d\n", i);
+                                            sprintf(one_sms, "\"%d %s %s\"", s_p, opts->sended[s_p].phone[i], opts->sended[s_p].text[i]);
+                                            strcat(buffer, one_sms);
+                                            strcat(buffer, ", ");
+                                    }
+                                }
+                                if(buffer[strlen(buffer)-2]==','){buffer[strlen(buffer)-2]='\0';}
+                                strcat(buffer, "],\n\"queue\":[\0");
+                                for (s_p = 7; s_p >= 0; s_p--)
+                                {
+                                    for (i = opts->queue[s_p].j-1; i >= 0; i--)
+                                    {
+                                            char one_sms[600] = {0};
+                                            printf ("i= %d\n", i);
+                                            sprintf(one_sms, "\"%d %s %s\"", s_p, opts->queue[s_p].phone[i], opts->queue[s_p].text[i]);
+                                            strcat(buffer, one_sms);
+                                            strcat(buffer, ", ");
+                                    }
+                                }
+                                if(buffer[strlen(buffer)-2]==','){buffer[strlen(buffer)-2]='\0';}
+                                strcat(buffer, "],\n\"deleted\":[\0");
+                                for (s_p = 7; s_p >= 0; s_p--)
+                                {
+                                    for (i = opts->deleted[s_p].j-1; i >= 0; i--)
+                                    {
+                                            char one_sms[600] = {0};
+                                            printf ("i= %d\n", i);
+                                            sprintf(one_sms, "\"%d %s %s\"", s_p, opts->deleted[s_p].phone[i], opts->deleted[s_p].text[i]);
+                                            strcat(buffer, one_sms);
+                                            strcat(buffer, ", ");
+                                    }
+                                }
+                                if(buffer[strlen(buffer)-2]==','){buffer[strlen(buffer)-2]='\0';}
+                                strcat(buffer, "],\n\"recved\":[\0");
+                                for (s_p = 7; s_p >= 0; s_p--)
+                                {
+                                    for (i = opts->recved[s_p].j-1; i >= 0; i--)
+                                    {
+                                            char one_sms[600] = {0};
+                                            printf ("i= %d\n", i);
+                                            sprintf(one_sms, "\"%d %s %s\"", s_p, opts->recved[s_p].phone[i], opts->recved[s_p].text[i]);
+                                            strcat(buffer, one_sms);
+                                            strcat(buffer, ", ");
+                                    }
+                                }
+                                if(buffer[strlen(buffer)-2]==','){buffer[strlen(buffer)-2]='\0';}
+                                strcat(buffer, "]} \n");
+
+                                send(new_tcp_socket, buffer, strlen(buffer), 0);
+                        } else {
                                 //sprintf(fileadrr, "/data/www/Server/", fileadrr);
                                 sFile = fopen (fileadrr,"r");
                                 if (sFile == NULL) printf ("ошибка\n");
@@ -1586,10 +1684,7 @@ static void* UDP_server (void *arg)
                 }
                 sleep(1);
                 //receive a reply and print it
-                //clear the buffer by filling null, it might have previously received data
-                //memset(buf,'&#92;&#48;', BUFLEN);
-                //try to receive some data, this is a blocking call
-                //if (recvfrom(udp_fd, buf, BUFLEN, 0, (struct sockaddr *) &si_other, &slen) == -1)
+                //clear the buffer byUFLEN, 0, (struct sockaddr *) &si_other, &slen) == -1)
                 //{
                 //	die("recvfrom()");
                 //}
@@ -1612,7 +1707,6 @@ static void* HeartBit (void *arg)
 
 static int do_send_sms(char *number, int encoding, int length, char *context, int async)
 {
-
         options_t *opts;
         int result = 0;
         /*
@@ -1682,16 +1776,18 @@ static int do_send_sms(char *number, int encoding, int length, char *context, in
         if (result != 0)
         {
             sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "SMS_send failed\\n");
-            //memcpy(phone_queue[j][0], phone[0], 12);
-            //memcpy(msg_queue[j][0], text[0], 200);
+            //memcpy(phone_queue[j][0], sms_data.phone_num[0], 12);
+            //memcpy(msg_queue[j][0], sms_data.msg_context[0], 200);
+            //printf("Msg add to queue, sms index is %d\n", j);
+            //j[priority]++;
         }
         else
         {
             sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "SMS_send ok\\n");
+            //memcpy();
         }
         printf("%d", result);
         //}
-
         return result;
 }
 
@@ -1748,17 +1844,104 @@ static void test_sms_evt_handler(nwy_mt_sms_event_t ind_type, void *ind_struct)
         printf("--------------------------------------\n");
         fflush(stdout);
 }
+static void del_sms_num(char *but_type, int num, void *web_opts)
+{
+    int i; int s_p; int sum = 0;
+    options_t *opts = (options_t*)web_opts;
+    if (!strcmp(but_type,"S_del_but\0"))
+    {
+        sum = 0;
+        for (s_p = 7; s_p >= 0; s_p--)
+        {
+            if(opts->sended[s_p].j != 0)
+            {
+                sum = opts->sended[s_p].j;
+                printf("%d < %d ?", num, sum);
+                if (num < sum)
+                    {
+                       printf("Da!\n");
+                       break;
+                   }
+                num -= opts->sended[s_p].j;
+                printf("%d \n", num);
+            }
+        }
+        num = opts->sended[s_p].j - num - 1;
+        printf("Pr = %d, num: %d\n", s_p, num);
+        for (i = 0; i <= opts->sended[s_p].j-1; i++)
+        {
+            printf("%d , %s\n", num, opts->sended[s_p].text[i]);
+            printf("i:%d, j:%d\n", i, opts->sended[s_p].j);
+            num--;
+            if (num < 0)
+            {
+                if (num == -1)
+                {
+                    printf ("DEL NOW! \n");
+                    memcpy(opts->deleted[s_p].text[opts->deleted[s_p].j], opts->sended[s_p].text[i], 500);             //удалим элемент под нужным нам номером
+                    memcpy(opts->deleted[s_p].phone[opts->deleted[s_p].j], opts->sended[s_p].phone[i], 12);
+                    opts->deleted[s_p].j++;
+                }
+                printf("%s -> %s\n", opts->sended[s_p].text[i], opts->sended[s_p].text[i+1]);
+                memcpy(opts->sended[s_p].text[i], opts->sended[s_p].text[i+1], 500);             //удалим элемент под нужным нам номером
+                memcpy(opts->sended[s_p].phone[i], opts->sended[s_p].phone[i+1], 12);
+                //break;
+            }
+        }
+        opts->sended[s_p].j--;
+    } else if (!strcmp(but_type,"Q_del_but\0")) {
+
+    } else if (!strcmp(but_type,"R_del_but\0")) {
+
+    } else if (!strcmp(but_type,"D_del_but\0")) {
+        sum = 0;
+        for (s_p = 7; s_p >= 0; s_p--)
+        {
+            if(opts->deleted[s_p].j != 0)
+            {
+                sum = opts->deleted[s_p].j;
+                printf("%d < %d ?", num, sum);
+                if (num < sum)
+                    {
+                       printf("Da!\n");
+                       break;
+                   }
+                num -= opts->deleted[s_p].j;
+                printf("%d \n", num);
+            }
+        }
+        num = opts->deleted[s_p].j - num - 1;
+        printf("Pr = %d, num: %d\n", s_p, num);
+        for (i = 0; i <= opts->deleted[s_p].j-1; i++)
+        {
+            printf("%d , %s\n", num, opts->deleted[s_p].text[i]);
+            printf("i:%d, j:%d\n", i, opts->deleted[s_p].j);
+            num--;
+            if (num < 0)
+            {
+                if (num == -1)
+                {
+                    printf ("DEL NOW! \n");
+                }
+                printf("%s -> %s\n", opts->deleted[s_p].text[i], opts->deleted[s_p].text[i+1]);
+                memcpy(opts->deleted[s_p].text[i], opts->deleted[s_p].text[i+1], 500);             //удалим элемент под нужным нам номером
+                memcpy(opts->deleted[s_p].phone[i], opts->deleted[s_p].phone[i+1], 12);
+                //break;
+            }
+        }
+        opts->deleted[s_p].j--;
+    }
+
+}
 
 
+// --------------------------Говнокод!-----------------------
+// --------------------------Говнокод!-----------------------
+// --------------------------Говнокод!-----------------------
+// --------------------------Говнокод!-----------------------
+// --------------------------Говнокод!-----------------------
+// --------------------------Говнокод!-----------------------
 
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
 
 int
 main(int argc, char *argv[])
@@ -1789,3 +1972,4 @@ main(int argc, char *argv[])
     options_cleanup(&opts);
     return EXIT_SUCCESS;
 }
+
