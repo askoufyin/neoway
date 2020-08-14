@@ -55,6 +55,10 @@ threads_start(options_t *opts, thread_main_fn *threads, unsigned int nthreads)
 
     pthread_attr_init(&thread_attr);
     for(i=0; i<nthreads; ++i) {
+        if(NULL == threads[i]) {
+            continue;
+        }
+        
         if(0 != pthread_create(&thd, &thread_attr, threads[i], opts)) {
             perror("pthread_create()");
             return -2;

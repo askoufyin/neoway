@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/resource.h>
 #include <sys/time.h>
+#include <net/if.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <net/if.h>
@@ -55,6 +56,9 @@ options_init(options_t *o)
     o->broadcast_period = BROADCAST_PERIOD;
     o->modem_fd = -1;
     o->uart_fd = -1;
+
+    pthread_mutex_init(&o->mutex, NULL);
+
     /*--web interface--*/
     //o->rssi[10] = strdup(NULL);
     memset(o->rssi, 0, sizeof(o->rssi));
@@ -67,8 +71,9 @@ options_init(options_t *o)
     memset(o->gps_cords, 0, sizeof(o->gps_cords));
     memset(o->mobile_data, 0, sizeof(o->mobile_data));
     memset(o->up_time_string, 0, sizeof(o->up_time_string));
-
-    pthread_mutex_init(&o->mutex, NULL);
+    memset(o->power_type, 0, sizeof(o->power_type));
+    memset(o->last_mileage, 0, sizeof(o->last_mileage));
+    memset(o->carrige_mileage, 0, sizeof(o->carrige_mileage));
 }
 
 

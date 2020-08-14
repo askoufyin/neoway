@@ -29,7 +29,12 @@ enum xml_element {
     XML_VALUE,
     XML_ELEMENT_MAX
 };
-
+typedef struct _neoway_sms_data
+{
+    char phone[100][12];   //100 - максимальное количество смс в каждом приоритете
+    char text[100][500];   //
+    int j;              //Счетчик количества смс каждого приоритета
+} neoway_sms_data_t;
 
 enum xml_cmd {
     XML_CMD_NONE = 0,
@@ -66,6 +71,7 @@ typedef struct _options {
     int tcp_sock;
     int broadcast_period;           // Announce broadcast period (sec)
     char *broadcast_addr;
+    int debug_print;                //
     struct sockaddr_in baddr;
     /* Фсякая бяка для УПВС */
     int level;                      // Nesting level of the current XML tag
@@ -93,12 +99,15 @@ typedef struct _options {
     char mobile_data[10];
     char imsi[20];
     char imei[20];
-    char carrige_mileage[10];
-    char last_mileage[10];
-    char power_type[10];
+    char carrige_mileage[10]; //общий пробег
+    char last_mileage[10];    //пробег с последнего старта? (предположительно старта неовэя)
+    char power_type[10];      //Батарея или сеть
     char up_time_string[20];
     char country_cod[10];
     char operator_cod[10];
+    /*-Work whith SMS-*/
+    int sms_priority;
+    neoway_sms_data_t queue[8],sended[8],deleted[8],recved[8];
 
 
 
@@ -124,3 +133,4 @@ extern int get_UUID(unsigned char *);
 
 
 #endif // UTILS_H
+

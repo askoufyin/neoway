@@ -73,7 +73,7 @@ process_command(char *buffer) {
         _sendbuflen += sprintf(_sendbuf+_sendbuflen, ",%02X\r\n", crc);
         pthread_cond_signal(&msg_ready);
     }
-
+    else
     if(0 == strcasecmp("RUN_SERVICE", buffer)) {
         printf("OK\n");
         _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "OK (%d)\r", turn++);
@@ -112,7 +112,6 @@ uart_read_thread_main(void *arg)
         }
 
         if(FD_ISSET(opts->uart_fd, &rfds)) {
-            //memset(buffer, 0, sizeof(buffer));
             do {
                 len = nwy_uart_read(opts->uart_fd, (unsigned char *)buffer + bufsize, sizeof(buffer)-bufsize);
                 if(len > 0) {

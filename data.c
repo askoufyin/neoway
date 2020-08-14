@@ -14,6 +14,14 @@ static char _PASSWORD[] = { "beeline" };
 static char _POST_CONNECT[] = { "/data/post-connect.sh" };
 
 
+/* Static globals. This is compelled move since we can't pass a pointer to the
+ * user data to the callback function
+ */
+static nwy_data_start_call_v02_t callp;
+static int handle;
+static int retry_interval = 30; // secs
+
+
 int 
 data_thread_init(options_t *opts)
 {
@@ -43,22 +51,32 @@ data_call_state_cb(int hndl, nwy_data_call_state_t ind_state, void *ind_struct)
             if(info.iface_addr_s.valid_addr == 0){
                 printf("Get IP address failed. Error=%d\n", res);
                 return;
-            }
+            } //
 
             inet_ntop(AF_INET, info.iface_addr_s.addr.__ss_padding, ip_str, sizeof(ip_str));
             inet_ntop(AF_INET, info.gtwy_addr_s.addr.__ss_padding, gw_str, sizeof(gw_str));
             inet_ntop(AF_INET, info.dnsp_addr_s.addr.__ss_padding, pdns, sizeof(pdns));
             inet_ntop(AF_INET, info.dnsp_addr_s.addr.__ss_padding, sdns, sizeof(sdns));
 
-            printf("Connected, device is %s\n", dev_name);
+            printf("Connected, device name is \"%s\"\n", dev_name);
             printf("IP %s, Gateway %s, Primary DNS %s, Secondary DNS %s\n", ip_str, gw_str, pdns, sdns);
 
             sprintf(cmd, "%s %s %s %s %s %s", _POST_CONNECT, dev_name, ip_str, gw_str, pdns, sdns);
             system(cmd);
             break;
+        
         case NWY_DATA_CALL_DISCONNECTED:
-            printf("Disonnected\n");
+            printf("Disonnected. Retry in %d secs.\n", retry_interval);
+            sleep(retry_interval);
+
+            printf("Initiating connection...\n");
+            res = nwy_data_start_call(handle, &callp);
+            if(res < 0) {
+                printf("Call failed! Error=%d\n", res);
+                return;
+            }
             break;
+        
         case NWY_DATA_CALL_INVALID:
             break;
     }
@@ -68,14 +86,13 @@ data_call_state_cb(int hndl, nwy_data_call_state_t ind_state, void *ind_struct)
 void
 establish_data_connection(options_t *opts)
 {
-    nwy_data_start_call_v02_t callp;
     nwy_data_profile_info_t info;
     struct hostent *hent;
     char apn_ip[20];
-    int res, handle;
+    int res;
 
     
-    printf("GPRS: Establishing connection...\n");
+    printf("GPRS: Init\n");
 
     /* Resolve APN name */
     hent = gethostbyname(_APN);
@@ -107,7 +124,7 @@ establish_data_connection(options_t *opts)
     callp.ip_version = 4; // 4=IPV4, 6=IPV6, 10=IPV4+IPV6.
     callp.profile_idx = 1;
 
-#if 1
+#if 0
     /* Initiate call */
     if(!nwy_data_regs_ready()){
         printf("Data service not ready!\n");

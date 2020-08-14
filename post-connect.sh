@@ -24,7 +24,7 @@ iptables -A INPUT -i lo -j ACCEPT
 
 # Allow established connections, and those not coming from the outside
 iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-iptables -A INPUT -m state --state NEW -i ! $OIFACE -j ACCEPT
+iptables -A INPUT -m state --state NEW -i !$OIFACE -j ACCEPT
 iptables -A FORWARD -i $OIFACE -o $IIFACE -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 # Allow outgoing connections from the LAN side.
