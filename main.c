@@ -863,11 +863,13 @@ app_init(options_t *opts)
         exit(EXIT_FAILURE);
     }
 
-    if(0 != agps_init()) {
-        printf("AGPS init failed\n");
-        //exit(EXIT_FAILURE);
+    if(opts->gps_enabled) {
+        if(0 != agps_init()) {
+            printf("AGPS init failed\n");
+            //exit(EXIT_FAILURE);
+        }
     }
-
+    
     return 0;
 }
 
@@ -2043,7 +2045,7 @@ main(int argc, char *argv[])
 {
     options_t opts;
     thread_main_fn threads[] = {
-        NULL, /* placeholder for agps_thread_main, */
+        NULL, /* placeholder for agps_thread_main */
         uart_read_thread_main,
         uart_write_thread_main,
         network_thread_main,

@@ -9,15 +9,17 @@ static options_t _opts;
 
 
 confoption_t options[] = {
-    { "uart_tty",       TYPE_STRING,    &_opts.uart_tty },
-    { "baudrate",       TYPE_INT,       &_opts.baud_rate },
-    { "modem_tty",      TYPE_STRING,    &_opts.modem_tty },
-    { "modem_baudrate", TYPE_INT,       &_opts.modem_baud_rate},
-    { "go_daemon",      TYPE_BOOL,      &_opts.go_daemon },
-    { "enable_gps",     TYPE_BOOL,      NULL },
-    { "debug_print",    TYPE_BOOL,      &_opts.debug_print },
-    { "gps_enabled",    TYPE_BOOL,      &_opts.gps_enabled },
-    { "gprs_enabled",   TYPE_BOOL,      &_opts.gprs_enabled }
+    { "uart_tty",           TYPE_STRING,    &_opts.uart_tty },
+    { "baudrate",           TYPE_INT,       &_opts.baud_rate },
+    { "modem_tty",          TYPE_STRING,    &_opts.modem_tty },
+    { "modem_baudrate",     TYPE_INT,       &_opts.modem_baud_rate},
+    { "go_daemon",          TYPE_BOOL,      &_opts.go_daemon },
+    { "enable_gps",         TYPE_BOOL,      NULL },
+    { "debug_print",        TYPE_BOOL,      &_opts.debug_print },
+    { "gps_enabled",        TYPE_BOOL,      &_opts.gps_enabled },
+    { "gprs_enabled",       TYPE_BOOL,      &_opts.gprs_enabled },
+    { "broadcast_address",  TYPE_IPADDR,    &_opts.udp_broadcast },
+    { "upvs_port",          TYPE_INT,       NULL }
 };  
 
 
@@ -55,7 +57,7 @@ process_config_line(char *line, int lineno)
 
     /* Skip blanks and advance to the beginning of the value 
      */
-    while(isblank(*s)) {
+    while('='==*s || isblank(*s)) {
         s++;
     }
 
@@ -69,6 +71,8 @@ process_config_line(char *line, int lineno)
 
             switch(options[i].type) {
                 case TYPE_STRING:
+                case TYPE_IPADDR:
+                    free(*((char **)options[i].argptr));
                     *((char **)options[i].argptr) = strdup(s);
                     break;
 
@@ -107,10 +111,6 @@ process_config_line(char *line, int lineno)
                     } else {
                         *((float *)options[i].argptr) = farg;
                     }
-                    break;
-
-                case TYPE_IPADDR:
-                    // TODO
                     break;
 
                 default: // Redundant, but code standard requires that default case always be present
