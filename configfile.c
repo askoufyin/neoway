@@ -15,7 +15,9 @@ confoption_t options[] = {
     { "modem_baudrate", TYPE_INT,       &_opts.modem_baud_rate},
     { "go_daemon",      TYPE_BOOL,      &_opts.go_daemon },
     { "enable_gps",     TYPE_BOOL,      NULL },
-    { "debug_print",    TYPE_BOOL,      &_opts.debug_print }
+    { "debug_print",    TYPE_BOOL,      &_opts.debug_print },
+    { "gps_enabled",    TYPE_BOOL,      &_opts.gps_enabled },
+    { "gprs_enabled",   TYPE_BOOL,      &_opts.gprs_enabled }
 };  
 
 
@@ -48,12 +50,16 @@ process_config_line(char *line, int lineno)
     /* Search for the end of the keyword. Keyword separated from value by spaces or tabs 
      */
     for(s=line; !isblank(*s); ++s);
+    
     *s++ = '\0';
 
     /* Skip blanks and advance to the beginning of the value 
      */
-    while(isblank(s))
-        ++s;
+    while(isblank(*s)) {
+        s++;
+    }
+
+    printf("'%s'='%s'\n", line, s);
 
     for(i=0; i<(sizeof(options)/sizeof(options[0])); ++i) {
         if(0 == strcasecmp(options[i].keyword, line)) {
@@ -87,7 +93,7 @@ process_config_line(char *line, int lineno)
                     }
 
                     if('\0' != *ptr) {
-                        printf("Config: Parameter %s on line %d: Malformed decimal value '%s'", line, lineno, s);
+                        printf("Config: Parameter %s on line %d: Malformed decimal value '%s'\n", line, lineno, s);
                     } else {
                         *((int *)options[i].argptr) = arg;
                     }
@@ -97,7 +103,7 @@ process_config_line(char *line, int lineno)
                     farg = strtof(s, &ptr);
                     
                     if('\0' != *ptr) {
-                        printf("Config: Parameter %s on line %d: Malformed float value '%s'", line, lineno, s);
+                        printf("Config: Parameter %s on line %d: Malformed float value '%s'\n", line, lineno, s);
                     } else {
                         *((float *)options[i].argptr) = farg;
                     }
@@ -123,14 +129,14 @@ int
 load_config(const char *file, /* in, out */ options_t *opts)
 {
     FILE *fp;
-    char str[256];
+    char str[1024];
     char *s, *e;
-    int line;
+    int i, line;
 
-    printf("Loading configuration from %s", file);
+    printf("Loading configuration from %s\n", file);
 
     /* First, copy contents of passed options into the temporary variable */
-    memcpy(&_opts, opts, sizeof(*opts));
+    memcpy(&_opts, opts, sizeof(_opts));
 
     /* Now open and parse configuration file */
     fp = fopen(file, "r");
@@ -142,6 +148,7 @@ load_config(const char *file, /* in, out */ options_t *opts)
     line = 1;
 
     while(!feof(fp)) {
+        memset(str, sizeof(str), 0);
         fgets(str, sizeof(str)-1, fp);
 
         /* Search for comment and cut it off */
@@ -150,21 +157,20 @@ load_config(const char *file, /* in, out */ options_t *opts)
             *s = '\0'; 
         }
 
+        if(0 == strlen(str)) {
+            continue;
+        }
+
         /* Skip leading spaces */
-        for(s=str; isspace(s); s++);
+        for(s=str; isspace(*s); s++);
 
         /* Skip trailing spaces */
-        e = strchr(s, '\0') - 1;
-        while(isspace(e)) {
-            e--;
-        }
-        e[1] = '\0';
+        for(i=strlen(s)-1; i > 0 && isspace(s[i]); i--);
+        s[i+1] = '\0';
 
-        if(opts->debug_print) {
-            printf("Config: \"%s\"=\"%s\"\n", s, line);
+        if(0 != strlen(s)) {
+            process_config_line(s, line);
         }
-        
-        process_config_line(s, line);
     }
 
     fclose(fp);

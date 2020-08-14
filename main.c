@@ -2043,7 +2043,7 @@ main(int argc, char *argv[])
 {
     options_t opts;
     thread_main_fn threads[] = {
-        NULL, /* agps_thread_main, */
+        NULL, /* placeholder for agps_thread_main, */
         uart_read_thread_main,
         uart_write_thread_main,
         network_thread_main,
@@ -2066,7 +2066,13 @@ main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    establish_data_connection(&opts);
+    if(opts.gps_enabled) {
+        threads[0] = agps_thread_main;
+    }
+
+    if(opts.gprs_enabled) {
+        establish_data_connection(&opts);
+    }
 
     if(opts.go_daemon) {
         daemonize(&opts, 0);

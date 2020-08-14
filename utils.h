@@ -72,6 +72,8 @@ typedef struct _options {
     int broadcast_period;           // Announce broadcast period (sec)
     char *broadcast_addr;
     int debug_print;                //
+    int gps_enabled;
+    int gprs_enabled;
     struct sockaddr_in baddr;
     /* Фсякая бяка для УПВС */
     int level;                      // Nesting level of the current XML tag

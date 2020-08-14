@@ -56,6 +56,9 @@ options_init(options_t *o)
     o->broadcast_period = BROADCAST_PERIOD;
     o->modem_fd = -1;
     o->uart_fd = -1;
+    
+    o->gps_enabled = TRUE;
+    o->gprs_enabled = TRUE;
 
     pthread_mutex_init(&o->mutex, NULL);
 
