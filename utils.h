@@ -53,7 +53,6 @@ enum xml_action {
 
 struct _options;
 
-
 typedef void (*actionhandler_fn)(struct _options *);
 
 
@@ -73,7 +72,12 @@ typedef struct _options {
     char *broadcast_addr;
     int debug_print;                //
     int gps_enabled;
+    /* GPRS */
     int gprs_enabled;
+    char *gprs_apn;
+    char *gprs_user;
+    char *gprs_password;
+    char *gprs_post_connect;
     struct sockaddr_in baddr;
     /* Фсякая бяка для УПВС */
     int level;                      // Nesting level of the current XML tag

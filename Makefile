@@ -52,4 +52,6 @@ deploy:
 	@cp -v $(APP_NAME) /xchg/
 	@cp -r -v xml /xchg/
 	@cp post-connect.sh /xchg/
+	@cp neowayhelper.conf /xchg/
+	
 	

@@ -14,12 +14,17 @@ confoption_t options[] = {
     { "modem_tty",          TYPE_STRING,    &_opts.modem_tty },
     { "modem_baudrate",     TYPE_INT,       &_opts.modem_baud_rate},
     { "go_daemon",          TYPE_BOOL,      &_opts.go_daemon },
-    { "enable_gps",         TYPE_BOOL,      NULL },
+    { "enable_gps",         TYPE_BOOL,      &_opts.gps_enabled },
     { "debug_print",        TYPE_BOOL,      &_opts.debug_print },
     { "gps_enabled",        TYPE_BOOL,      &_opts.gps_enabled },
-    { "gprs_enabled",       TYPE_BOOL,      &_opts.gprs_enabled },
     { "broadcast_address",  TYPE_IPADDR,    &_opts.udp_broadcast },
-    { "upvs_port",          TYPE_INT,       NULL }
+    { "upvs_port",          TYPE_INT,       NULL },
+    /* GPRS */
+    { "gprs_enabled",       TYPE_BOOL,      &_opts.gprs_enabled },
+    { "gprs_apn",           TYPE_STRING,    NULL },
+    { "gprs_user",          TYPE_STRING,    NULL },
+    { "gprs_password",      TYPE_STRING,    NULL },
+    { "gprs_post_connect",  TYPE_STRING,    NULL },
 };  
 
 
