@@ -25,6 +25,7 @@
 #include "nwy_gpio.h"   //для хартбита
 #include "nwy_pm.h"     //для хз чего
 #include "nwy_sms.h"    //для отправки смс
+#include "nwy_sim.h"
 
 #include "config.h"
 #include "configfile.h"
@@ -846,6 +847,8 @@ parse_command_line(options_t *opts, int argc, char *argv[])
 int
 app_init(options_t *opts)
 {
+    int res;
+
     if(0 != network_init(opts)) {
         printf("Network init failed\n");
         exit(EXIT_FAILURE);
@@ -855,6 +858,25 @@ app_init(options_t *opts)
     if(-1 == opts->uart_fd) {
         printf("UART init failed\n");
         exit(EXIT_FAILURE);
+    }
+
+    if(opts->gprs_enabled) {
+        /* Get SIM status */
+        opts->sim_status = nwy_sim_get_card_status(NWY_SIM_ID_SLOT_1);
+        switch(opts->sim_status) {
+            case NWY_SIM_NOT_INSERTED:
+                printf("SIM card not present (SLOT 1). Disabling SMS and GPRS services.\n");
+                opts->gprs_enabled = FALSE;
+                break;
+
+            case NWY_SIM_PIN_REQ:
+                res = nwy_sim_verify_pin(NWY_SIM_ID_SLOT_1, opts->pin);
+                if(res < 0) {
+                    printf("SIM PIN verify failed. Error code is %d\n", res);
+                    opts->gprs_enabled = FALSE;
+                };
+                break;
+        }
     }
 
     opts->modem_fd = modem_init(opts->modem_tty, opts->baud_rate);
@@ -2079,8 +2101,6 @@ main(int argc, char *argv[])
     if(opts.go_daemon) {
         daemonize(&opts, 0);
     }
-
-    for(;;);
 
     if(0 == threads_start(&opts, threads, sizeof(threads)/sizeof(threads[0]))) {
         printf("Running\n");

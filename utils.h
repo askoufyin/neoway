@@ -71,6 +71,7 @@ typedef struct _options {
     int broadcast_period;           // Announce broadcast period (sec)
     char *broadcast_addr;
     int debug_print;                //
+    int sim_status;
     int gps_enabled;
     /* GPRS */
     int gprs_enabled;
@@ -85,7 +86,7 @@ typedef struct _options {
     enum xml_cmd xml_cmd;
     enum xml_action action;
     char xml_variable[XML_VARIABLE_MAX];
-    char pin[4];
+    char pin[5];                    // With trailing \0
     actionhandler_fn xml_action;
     char phone_number[PHONE_NUMBER_MAX];
     char sms_text[SMS_TEXT_MAX];

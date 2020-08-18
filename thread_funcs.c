@@ -56,6 +56,7 @@ threads_start(options_t *opts, thread_main_fn *threads, unsigned int nthreads)
     pthread_attr_init(&thread_attr);
     for(i=0; i<nthreads; ++i) {
         if(NULL == threads[i]) {
+            _threads[i] = 0;
             continue;
         }
         
@@ -81,9 +82,11 @@ threads_wait_complete()
     unsigned int i;
 
     for(i=0; i<_numthreads; ++i) {
-        if(0 != pthread_join(_threads[i], NULL)) {
-            perror("pthread_join()");
-            break;
+        if(0 != _threads[i]) {
+            if(0 != pthread_join(_threads[i], NULL)) {
+                perror("pthread_join()");
+                break;
+            }
         }
     }
 }
