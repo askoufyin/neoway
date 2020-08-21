@@ -150,9 +150,11 @@ load_config(const char *file, /* in, out */ options_t *opts)
         return -1;
     }
 
-    line = 1;
+    line = 0;
 
     while(!feof(fp)) {
+        ++line;
+        
         memset(str, sizeof(str), 0);
         fgets(str, sizeof(str)-1, fp);
 
@@ -181,7 +183,7 @@ load_config(const char *file, /* in, out */ options_t *opts)
     fclose(fp);
 
     /* Copy modified data back */
-    memcpy(opts, &_opts, sizeof(*opts));
+    memcpy(opts, &_opts, sizeof(_opts));
 
     return 0;
 }
