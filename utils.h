@@ -31,7 +31,7 @@ enum xml_element {
 };
 typedef struct _neoway_sms_data
 {
-    char phone[100][12];   //100 - максимальное количество смс в каждом приоритете
+    char phone[100][13];   //100 - максимальное количество смс в каждом приоритете
     char text[100][500];   //
     int j;              //Счетчик количества смс каждого приоритета
 } neoway_sms_data_t;
@@ -139,4 +139,3 @@ extern int get_UUID(unsigned char *);
 
 
 #endif // UTILS_H
-
