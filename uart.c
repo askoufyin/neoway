@@ -9,6 +9,7 @@
 #include "nwy_uart.h"
 #include "nwy_error.h"
 #include "nwy_common.h"
+#include "nwy_sim.h"
 
 
 /* TODO: Make this variables static, add functions to manage data in the buffer
@@ -40,12 +41,14 @@ crc8(const char *data, size_t len)
 
     for(i = 0; i < len; i++) {
         crc ^= data[i];
+#if 0        
         for(j = 0; j < 8; j++) {
             if ((crc & 0x80) != 0)
                 crc = (unsigned char)((crc << 1) ^ 0x31);
             else
                 crc <<= 1;
         }
+#endif
     }
 
     return crc;
@@ -53,11 +56,12 @@ crc8(const char *data, size_t len)
 
 
 static int
-process_command(char *buffer) {
+process_command(options_t *opts, char *buffer) {
     static int turn = 1;
-    char sim_valid = 'V';
     int reset_mileage = 0;
+    int res;
     unsigned char crc;
+    char *reply, *status;
 
     for(;'\0' != *buffer; ++buffer) {
         if(*buffer != ' ' && *buffer != '\t' && *buffer != '\n')
@@ -68,15 +72,22 @@ process_command(char *buffer) {
         return 0;
 
     if(0 == strncasecmp("INFO", buffer, 4)) {
-        _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "$INFO,%s,%d,", sim_valid, reset_mileage);
+        _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "$INFO,%s,%d,", NWY_SIM_READY==opts->sim_status? "V": "N", reset_mileage);
         crc = crc8(_sendbuf, _sendbuflen);
-        _sendbuflen += sprintf(_sendbuf+_sendbuflen, ",%02X\r\n", crc);
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen, "%02X\r\n", crc);
+        _sendbuf[_sendbuflen] = 0;
         pthread_cond_signal(&msg_ready);
     }
     else
-    if(0 == strcasecmp("RUN_SERVICE", buffer)) {
-        printf("OK\n");
-        _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "OK (%d)\r", turn++);
+    if(0 == strncasecmp("AT", buffer, 2)) {
+        int len = strlen(buffer);
+        reply = NULL;
+        status = NULL;
+        printf("Sending %d bytes \"%s\" to modem\n", len, buffer);
+        res = nwy_at_send_cmd(buffer, &reply, &status);
+        printf("Reply \"%s\" Status \"%s\" res=%d\n", reply, status, res);
+        
+        _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "%s\r\n", NULL==reply? status: reply);
         pthread_cond_signal(&msg_ready);
     }
 
@@ -120,8 +131,8 @@ uart_read_thread_main(void *arg)
                     if(NULL != crlf) {
                         cmdsize = (crlf+1) - buffer;
                         *crlf = '\0';
-                        printf("%s\n", buffer);
-                        process_command(buffer);
+                        printf("IN: \"%s\"\n", buffer);
+                        process_command(opts, buffer);
                         memmove(buffer, crlf+1, bufsize - cmdsize);
                         bufsize -= cmdsize;
                     }
@@ -155,6 +166,7 @@ uart_write_thread_main(void *arg)
             break;
         } else {
             if(FD_ISSET(opts->uart_fd, &wfds)) {
+                printf("OUT: \"%s\"", _sendbuf);
                 nwy_uart_write(opts->uart_fd, (const unsigned char *)_sendbuf, _sendbuflen);
                 pthread_cond_signal(&msg_sent);
             }

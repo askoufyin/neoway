@@ -37,6 +37,8 @@
 #include "uart.h"
 #include "modem.h"
 #include "utils.h"
+#include "watchdog.h"
+
 //#include "tcp_web.h"   пока не добавлено
 
 
@@ -382,6 +384,7 @@ get_file_contents(const char *fn)
     long flen;
 
     if(NULL == fp) {
+        printf("%s: ", fn);
         perror("fopen()");
         return strdup("");
     }
@@ -819,7 +822,7 @@ parse_command_line(options_t *opts, int argc, char *argv[])
             case 5: // baudrate
                 argval = (int)strtol(optarg, &end, 10);
                 if('\0' == *end) {
-                    opts->baud_rate = atoi(optarg);
+                    opts->uart_baud_rate = atoi(optarg);
                 } else {
                     fprintf(stderr, "Error: argument of --baudrate is not a valid number\n");
                 }
@@ -854,7 +857,7 @@ app_init(options_t *opts)
         exit(EXIT_FAILURE);
     }
 
-    opts->uart_fd = uart_init(opts->uart_tty, opts->baud_rate);
+    opts->uart_fd = uart_init(opts->uart_tty, opts->uart_baud_rate);
     if(-1 == opts->uart_fd) {
         printf("UART init failed\n");
         exit(EXIT_FAILURE);
@@ -862,35 +865,47 @@ app_init(options_t *opts)
 
     if(opts->gprs_enabled) {
         /* Get SIM status */
+        printf("Querying SIM (SLOT 1) status\n");
         opts->sim_status = nwy_sim_get_card_status(NWY_SIM_ID_SLOT_1);
-        switch(opts->sim_status) {
-            case NWY_SIM_NOT_INSERTED:
-                printf("SIM card not present (SLOT 1). Disabling SMS and GPRS services.\n");
-                opts->gprs_enabled = FALSE;
-                break;
-
-            case NWY_SIM_PIN_REQ:
-                res = nwy_sim_verify_pin(NWY_SIM_ID_SLOT_1, opts->pin);
-                if(res < 0) {
-                    printf("SIM PIN verify failed. Error code is %d\n", res);
+        if(opts->sim_status < 0) {
+            printf("Error (%d) querying SIM (SLOT 1) status. GPRS service disabled.\n", opts->sim_status);
+            opts->sim_status = NWY_SIM_NOT_INSERTED;
+            opts->gprs_enabled = FALSE;
+        } else {
+            switch(opts->sim_status) {
+                case NWY_SIM_NOT_INSERTED:
+                    printf("SIM card not present (SLOT 1). Disabling SMS and GPRS services.\n");
                     opts->gprs_enabled = FALSE;
-                };
-                break;
+                    break;
+
+                case NWY_SIM_PIN_REQ:
+                    res = nwy_sim_verify_pin(NWY_SIM_ID_SLOT_1, opts->pin);
+                    if(res < 0) {
+                        printf("SIM PIN verify failed. Error code is %d\n", res);
+                        opts->gprs_enabled = FALSE;
+                    };
+                    break;
+            }
         }
     }
 
-    opts->modem_fd = modem_init(opts->modem_tty, opts->baud_rate);
+    opts->modem_fd = modem_init(opts->modem_tty, opts->uart_baud_rate);
     if(-1 == opts->modem_fd) {
         printf("MODEM init failed\n");
         exit(EXIT_FAILURE);
     }
 
+#if 0
     if(opts->gps_enabled) {
         if(0 != agps_init()) {
             printf("AGPS init failed\n");
             //exit(EXIT_FAILURE);
         }
     }
+#endif
+
+    nwy_gpio_set_dir(NWY_GPIO_78, NWY_OUTPUT);
+    nwy_gpio_set_val(NWY_GPIO_78, NWY_HIGH);
     
     return 0;
 }
@@ -2068,11 +2083,12 @@ main(int argc, char *argv[])
     options_t opts;
     thread_main_fn threads[] = {
         NULL, /* placeholder for agps_thread_main */
+        //modem_thread_main,
         uart_read_thread_main,
         uart_write_thread_main,
         network_thread_main,
-        modem_thread_main,
-        tcp_web_thread_main
+        tcp_web_thread_main,
+        watchdog_thread_main
     };
 
     options_init(&opts);
@@ -2099,6 +2115,7 @@ main(int argc, char *argv[])
     }
 
     if(opts.go_daemon) {
+        printf("Becoming daemon\n");
         daemonize(&opts, 0);
     }
 
