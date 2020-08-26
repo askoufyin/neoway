@@ -25,7 +25,6 @@
 #include "nwy_gpio.h"   //для хартбита
 #include "nwy_pm.h"     //для хз чего
 #include "nwy_sms.h"    //для отправки смс
-#include "nwy_sim.h"
 
 #include "config.h"
 #include "configfile.h"
@@ -847,8 +846,6 @@ parse_command_line(options_t *opts, int argc, char *argv[])
 int
 app_init(options_t *opts)
 {
-    int res;
-
     if(0 != network_init(opts)) {
         printf("Network init failed\n");
         exit(EXIT_FAILURE);
@@ -858,25 +855,6 @@ app_init(options_t *opts)
     if(-1 == opts->uart_fd) {
         printf("UART init failed\n");
         exit(EXIT_FAILURE);
-    }
-
-    if(opts->gprs_enabled) {
-        /* Get SIM status */
-        opts->sim_status = nwy_sim_get_card_status(NWY_SIM_ID_SLOT_1);
-        switch(opts->sim_status) {
-            case NWY_SIM_NOT_INSERTED:
-                printf("SIM card not present (SLOT 1). Disabling SMS and GPRS services.\n");
-                opts->gprs_enabled = FALSE;
-                break;
-
-            case NWY_SIM_PIN_REQ:
-                res = nwy_sim_verify_pin(NWY_SIM_ID_SLOT_1, opts->pin);
-                if(res < 0) {
-                    printf("SIM PIN verify failed. Error code is %d\n", res);
-                    opts->gprs_enabled = FALSE;
-                };
-                break;
-        }
     }
 
     opts->modem_fd = modem_init(opts->modem_tty, opts->baud_rate);
@@ -916,10 +894,11 @@ app_init(options_t *opts)
 #undef LOG_MSG_MASK
 #define LOG_MSG_MASK     LOG_MASK_STD
 
-#define NWY_AT_PORT      "/dev/smd8"
-#define BUFLEN 512          //Max length of buffer
-#define SERVER "10.7.254.6" //Адресс локальной машины пк связанной с железкой сейчас
-
+#define NWY_AT_PORT      "/dev/smd9"
+#define BUFLEN 512             //Max length of buffer
+#define SERVER "10.7.254.6"    //Адресс локальной машины пк связанной с железкой сейчас
+#define MAX_SMS_IN_PRIORITY 20 //Предельное количество смс в каждом приоритете. Приоритеты 1-7
+#define MAX_SMS_LENGTH 160     //Предельное количество символов в смс, годится только для отправки латиницы
 
 
 char buffer[65000]  = {0};    //Буфер для вычитывания файлов и принятия внешних запросов
@@ -1109,7 +1088,7 @@ void At_init(void *web_opts)
         else
         {
                 send_at_cmd("AT$MYGPSPWR=1\0", opts);
-                printf("AT OK");
+                printf("AT: OK\n");
         }
 }
 
@@ -1123,7 +1102,7 @@ void send_at_cmd(char *at_com, void *web_opts)
         ret = nwy_at_send_cmd(at_com, &p_resp, &p_result);
         if (ret != 0)
         {
-                printf("Send at cmd %s failed\n", "AT+CSQ");
+                printf("Send at cmd %s failed\n", at_com);
                 return;
         }
         if(p_resp != NULL)
@@ -1329,9 +1308,9 @@ void send_at_cmd(char *at_com, void *web_opts)
                 }
         }
         else
-                printf("Recv at response:\n%s\n", p_result);
+                printf("Recv at response: %s\n", p_result);
 
-        printf("Send at cmd %s success\n", ")(");
+        printf("Send at cmd %s: OK\n", "at_com");
 
         at_free(&p_resp);
         at_free(&p_result);
@@ -1350,19 +1329,25 @@ static void at_free(char **p)
 
 static void* tcp_web_thread_main (void *arg)
 {
-        end = time(NULL);
         options_t *opts = (options_t *)arg;
-        sprintf (opts->up_time_string, "%2d : %2d : %2d\0", (int)(difftime(end, start)/3600)%60, (int)(difftime(end, start)/60)%60, (int)difftime(end, start)%60);
         char *at_com = malloc(sizeof(char)*100);
         int i = 0;
         int j = 0;
-        FILE *sFile;                         //Открытие файлов
-        long int nFileLen;                            //Сюда пишем позицию
-        signal(SIGPIPE,SIG_IGN);                         //Игнорим ситуацию если пакет послан, но не был принят
+        FILE *sFile;                            //Открытие файлов
+        long int nFileLen;                      //Сюда пишем позицию
+        signal(SIGPIPE,SIG_IGN);                //Игнорим ситуацию если пакет послан, но не был принят
         Start_Socket();                         //Запуск Socket+bind+listen
-        At_init(opts);                         //Инициализация для работы с AT
+        At_init(opts);                          //Инициализация для работы с AT
 
-        int s_p;
+        end = time(NULL);
+
+        char sss[2], mmm[2], hhh[2];            //складываем в строки секунды часы и минуты
+        (((int) difftime(end, start)%60 < 10)      ? sprintf(sss,"0%d", (int) difftime(end, start)%60)       : sprintf(sss,"%d", (int) difftime(end, start)%60));
+        (((int)(difftime(end, start)/60)%60 < 10)  ? sprintf(mmm,"0%d", (int)(difftime(end, start)/60)%60)   : sprintf(mmm,"%d", (int)(difftime(end, start)/60)%60));
+        (((int)(difftime(end, start)/3600)%60 <10) ? sprintf(hhh,"0%d", (int)(difftime(end, start)/3600)%60) : sprintf(hhh,"%d", (int)(difftime(end, start)/3600)%60));
+        sprintf (opts->up_time_string, "%s : %s : %s\0", hhh, mmm, sss);
+
+        int s_p;                           //выставляем нулевое количкстов всех сообщений, пополнится само при чтении файла sms_memory.txt
         for (s_p = 7; s_p >= 0; s_p--)
         {
             opts->sended[s_p].j = 0;
@@ -1370,7 +1355,7 @@ static void* tcp_web_thread_main (void *arg)
             opts->queue[s_p].j = 0;
             opts->recved[s_p].j = 0;
         }
-        opts->sended[3].j = 3;
+        /*opts->sended[3].j = 3;
         //Тестовое заполнение массива сообщений
         for (i = opts->sended[3].j-1; i >= 0; i--)
         {       printf ("i = %d\n", i);
@@ -1389,15 +1374,13 @@ static void* tcp_web_thread_main (void *arg)
         {       printf ("i = %d\n", i);
                 //int j = opts->sended[s_p].j;
                 sprintf(opts->deleted[5].phone[i], "%s\0", "+7910123456"); printf("%s\n", opts->deleted[5].phone[i]); sprintf(opts->deleted[5].text[i], "%s%d\0", "Text", i); printf("%s\n", opts->deleted[5].text[i]);
-        }
+        }*/
         nwy_sms_add_mtmessage_handler(test_sms_evt_handler, NULL);    //Добавить обработчик события получения смс
-        Write_smsTo_txt("sms_memory.txt\0", opts);
         Read_smsFrom_txt("sms_memory.txt\0", opts);
-        Write_smsTo_txt("sms_memory.txt\0", opts);
         //Работа с клиентом
         while(1)
         {
-                new_tcp_socket = accept(server_fd, NULL, NULL);                                                 //(struct sockaddr *)&address, (socklen_t*)&addrlen);
+                new_tcp_socket = accept(server_fd, NULL, NULL);                                          //(struct sockaddr *)&address, (socklen_t*)&addrlen);
                 if (new_tcp_socket == -1)
                 {
                         perror("accept");
@@ -1405,7 +1388,7 @@ static void* tcp_web_thread_main (void *arg)
                 }
                 end = time(NULL);
                 printf("\033[91mACCEPT:\033[0m OK, %f seconds from start\n",difftime(end, start));
-                valread = recv(new_tcp_socket, buffer, sizeof(buffer)-1, 0);                                                //Разбираем запрос от браузера
+                valread = recv(new_tcp_socket, buffer, sizeof(buffer)-1, 0);                              //Разбираем запрос от браузера
                 end = time(NULL);
                 printf("\033[91mRecv:\033[0m End, %f seconds from start\n",difftime(end, start));
                 if (valread <= 0)
@@ -1445,12 +1428,9 @@ static void* tcp_web_thread_main (void *arg)
                         else if (!strcmp(postcomand, "logout\0"))
                         {
                                 send(new_tcp_socket, "HTTP/1.1 200 Ok \r\n\r\n", strlen("HTTP/1.1 200 Ok \r\n\r\n"), 0);
-                                if(user_id == 2)
-                                {
+                                if(user_id == 2) {
                                     sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "Admin is unlogged\\n");
-                                }
-                                else if (user_id == 1)
-                                {
+                                } else if (user_id == 1) {
                                     sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "User is unlogged\\n");
                                 }
                                 user_id = 0;
@@ -1474,6 +1454,7 @@ static void* tcp_web_thread_main (void *arg)
                                         j++;
                                 }
                                 sms_text[j] = '\0';
+                                //squeeze (sms_text, '\n'); //удалим запрещенный \n
                                 printf("Num: %s\n SMS: %s\n Len: %d\n", phone_num, sms_text, strlen(sms_text));
                                 do_send_sms(phone_num, 0, strlen(sms_text), sms_text, 0, opts, 3);
                         }
@@ -1632,7 +1613,11 @@ static void* tcp_web_thread_main (void *arg)
                                 //send_at_cmd(at_com);
                                 end = time(NULL);
                                 //float time_f = difftime(end, start);
-                                sprintf (opts->up_time_string, "%2d : %2d : %2d\0", (int)(difftime(end, start)/3600)%60, (int)(difftime(end, start)/60)%60, (int)difftime(end, start)%60);
+                                //char sss[2], mmm[2], hhh[2];
+                                (((int) difftime(end, start)%60 < 10)      ? sprintf(sss,"0%d", (int) difftime(end, start)%60)       : sprintf(sss,"%d", (int) difftime(end, start)%60));
+                                (((int)(difftime(end, start)/60)%60 < 10)  ? sprintf(mmm,"0%d", (int)(difftime(end, start)/60)%60)   : sprintf(mmm,"%d", (int)(difftime(end, start)/60)%60));
+                                (((int)(difftime(end, start)/3600)%60 <10) ? sprintf(hhh,"0%d", (int)(difftime(end, start)/3600)%60) : sprintf(hhh,"%d", (int)(difftime(end, start)/3600)%60));
+                                sprintf (opts->up_time_string, "%s : %s : %s\0", hhh, mmm, sss);
                                 sprintf(buffer, "{\"rssi\" : \"%s дБм\",\n\"rsrq\" : \" - \",\n\"snr\" : \" - \",\n\"rxlen\" : \" - \"\n,\"spn\" : \" -\"\n,\"threed_fix\" : \"%s\"\n,\"gps_cords\" : \" %c %f\xC2\xB0 %c %f\xC2\xB0\"\n,\"sys_time\" : \" %d:%d:%d (GMT +3)\"\n,\"num_sput\" : \"%d\"\n,\"reg_in_mesh\" : \" %s %s\"\n,\"mobile_data\" : \"%s\"\n,\"imsi\" : \"%s\"\n,\"imei\" : \"%s\"\n,\"uptime\" : \"%s\"\n,\"carrige_mileage\" : \"%s\"\n,\"last_mileage\" : \"%s\"\n,\"power_type\" : \"%s\"\n}\0", opts->rssi, opts->threed_fix, lat_sign, lat, lon_sign, lon, hh+3, mm, ss,num_sput_val, opts->operator_cod, opts->country_cod, opts->mobile_data, opts->imsi, opts->imei, opts->up_time_string, opts->carrige_mileage, opts->last_mileage, opts->power_type);
                                 send(new_tcp_socket, buffer, strlen(buffer), 0);
                                 at_com = NULL;
@@ -1640,88 +1625,227 @@ static void* tcp_web_thread_main (void *arg)
                                 sprintf(buffer, "{\"log\" : \"%s\"\n}\0", web_log);
                                 send(new_tcp_socket, buffer, strlen(buffer), 0);
                         } else if (!strcmp(fileadrr,"sms.json\0")) {
-                                if(recv_flag == true)                             //если приходило смс, добавис его в список
-                                {
-                                    recv_flag = false;
-                                    printf("FLAG IS %d\nNUM IS %s\nTEXT IS %s\n", recv_flag, recv_phone, recv_text);
-                                    memcpy(opts->recved[3].text[opts->recved[3].j], recv_text, 500);
-                                    memcpy(opts->recved[3].phone[opts->recved[3].j], recv_phone, 12);
+                            if(recv_flag == true)                             //если приходило смс, добавис его в список
+                            {
+                                recv_flag = false;
+                                //printf("FLAG IS %d\nNUM IS %s\nTEXT IS %s\n", recv_flag, recv_phone, recv_text);
+                                memcpy(opts->recved[3].text[opts->recved[3].j], recv_text, 500);
+                                memcpy(opts->recved[3].phone[opts->recved[3].j], recv_phone, 12);
+                                if(opts->recved[3].j <= 20) {
                                     opts->recved[3].j++;
-                                    // printf("FLAG IS %d\nNUM IS %s\nTEXT IS %s\n", recv_flag, recv_phone, recv_text);
-                                }
-                                printf ("start_sms\n");
-                                int i = 0;
-                                sprintf(buffer, "{\"sended\":[\0");
-                                for (s_p = 7; s_p >= 0; s_p--)
-                                {
-                                    for (i = opts->sended[s_p].j-1; i >= 0; i--)
-                                    {
-                                            char one_sms[600] = {0};
-                                            printf ("i= %d\n", i);
-                                            sprintf(one_sms, "\"%d %s %s\"", s_p, opts->sended[s_p].phone[i], opts->sended[s_p].text[i]);
-                                            strcat(buffer, one_sms);
-                                            strcat(buffer, ", ");
+                                } else {
+                                    int z;
+                                    for(z = 0; z <= opts->recved[3].j-1; z++) {
+                                        memcpy(opts->recved[3].phone[z], opts->recved[3].phone[z+1], 12);
+                                        memcpy(opts->recved[3].text[z], opts->recved[3].text[z+1], 500);
                                     }
                                 }
-                                if(buffer[strlen(buffer)-2]==','){buffer[strlen(buffer)-2]='\0';}
-                                strcat(buffer, "],\n\"queue\":[\0");
-                                for (s_p = 7; s_p >= 0; s_p--)
+                                // printf("FLAG IS %d\nNUM IS %s\nTEXT IS %s\n", recv_flag, recv_phone, recv_text);
+                            }
+                            int i = 0;
+                            sprintf(buffer, "{\"sended\":[\0");
+                            for (s_p = 7; s_p >= 0; s_p--)
+                            {
+                                for (i = opts->sended[s_p].j-1; i >= 0; i--)
                                 {
-                                    for (i = opts->queue[s_p].j-1; i >= 0; i--)
-                                    {
-                                            char one_sms[600] = {0};
-                                            printf ("i= %d\n", i);
-                                            sprintf(one_sms, "\"%d %s %s\"", s_p, opts->queue[s_p].phone[i], opts->queue[s_p].text[i]);
-                                            strcat(buffer, one_sms);
-                                            strcat(buffer, ", ");
-                                    }
+                                        char one_sms[600] = {0};
+                                        //printf ("i= %d\n", i);
+                                        char string_whithout_quotes [500] = {0};
+                                        int ia = 0, ib = 0;
+                                        for (ib = 0; ib < 500; ib++)
+                                        {
+                                            if (opts->sended[s_p].text[i][ib] == '\0')
+                                            {
+                                                string_whithout_quotes[ia] = opts->sended[s_p].text[i][ib];
+                                                break;
+                                            }
+                                            else if (opts->sended[s_p].text[i][ib] == '\"')
+                                            {
+                                                string_whithout_quotes[ia] = '&';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'r';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'd';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'q';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'u';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'o';
+                                                ia++;
+                                                string_whithout_quotes[ia] = ';';
+                                                ia++;
+                                            }
+                                            else
+                                            {
+                                                string_whithout_quotes[ia] = opts->sended[s_p].text[i][ib];
+                                                ia++;
+                                            }
+                                        }
+                                        sprintf(one_sms, "\"%d %s %s\"", s_p, opts->sended[s_p].phone[i], string_whithout_quotes);
+                                        strcat(buffer, one_sms);
+                                        strcat(buffer, ", ");
                                 }
-                                if(buffer[strlen(buffer)-2]==','){buffer[strlen(buffer)-2]='\0';}
-                                strcat(buffer, "],\n\"deleted\":[\0");
-                                for (s_p = 7; s_p >= 0; s_p--)
+                            }
+                            if(buffer[strlen(buffer)-2]==','){buffer[strlen(buffer)-2]='\0';}
+                            strcat(buffer, "],\n\"queue\":[\0");
+                            for (s_p = 7; s_p >= 0; s_p--)
+                            {
+                                for (i = opts->queue[s_p].j-1; i >= 0; i--)
                                 {
-                                    for (i = opts->deleted[s_p].j-1; i >= 0; i--)
-                                    {
-                                            char one_sms[600] = {0};
-                                            printf ("i= %d\n", i);
-                                            sprintf(one_sms, "\"%d %s %s\"", s_p, opts->deleted[s_p].phone[i], opts->deleted[s_p].text[i]);
-                                            strcat(buffer, one_sms);
-                                            strcat(buffer, ", ");
-                                    }
+                                        char one_sms[600] = {0};
+                                        char string_whithout_quotes [500] = {0};
+                                        int ia = 0, ib = 0;
+                                        for (ib = 0; ib < 500; ib++)
+                                        {
+                                            if (opts->queue[s_p].text[i][ib] == '\0')
+                                            {
+                                                string_whithout_quotes[ia] = opts->queue[s_p].text[i][ib];
+                                                break;
+                                            }
+                                            else if (opts->queue[s_p].text[i][ib] == '\"')
+                                            {
+                                                string_whithout_quotes[ia] = '&';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'r';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'd';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'q';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'u';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'o';
+                                                ia++;
+                                                string_whithout_quotes[ia] = ';';
+                                                ia++;
+                                            }
+                                            else
+                                            {
+                                                string_whithout_quotes[ia] = opts->queue[s_p].text[i][ib];
+                                                ia++;
+                                            }
+                                        }
+                                        //printf ("i= %d\n", i);
+                                        sprintf(one_sms, "\"%d %s %s\"", s_p, opts->queue[s_p].phone[i], string_whithout_quotes);
+                                        strcat(buffer, one_sms);
+                                        strcat(buffer, ", ");
                                 }
-                                if(buffer[strlen(buffer)-2]==','){buffer[strlen(buffer)-2]='\0';}
-                                strcat(buffer, "],\n\"recved\":[\0");
-                                for (s_p = 7; s_p >= 0; s_p--)
+                            }
+                            if(buffer[strlen(buffer)-2]==','){buffer[strlen(buffer)-2]='\0';}
+                            strcat(buffer, "],\n\"deleted\":[\0");
+                            for (s_p = 7; s_p >= 0; s_p--)
+                            {
+                                for (i = opts->deleted[s_p].j-1; i >= 0; i--)
                                 {
-                                    for (i = opts->recved[s_p].j-1; i >= 0; i--)
-                                    {
-                                            char one_sms[600] = {0};
-                                            printf ("i= %d\n", i);
-                                            sprintf(one_sms, "\"%d %s %s\"", s_p, opts->recved[s_p].phone[i], opts->recved[s_p].text[i]);
-                                            strcat(buffer, one_sms);
-                                            strcat(buffer, ", ");
-                                    }
+                                        char one_sms[600] = {0};
+                                        char string_whithout_quotes [500] = {0};
+                                        int ia = 0, ib = 0;
+                                        for (ib = 0; ib < 500; ib++)
+                                        {
+                                            if (opts->deleted[s_p].text[i][ib] == '\0')
+                                            {
+                                                string_whithout_quotes[ia] = opts->deleted[s_p].text[i][ib];
+                                                break;
+                                            }
+                                            else if (opts->deleted[s_p].text[i][ib] == '\"')
+                                            {
+                                                string_whithout_quotes[ia] = '&';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'r';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'd';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'q';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'u';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'o';
+                                                ia++;
+                                                string_whithout_quotes[ia] = ';';
+                                                ia++;
+                                            }
+                                            else
+                                            {
+                                                string_whithout_quotes[ia] = opts->deleted[s_p].text[i][ib];
+                                                ia++;
+                                            }
+                                        }
+                                        //printf ("i= %d\n", i);
+                                        sprintf(one_sms, "\"%d %s %s\"", s_p, opts->deleted[s_p].phone[i], string_whithout_quotes);
+                                        strcat(buffer, one_sms);
+                                        strcat(buffer, ", ");
                                 }
-                                if(buffer[strlen(buffer)-2]==','){buffer[strlen(buffer)-2]='\0';}
-                                strcat(buffer, "]} \n");
-
-                                send(new_tcp_socket, buffer, strlen(buffer), 0);
+                            }
+                            if(buffer[strlen(buffer)-2]==','){buffer[strlen(buffer)-2]='\0';}
+                            strcat(buffer, "],\n\"recved\":[\0");
+                            for (s_p = 7; s_p >= 0; s_p--)
+                            {
+                                for (i = opts->recved[s_p].j-1; i >= 0; i--)
+                                {
+                                        char one_sms[600] = {0};
+                                        char string_whithout_quotes [500] = {0};
+                                        int ia = 0, ib = 0;
+                                        for (ib = 0; ib < 500; ib++)
+                                        {
+                                            if (opts->recved[s_p].text[i][ib] == '\0')
+                                            {
+                                                string_whithout_quotes[ia] = opts->recved[s_p].text[i][ib];
+                                                break;
+                                            }
+                                            else if (opts->recved[s_p].text[i][ib] == '\"')
+                                            {
+                                                string_whithout_quotes[ia] = '&';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'r';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'd';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'q';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'u';
+                                                ia++;
+                                                string_whithout_quotes[ia] = 'o';
+                                                ia++;
+                                                string_whithout_quotes[ia] = ';';
+                                                ia++;
+                                            }
+                                            else
+                                            {
+                                                string_whithout_quotes[ia] = opts->recved[s_p].text[i][ib];
+                                                ia++;
+                                            }
+                                        }
+                                        //printf ("i= %d\n", i);
+                                        sprintf(one_sms, "\"%d %s %s\"", s_p, opts->recved[s_p].phone[i], string_whithout_quotes);
+                                        strcat(buffer, one_sms);
+                                        strcat(buffer, ", ");
+                                }
+                            }
+                            if(buffer[strlen(buffer)-2]==','){buffer[strlen(buffer)-2]='\0';}
+                            strcat(buffer, "]} \n");
+                            send(new_tcp_socket, buffer, strlen(buffer), 0);
+                            printf ("SMS to WEB: OK\n");
                         } else {
-                                //sprintf(fileadrr, "/data/www/Server/", fileadrr);
+                            //sprintf(fileadrr, "/data/www/Server/", fileadrr);
+                            sFile = fopen (fileadrr,"r");
+                            if (sFile == NULL){
+                                printf ("File open: Error\n");
+                                sprintf(fileadrr, "/data/www/Server/404.html", fileadrr);
                                 sFile = fopen (fileadrr,"r");
-                                if (sFile == NULL) printf ("ошибка\n");
-                                else printf ("выполнено\n");
-                                fseek (sFile, 0, SEEK_END);                                    //Открываем файл и перемещаем каретку в конечное положение
-                                nFileLen = ftell(sFile);                                       //Получаем текущее значение указателя
-                                fseek (sFile, 0, SEEK_SET);                                    //Перемещаем каретку в начало, чтобы корректно работать с файлом
-
-                                for (i = 0; (rc = getc(sFile)) != EOF && i < nFileLen; buffer[i++] = rc);    //Посимвольно считываем все биты из файла пока они не закончатся или не переполнится буффер
-                                buffer[i] = '\0';
-                                send(new_tcp_socket, buffer, nFileLen, 0);                                   //Выдаем буфер браузеру
-                                // Закрываем файл
-                                printf ("Закрытие файла: ");
-                                if ( fclose (sFile) == EOF) printf ("ошибка\n");
-                                else printf ("выполнено\n");
+                            } else {
+                            printf ("File open: OK\n");
+                            }
+                            fseek (sFile, 0, SEEK_END);                                    //Открываем файл и перемещаем каретку в конечное положение
+                            nFileLen = ftell(sFile);                                       //Получаем текущее значение указателя
+                            fseek (sFile, 0, SEEK_SET);                                    //Перемещаем каретку в начало, чтобы корректно работать с файлом
+                            for (i = 0; (rc = getc(sFile)) != EOF && i < nFileLen; buffer[i++] = rc);    //Посимвольно считываем все биты из файла пока они не закончатся или не переполнится буффер
+                            buffer[i] = '\0';
+                            send(new_tcp_socket, buffer, nFileLen, 0);                                   //Выдаем буфер браузеру
+                            // Закрываем файл
+                            printf ("Закрытие файла: ");
+                            if ( fclose (sFile) == EOF) printf ("ошибка\n");
+                            else printf ("выполнено\n");
                         }
                         close (new_tcp_socket);
                         end = time(NULL);
@@ -1836,22 +1960,38 @@ static int do_send_sms(char *number, int encoding, int length, char *context, in
             sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "SMS_send failed\\n");
             // memcpy(opts->queue[sms_priority].phone[opts->queue[sms_priority].j], sms_data.phone_num, 12);
             // memcpy(opts->queue[sms_priority].text[opts->queue[sms_priority].j], sms_data.msg_context, 500);
+            } else {
+                printf("Try: Fail\n");
             }
             // ТУТ ДОБАВЛЯЕТСЯ В ОЧЕРЕДЬ
             memcpy(opts->queue[sms_priority].phone[opts->queue[sms_priority].j], number, 12);
             memcpy(opts->queue[sms_priority].text[opts->queue[sms_priority].j], sms_data.msg_context, 500);
-            //opts->queue[sms_priority].phone[opts->queue[sms_priority].j][12] = '\0';
-            opts->queue[sms_priority].j++;
-        }
-        else
-        {
+            if(opts->queue[sms_priority].j <= 20) {
+                opts->queue[sms_priority].j++;
+            } else {
+                int i;
+                for(i = 0; i <= opts->queue[sms_priority].j-1; i++) {
+                    memcpy(opts->queue[sms_priority].phone[i], opts->queue[sms_priority].phone[i+1], 12);
+                    memcpy(opts->queue[sms_priority].text[i], opts->queue[sms_priority].text[i+1], 500);
+                }
+            }
+        } else {
             if(queue_flag == false){
             sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "SMS_send ok\\n");
+            } else {
+                printf("Try: OK\n");
             }
             //ТУТ ДОБАВЛЯЕТСЯ В ОТПРАВЛЕННЫЕ
-            memcpy(opts->sended[sms_priority].phone[opts->sended[sms_priority].j], number, 12);
-            memcpy(opts->sended[sms_priority].text[opts->sended[sms_priority].j],sms_data.msg_context,500);
-            opts->sended[sms_priority].j++;
+            if(opts->sended[sms_priority].j <=20)
+            {
+                memcpy(opts->sended[sms_priority].phone[opts->sended[sms_priority].j], number, 12);
+                memcpy(opts->sended[sms_priority].text[opts->sended[sms_priority].j],sms_data.msg_context,500);
+                opts->sended[sms_priority].j++;
+            }
+            else
+            {
+
+            }
         }
         printf("%d", result);
         //}
@@ -1947,14 +2087,21 @@ static void del_sms_num(char *but_type, int num, void *web_opts)
                 if (num == -1)
                 {
                     // printf ("DEL NOW! \n");
-                    memcpy(opts->deleted[s_p].text[opts->deleted[s_p].j], opts->sended[s_p].text[i], 500);             //удалим элемент под нужным нам номером
+                    memcpy(opts->deleted[s_p].text[opts->deleted[s_p].j], opts->sended[s_p].text[i], 500);
                     memcpy(opts->deleted[s_p].phone[opts->deleted[s_p].j], opts->sended[s_p].phone[i], 12);
-                    opts->deleted[s_p].j++;
+                    if(opts->deleted[s_p].j <= 20) {
+                        opts->deleted[s_p].j++;
+                    } else {
+                        int z;
+                        for(z = 0; z <= opts->deleted[s_p].j-1; z++) {
+                            memcpy(opts->deleted[s_p].phone[z], opts->deleted[s_p].phone[z+1], 12);
+                            memcpy(opts->deleted[s_p].text[z], opts->deleted[s_p].text[z+1], 500);
+                        }
+                    }
                 }
                 // printf("%s -> %s\n", opts->sended[s_p].text[i], opts->sended[s_p].text[i+1]);
-                memcpy(opts->sended[s_p].text[i], opts->sended[s_p].text[i+1], 500);             //удалим элемент под нужным нам номером
+                memcpy(opts->sended[s_p].text[i], opts->sended[s_p].text[i+1], 500);
                 memcpy(opts->sended[s_p].phone[i], opts->sended[s_p].phone[i+1], 12);
-                //break;
             }
         }
         opts->sended[s_p].j--;
@@ -1987,14 +2134,21 @@ static void del_sms_num(char *but_type, int num, void *web_opts)
                 if (num == -1)
                 {
                     // printf ("DEL NOW! \n");
-                    memcpy(opts->deleted[s_p].text[opts->deleted[s_p].j], opts->queue[s_p].text[i], 500);             //удалим элемент под нужным нам номером
+                    memcpy(opts->deleted[s_p].text[opts->deleted[s_p].j], opts->queue[s_p].text[i], 500);
                     memcpy(opts->deleted[s_p].phone[opts->deleted[s_p].j], opts->queue[s_p].phone[i], 12);
-                    opts->deleted[s_p].j++;
+                    if(opts->deleted[s_p].j <= 20) {
+                        printf("%d++\n", opts->deleted[s_p].j); opts->deleted[s_p].j++;
+                    } else {
+                        int z;
+                        for(z = 0; z <= opts->deleted[s_p].j-1; z++) {
+                            memcpy(opts->deleted[s_p].phone[z], opts->deleted[s_p].phone[z+1], 12);
+                            memcpy(opts->deleted[s_p].text[z], opts->deleted[s_p].text[z+1], 500);
+                        }
+                    }
                 }
                 // printf("%s -> %s\n", opts->queue[s_p].text[i], opts->queue[s_p].text[i+1]);
-                memcpy(opts->queue[s_p].text[i], opts->queue[s_p].text[i+1], 500);             //удалим элемент под нужным нам номером
+                memcpy(opts->queue[s_p].text[i], opts->queue[s_p].text[i+1], 500);
                 memcpy(opts->queue[s_p].phone[i], opts->queue[s_p].phone[i+1], 12);
-                //break;
             }
         }
         opts->queue[s_p].j--;
@@ -2028,14 +2182,21 @@ static void del_sms_num(char *but_type, int num, void *web_opts)
                 if (num == -1)
                 {
                     // printf ("DEL NOW! \n");
-                    memcpy(opts->deleted[s_p].text[opts->deleted[s_p].j], opts->recved[s_p].text[i], 500);             //удалим элемент под нужным нам номером
+                    memcpy(opts->deleted[s_p].text[opts->deleted[s_p].j], opts->recved[s_p].text[i], 500);
                     memcpy(opts->deleted[s_p].phone[opts->deleted[s_p].j], opts->recved[s_p].phone[i], 12);
-                    opts->deleted[s_p].j++;
+                    if(opts->deleted[s_p].j <= 20) {
+                        opts->deleted[s_p].j++;
+                    } else {
+                        int z;
+                        for(z = 0; z <= opts->deleted[s_p].j-1; z++) {
+                            memcpy(opts->deleted[s_p].phone[z], opts->deleted[s_p].phone[z+1], 12);
+                            memcpy(opts->deleted[s_p].text[z], opts->deleted[s_p].text[z+1], 500);
+                        }
+                    }
                 }
                 // printf("%s -> %s\n", opts->recved[s_p].text[i], opts->recved[s_p].text[i+1]);
-                memcpy(opts->recved[s_p].text[i], opts->recved[s_p].text[i+1], 500);             //удалим элемент под нужным нам номером
+                memcpy(opts->recved[s_p].text[i], opts->recved[s_p].text[i+1], 500);
                 memcpy(opts->recved[s_p].phone[i], opts->recved[s_p].phone[i+1], 12);
-                //break;
             }
         }
         opts->recved[s_p].j--;
@@ -2070,9 +2231,8 @@ static void del_sms_num(char *but_type, int num, void *web_opts)
                     // printf ("DEL NOW! \n");
                 }
                 // printf("%s -> %s\n", opts->deleted[s_p].text[i], opts->deleted[s_p].text[i+1]);
-                memcpy(opts->deleted[s_p].text[i], opts->deleted[s_p].text[i+1], 500);             //удалим элемент под нужным нам номером
+                memcpy(opts->deleted[s_p].text[i], opts->deleted[s_p].text[i+1], 500);
                 memcpy(opts->deleted[s_p].phone[i], opts->deleted[s_p].phone[i+1], 12);
-                //break;
             }
         }
         opts->deleted[s_p].j--;
@@ -2084,14 +2244,16 @@ static void* try_send_sms_from_queue(void *web_opts){
         int s_p, i;
         char phone[13];
         char text[500];
+        printf("TRY TO SEND : OK\n");
         while(1)
         {
             for (s_p = 7; s_p >= 0; s_p--)
             {
                 if(opts->queue[s_p].j>0)
                 {
+                    printf("-------------------------\n");
                     queue_flag = true;
-                    printf("\n Priority: %d\n", s_p);
+                    printf("Priority: %d\n", s_p);
                     printf("Try to send:\n%s\n%s\n", opts->queue[s_p].phone[0], opts->queue[s_p].text[0]);
 
                     sprintf(phone, "%s\0", opts->queue[s_p].phone[0]);
@@ -2100,75 +2262,58 @@ static void* try_send_sms_from_queue(void *web_opts){
                     queue_flag = false;
                     for (i = 0 ; i <= opts->queue[s_p].j-1 ; i++)
                     {
-                        printf("Num %d: %s --> %s\n", i, opts->queue[s_p].text[i+1], opts->queue[s_p].text[i]);
-                        printf("Num %d: %s --> %s\n\n", i, opts->queue[s_p].phone[i+1], opts->queue[s_p].phone[i]);
+                        //printf("Num %d: %s --> %s\n", i, opts->queue[s_p].text[i+1], opts->queue[s_p].text[i]);
+                        //printf("Num %d: %s --> %s\n\n", i, opts->queue[s_p].phone[i+1], opts->queue[s_p].phone[i]);
                         memcpy(opts->queue[s_p].text[i], opts->queue[s_p].text[i+1], 500);             //удалим элемент под нужным нам номером
                         memcpy(opts->queue[s_p].phone[i], opts->queue[s_p].phone[i+1], 12);
-
-                        printf("Num %d: %s\n", i, opts->queue[s_p].text[i]);
-                        printf("Num %d: %s\n\n", i, opts->queue[s_p].phone[i]);
+                        //printf("Num %d: %s\n", i, opts->queue[s_p].text[i]);
+                        //printf("Num %d: %s\n\n", i, opts->queue[s_p].phone[i]);
                     }
                     opts->queue[s_p].j--;
                     sleep(2);
+                    printf("-------------------------\n");
                 }
             }
-            sleep(3);
-            printf("-----------------------------------\n");
-            printf("-----------------------------------\n");
-            printf("TRY TO SEND IS WORK\n");
-            printf("-----------------------------------\n");
-            printf("-----------------------------------\n");
         }
 }
 
  int Write_smsTo_txt(const char *file, void *web_opts){
      FILE *fp;
-     char buff[64000];
-     memset (buff, 0 , 64000);
-     char sended_sms [16000] ={0};
-     char recved_sms [16000] ={0};
-     char queue_sms [16000] ={0};
-     char deleted_sms [16000] ={0};
-     int i, line, s_p, j;
+     char buff[MAX_SMS_IN_PRIORITY*MAX_SMS_LENGTH*7*4];               //buffer для записи всех смс в файл
+     memset (buff, 0 , MAX_SMS_IN_PRIORITY*MAX_SMS_LENGTH*7*4);
+     char sended_sms  [MAX_SMS_IN_PRIORITY*MAX_SMS_LENGTH*7] = {0};
+     char recved_sms  [MAX_SMS_IN_PRIORITY*MAX_SMS_LENGTH*7] = {0};
+     char queue_sms   [MAX_SMS_IN_PRIORITY*MAX_SMS_LENGTH*7] = {0};
+     char deleted_sms [MAX_SMS_IN_PRIORITY*MAX_SMS_LENGTH*7] = {0};
+     int i, j, s_p;
      options_t *opts = (options_t*)web_opts;
-     //int flag = 0;    //Определяет в какие переменные складываем строку
 
      printf("Saving sms memory to %s\n", file);
 
-     /* First, copy contents of passed options into the temporary variable */
-     //memcpy(&_opts, opts, sizeof(_opts));
-     /* Now open and parse configuration file */
-
-
      for (s_p = 7; s_p >= 0; s_p--)
      {
-         for (i = 0; i <= opts->sended[s_p].j-1; i++)
-         {
-             sprintf (sended_sms, "%s%d %s %s\r\n", sended_sms, s_p, opts->sended[s_p].phone[i], opts->sended[s_p].text[i]);
+         for (i = 0; i <= opts->sended[s_p].j-1;  i++) {
+             sprintf (sended_sms,  "%s%d %s %s\r\n", sended_sms,  s_p, opts->sended[s_p].phone[i], opts->sended[s_p].text[i]);
          }
-         for (i = 0; i <= opts->recved[s_p].j-1; i++)
-         {
-             sprintf (recved_sms, "%s%d %s %s\r\n", recved_sms, s_p, opts->recved[s_p].phone[i], opts->recved[s_p].text[i]);
+         for (i = 0; i <= opts->recved[s_p].j-1;  i++) {
+             sprintf (recved_sms,  "%s%d %s %s\r\n", recved_sms,  s_p, opts->recved[s_p].phone[i], opts->recved[s_p].text[i]);
          }
-         for (i = 0; i <= opts->queue[s_p].j-1; i++)
-         {
-             sprintf (queue_sms, "%s%d %s %s\r\n", queue_sms, s_p, opts->queue[s_p].phone[i], opts->queue[s_p].text[i]);
+         for (i = 0; i <= opts->queue[s_p].j-1;   i++) {
+             sprintf (queue_sms,   "%s%d %s %s\r\n", queue_sms,   s_p, opts->queue[s_p].phone[i], opts->queue[s_p].text[i]);
          }
-         for (i = 0; i <= opts->deleted[s_p].j-1; i++)
-         {
+         for (i = 0; i <= opts->deleted[s_p].j-1; i++) {
              sprintf (deleted_sms, "%s%d %s %s\r\n", deleted_sms, s_p, opts->deleted[s_p].phone[i], opts->deleted[s_p].text[i]);
          }
      }
      sprintf (buff, "Sended\r\n%sRecved\r\n%sQueue\r\n%sDeleted\r\n%s\0", sended_sms, recved_sms, queue_sms, deleted_sms);
-     printf ("%s", buff);
-
+     printf ("%s", buff); //отладка
      fp = fopen("sms_memory.txt", "wb");
      if(NULL == fp) {
          perror("fopen()");
          return -1;
      }
      /*Тут запись в файл fwrite*/
-     sprintf(buff, "%s\0", "Sended\r\n3 +79108441072 Some sms text one\r\n3 +79108441072 Some sms text two\r\n5 +79108441072 Some sms text three\r\n3 +79108441072 Some sms text four\r\n7 +79108441072 Some sms text Five\r\nQueue\r\nRecved\r\nDeleted\r\n6 +79108441072 Some sms text six\r\n3 +79108441072 Some sms text Seven");
+     //sprintf(buff, "%s\0", "Sended\r\n3 +79108441072 Some sms text one\r\n3 +79108441072 Some sms text two\r\n5 +79108441072 Some sms text three\r\n3 +79108441072 Some sms text four\r\n7 +79108441072 Some sms text Five\r\nQueue\r\nRecved\r\nDeleted\r\n6 +79108441072 Some sms text six\r\n3 +79108441072 Some sms text Seven");
      fwrite(&buff, 1, sizeof (buff), fp);
      fflush(fp);
      fclose(fp);

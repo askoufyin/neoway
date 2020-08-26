@@ -11,7 +11,6 @@
         .slidecontainer {
             width: 100%;
         }
-
         .slider {
             -webkit-appearance: none;
             width: 240px;
@@ -23,11 +22,9 @@
             -webkit-transition: .2s;
             transition: opacity .2s;
         }
-
         .slider:hover {
             opacity: 0.8;
         }
-
         .slider::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
@@ -37,7 +34,6 @@
             background: #50bbb4;
             cursor: pointer;
         }
-
         .slider::-moz-range-thumb {
             width: 25px;
             height: 25px;
@@ -48,9 +44,20 @@
     </style>
     <script src="login.js"></script>
     <script>
+        var ginfo = {};
+        gdata = {};
+        var gelements_send = [];
+        var gelements_del = [];
+        var busy = 0;
+
+
         function sliderRef() {
             var slider = document.getElementById("myRange");
-            document.getElementById('sliderr').innerHTML = slider.value;
+            document.getElementById('gps_time').innerHTML = slider.value;
+        }
+        function sms_length_update() {
+            document.getElementById('sms_length').innerHTML = document.getElementById("SMS_text").value.length + "/140";
+            document.getElementById("SMS_text").value = document.getElementById("SMS_text").replace(/[\.,!?; ]*/g, '');
         }
 
         function lol() {
@@ -60,74 +67,7 @@
             document.getElementById('slaveip').value = '10.200.1.' + i;
         };
 
-        function sm() {
-            var x = new XMLHttpRequest();
-            x.open("POST", "/lol", true);
-            var s = "";
-            if (document.getElementById('tab-1').checked)
-                s = "1|";
-            else
-                s = document.getElementById('slaven').value + "|";
 
-            s += document.getElementById('masterip').options.selectedIndex + 1;
-
-            x.onreadystatechange = function() {
-                lol();
-            };
-            x.send(s);
-        };
-
-        function smap() {
-            fr = new FileReader();
-            fr.onload = function() {
-                parser = new DOMParser();
-                xmlDoc = parser.parseFromString(this.result, "text/xml");
-                console.log(xmlDoc);
-                f = xmlDoc.children[0].children;
-
-                var v = 0;
-                var s = 0;
-
-                function nudes() {
-                    document.getElementById('map_st').innerHTML = "Загрузка " + v + "/" + f.length;
-                    console.log("nudes " + v);
-                    if (v < f.length) {
-                        x = new XMLHttpRequest();
-                        x.open("POST", "/ass", true);
-                        s = f[v].getElementsByTagName("varname")[0].childNodes[0].nodeValue + "\n";
-                        s += f[v].getElementsByTagName("frname")[0].childNodes[0].nodeValue + "\n";
-                        s += f[v].getElementsByTagName("kmr")[0].childNodes[0].nodeValue + "\n";
-                        s += f[v].getElementsByTagName("mr")[0].childNodes[0].nodeValue + "\n";
-                        s += f[v].getElementsByTagName("signal")[0].childNodes[0].nodeValue + "\n";
-                        s += f[v].getElementsByTagName("typemr")[0].childNodes[0].nodeValue + "\n";
-                        x.onreadystatechange = function() {
-                            if (this.readyState == 4 && this.status == 200)
-                                nudes();
-                        };
-                        x.send(s);
-                        v += 1;
-                    } else {
-                        x = new XMLHttpRequest();
-                        x.open("POST", "/dodo", true);
-                        x.onreadystatechange = function() {
-                            document.getElementById('map_st').innerHTML = "Загрузка успешна";
-                            delay(sm, 5000);
-                        };
-                        x.send();
-                    }
-                }
-
-                var x = new XMLHttpRequest();
-                x.open("POST", "/rerorero", true);
-                x.onreadystatechange = function() {
-                    if (this.readyState == 4 && this.status == 200)
-                        nudes();
-                };
-                x.send();
-            };
-            fr.readAsText(document.getElementById('masterfile').files[0]);
-
-        };
 
         function getDataJSON() {
             var x = new XMLHttpRequest();
@@ -172,6 +112,182 @@
             var t = setTimeout(getLogJSON, 2000);
         }
 
+        function getSMSData() {
+            var x = new XMLHttpRequest();
+            x.open('GET', '/sms.json');
+            x.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    console.log(x.responseText);
+                    obj = JSON.parse(this.responseText);
+                    document.getElementById("Sended_list").parentNode.removeChild(document.getElementById('Sended_list'));
+                    Queue_list.insertAdjacentHTML('beforebegin', '<div id="Sended_list"></div>');
+                    document.getElementById("Queue_list").parentNode.removeChild(document.getElementById('Queue_list'));
+                    Recved_list.insertAdjacentHTML('beforebegin', '<div id="Queue_list"></div>');
+                    document.getElementById("Recved_list").parentNode.removeChild(document.getElementById('Recved_list'));
+                    Deleted_list.insertAdjacentHTML('beforebegin', '<div id="Recved_list"></div>');
+                    document.getElementById("Deleted_list").parentNode.removeChild(document.getElementById('Deleted_list'));
+                    Recved_list.insertAdjacentHTML('afterend', '<div id="Deleted_list"></div>');
+                    monitor_update_item(obj);
+                    SMS_opts_choise();
+                    //document.getElementById('sended').innerHTML = obj.sended[2];
+                }
+            };
+            x.send();
+            var t = setTimeout(getSMSData, 2000);
+        }
+
+        function docReady(fn) {
+            if (document.readyState === "complete"
+                || document.readyState === "interactive") {
+                setTimeout(fn, 0);
+            } else {
+                document.addEventListener("DOMContentLoaded", fn);
+            }
+        };
+
+        //<div id="Sended_list"></div>
+        //<div id="Queue_list"></div>
+        //<div id="Recved_list"></div>
+        //<div id="Deleted_list"></div>
+
+
+        function SupRem(){
+            document.getElementById("Sended_list").parentNode.removeChild(document.getElementById('Sended_list'));
+            Queue_list.insertAdjacentHTML('beforebegin', '<div id="Sended_list"></div>');
+            document.getElementById("Queue_list").parentNode.removeChild(document.getElementById('Queue_list'));
+            Recved_list.insertAdjacentHTML('beforebegin', '<div id="Queue_list"></div>');
+            document.getElementById("Recved_list").parentNode.removeChild(document.getElementById('Recved_list'));
+            Deleted_list.insertAdjacentHTML('beforebegin', '<div id="Recved_list"></div>');
+            document.getElementById("Deleted_list").parentNode.removeChild(document.getElementById('Deleted_list'));
+            Recved_list.insertAdjacentHTML('afterend', '<div id="Deleted_list"></div>');
+            init_web();
+        }
+
+        function init_web(){
+            var x = new XMLHttpRequest();
+            x.open('GET', '/sms.json');
+            x.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    console.log(x.responseText);
+                    obj = JSON.parse(this.responseText);
+                    obj.recved[0] = "";
+                    var itm = document.getElementById("One_sms").firstElementChild;
+                    for (var i = 0; i < obj.sended.length; i++) {  //obj.sended.length
+                        var cln = itm.cloneNode(true);
+                        document.getElementById("Sended_list").appendChild(cln);
+                        cln.getElementsByClassName("text-n")[0].innerHTML = obj.sended[i];
+                        cln.getElementsByClassName("SMS-name")[0].innerHTML = "SMS[" + i + "]";
+                        //cln.className = "flex two obj" + i + " pure-control";
+                        cln.id = "Send"+i;
+                        cln.getElementsByClassName("pure-button")[0].id = "S_del_but" +i;
+                        //gelements_send[i] = cln;
+                        //monitor_update_item(gelements[i], gdata["coup"][i]);
+                    }
+                    for (var i = 0; i < obj.queue.length; i++) {  //obj.sended.length
+                        var cln = itm.cloneNode(true);
+                        document.getElementById("Queue_list").appendChild(cln);
+                        cln.getElementsByClassName("text-n")[0].innerHTML = obj.queue[i];
+                        cln.getElementsByClassName("SMS-name")[0].innerHTML = "SMS[" + i + "]";
+                        //gelements_send[i] = cln;
+                        //monitor_update_item(gelements[i], gdata["coup"][i]);
+                    }
+                    for (var i = 0; i < obj.recved.length; i++) {  //obj.recved.length
+                        var cln = itm.cloneNode(true);
+                        document.getElementById("Recved_list").appendChild(cln);
+                        cln.getElementsByClassName("text-n")[0].innerHTML = obj.recved[i];
+                        cln.getElementsByClassName("SMS-name")[0].innerHTML = "SMS[" + i + "]";
+                        //gelements_send[i] = cln;
+                        //monitor_update_item(gelements[i], gdata["coup"][i]);
+                    }
+                    for (var i = 0; i < obj.deleted.length; i++) {  //obj.sended.length
+                        var cln = itm.cloneNode(true);
+                        document.getElementById("Deleted_list").appendChild(cln);
+                        cln.getElementsByClassName("text-n")[0].innerHTML = obj.deleted[i];
+                        cln.getElementsByClassName("SMS-name")[0].innerHTML = "SMS[" + i + "]";
+                        //gelements_del[i] = cln;//monitor_update_item(gelements[i], gdata["coup"][i]);
+                    }
+                    document.getElementById('sended').innerHTML = obj.recved[0];
+                    SMS_opts_choise();
+                }
+            };
+            x.send();
+        }
+        docReady(init_web);
+
+        function SMS_opts_choise(){
+            if(document.getElementById("SMS_opts").value == "1"){
+                document.getElementById("Sended_list").hidden = false;
+                document.getElementById("Queue_list").hidden = true;
+                document.getElementById("Recved_list").hidden = true;
+                document.getElementById("Deleted_list").hidden = true;
+            }
+            if(document.getElementById("SMS_opts").value == "2"){
+                document.getElementById("Sended_list").hidden = true;
+                document.getElementById("Queue_list").hidden = false;
+                document.getElementById("Recved_list").hidden = true;
+                document.getElementById("Deleted_list").hidden = true;
+            }
+            if(document.getElementById("SMS_opts").value == "3"){
+                document.getElementById("Sended_list").hidden = true;
+                document.getElementById("Queue_list").hidden = true;
+                document.getElementById("Recved_list").hidden = false;
+                document.getElementById("Deleted_list").hidden = true;
+            }
+            if(document.getElementById("SMS_opts").value == "4"){
+                document.getElementById("Sended_list").hidden = true;
+                document.getElementById("Queue_list").hidden = true;
+                document.getElementById("Recved_list").hidden = true;
+                document.getElementById("Deleted_list").hidden = false;
+            }
+        }
+
+        function monitor_update_item(obj) {
+            var itm = document.getElementById("One_sms").firstElementChild;
+            for (var i = 0; i < obj.sended.length; i++) {  //obj.sended.length
+                var cln = itm.cloneNode(true);
+                document.getElementById("Sended_list").appendChild(cln);
+                cln.getElementsByClassName("text-n")[0].innerHTML = obj.sended[i];
+                cln.getElementsByClassName("SMS-name")[0].innerHTML = "SMS[" + i + "]";
+                //cln.className = "flex two obj" + i + " pure-control";
+                cln.id = "Send"+i;
+                cln.getElementsByClassName("pure-button")[0].id = "S_del_but " +i;
+                //gelements_send[i] = cln;
+                //monitor_update_item(gelements[i], gdata["coup"][i]);
+            }
+            for (var i = 0; i < obj.queue.length; i++) {  //obj.sended.length
+                var cln = itm.cloneNode(true);
+                document.getElementById("Queue_list").appendChild(cln);
+                cln.getElementsByClassName("text-n")[0].innerHTML = obj.queue[i];
+                cln.getElementsByClassName("SMS-name")[0].innerHTML = "SMS[" + i + "]";
+                cln.id = "Queue"+i;
+                cln.getElementsByClassName("pure-button")[0].id = "Q_del_but " +i;
+                //gelements_send[i] = cln;
+                //monitor_update_item(gelements[i], gdata["coup"][i]);
+            }
+            for (var i = 0; i < obj.recved.length; i++) {  //obj.sended.length
+                var cln = itm.cloneNode(true);
+                document.getElementById("Recved_list").appendChild(cln);
+                cln.getElementsByClassName("text-n")[0].innerHTML = obj.recved[i];
+                cln.getElementsByClassName("SMS-name")[0].innerHTML = "SMS[" + i + "]";
+                cln.id = "Recv"+i;
+                cln.getElementsByClassName("pure-button")[0].id = "R_del_but " +i;
+                //gelements_send[i] = cln;
+                //monitor_update_item(gelements[i], gdata["coup"][i]);
+            }
+            for (var i = 0; i < obj.deleted.length; i++) {  //obj.sended.length
+                var cln = itm.cloneNode(true);
+                document.getElementById("Deleted_list").appendChild(cln);
+                cln.getElementsByClassName("text-n")[0].innerHTML = obj.deleted[i];
+                cln.getElementsByClassName("SMS-name")[0].innerHTML = "SMS[" + i + "]";
+                cln.id = "Del"+i;
+                cln.getElementsByClassName("pure-button")[0].id = "D_del_but " +i;
+                cln.getElementsByClassName("pure-button")[0].innerHTML = "Удалить навсегда";
+
+                //gelements_del[i] = cln;//monitor_update_item(gelements[i], gdata["coup"][i]);
+            }
+        }
+
+
         function checkTime(i) {
             if (i < 10) {
                 i = "0" + i
@@ -205,10 +321,86 @@
             nesne.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
             nesne.send("SMS_send\n" + phone_num + " " + SMS_text);
         }
+        function del_sms(id) {
+            nesne.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) { }
+            };
+            //window.location.reload(true);
+            nesne.open("post", "", true);
+            nesne.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+            nesne.send("del_sms\n" + id);
+
+            var x = new XMLHttpRequest();
+            x.open('GET', '/sms.json');
+            x.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    console.log(x.responseText);
+                    obj = JSON.parse(this.responseText);
+                    document.getElementById("Sended_list").parentNode.removeChild(document.getElementById('Sended_list'));
+                    Queue_list.insertAdjacentHTML('beforebegin', '<div id="Sended_list"></div>');
+                    document.getElementById("Queue_list").parentNode.removeChild(document.getElementById('Queue_list'));
+                    Recved_list.insertAdjacentHTML('beforebegin', '<div id="Queue_list"></div>');
+                    document.getElementById("Recved_list").parentNode.removeChild(document.getElementById('Recved_list'));
+                    Deleted_list.insertAdjacentHTML('beforebegin', '<div id="Recved_list"></div>');
+                    document.getElementById("Deleted_list").parentNode.removeChild(document.getElementById('Deleted_list'));
+                    Recved_list.insertAdjacentHTML('afterend', '<div id="Deleted_list"></div>');
+                    monitor_update_item(obj);
+                    SMS_opts_choise();
+                    //document.getElementById('sended').innerHTML = obj.sended[2];
+                }
+            };
+            x.send();
+
+
+
+
+            //getSMSData();
+        }
+        function save_netstat() {
+            var gps_time = document.getElementById("myRange").value;
+            var inet = document.getElementById("inet").value;
+            var netmask = document.getElementById("netmask").value;
+            nesne.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                }
+            };
+            let www = "http://" + inet
+            window.location = www;
+            //window.location.reload(true);
+            nesne.open("post", "", true);
+            nesne.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+            nesne.send("save_netstat\n" + inet + " " + netmask + " " + gps_time);
+        }
+
+        function Start_Init() {
+        sliderRef();
+        var SMS_Text = document.getElementById('SMS_text');
+        SMS_Text.addEventListener( 'keypress', checkSMS, false );
+        var PhoneNum = document.getElementById('phone_num');
+        PhoneNum.addEventListener( 'keypress', checkPhone, false );
+        }
+
+        function checkSMS(evt) {
+            var charCode = evt.charCode;
+            if (charCode != 0) {
+                if (!((charCode >= 97 && charCode <= 122)||(charCode >= 32 && charCode <= 90)||(charCode == 95))) {
+                    evt.preventDefault();
+                }
+            }
+        }
+        function checkPhone(evt) {
+            var charCode = evt.charCode;
+            if (charCode != 0) {
+                if (!((charCode >= 48 && charCode <= 57)||(charCode == 43))) {
+                    evt.preventDefault();
+                }
+            }
+        }
+
     </script>
 </head>
 
-<body onload="getDataJSON(); getLogJSON();">
+<body onload="Start_Init(); getDataJSON(); getLogJSON(); getSMSData();"> <!--getDataJSON(); getLogJSON(); getSMSData();-->
     <div class="flex center middle">
         <br>
         <h1>Добро пожаловать в панель управления!</h1>
@@ -269,7 +461,7 @@
                                         <label style="width: auto;" id="gps_cords"></label>
                                     </div>
                                     <div class="pure-control-group">
-                                        <label style="width: 11em;">Системное время:</label>
+                                        <label style="width: 11em;">Астрономическое время:</label>
                                         <label style="width: auto;" id="sys_time"></label>
                                     </div>
                                     <div class="pure-control-group">
@@ -319,30 +511,30 @@
                     <form class="pure-form pure-form-aligned">
                         <fieldset>
                             <div class="pure-control-group">
-                                <label for="masterip">Выбрать IP</label>
-                                <select id="masterip" class="pure-input-1" selected>
-                                    <option>10.7.253.1</option>
-                                    <option>10.7.253.2</option>
-                                    <option>10.7.253.3</option>
-                                    <option>10.7.253.4</option>
-                                    <option>10.7.253.5</option>
-                                    <option>10.7.253.6</option>
-                                    <option>10.7.253.7</option>
-                                    <option>10.7.253.8</option>
-                                    <option>10.7.253.9</option>
-                                    <option>10.7.253.10</option>
-                                    <option>10.7.253.11</option>
-                                    <option>10.7.253.12</option>
-                                    <option>10.7.253.13</option>
-                                    <option>10.7.253.14</option>
-                                    <option>10.7.253.15</option>
+                                <label for="inet">Выбрать IP</label>
+                                <select id="inet" class="pure-input-1" selected>
+                                    <option>10.7.254.1</option>
+                                    <option>10.7.254.2</option>
+                                    <option>10.7.254.5</option>
+                                    <option>10.7.254.4</option>
+                                    <option>10.7.254.3</option>
+                                    <option>10.7.254.6</option>
+                                    <option>10.7.254.7</option>
+                                    <option>10.7.254.8</option>
+                                    <option>10.7.254.9</option>
+                                    <option>10.7.254.10</option>
+                                    <option>10.7.254.23</option>
+                                    <option>10.7.254.24</option>
+                                    <option>10.7.254.40</option>
+                                    <option>10.7.254.45</option>
+                                    <option>10.7.254.47</option>
                                 </select>
                                 <span class="pure-form-message-inline">Адрес со стороны КУД</span>
                             </div>
 
                             <div class="pure-control-group">
                                 <label for="slaven">Маска подсети</label>
-                                <input type="text" value="255.255.255.0">
+                                <input type="text" id="netmask" value="255.255.255.0">
                             </div>
                             <br>
                             <div class="pure-control-group">
@@ -357,14 +549,14 @@
                                 <label for="slaven">Интервал связи со спутником GPS</label>
                                 <label>
                                     <div class="slidecontainer" onclick="sliderRef()" onmousemove="sliderRef()">
-                                        <input type="range" min="5" max="20" value="12" class="slider" id="myRange" placeholder="4fgdsfg">
+                                        <input type="range" min="5" max="20" value="12" class="slider" id="myRange">
                                     </div>
-                                    <span class="pure-form-message-inline" id="sliderr">x</span>
+                                    <span class="pure-form-message-inline" id="gps_time">x</span>
                                 </label>
                             </div>
 
                             <br>
-                            <div class="pure-control-group">
+                            <!-- <div class="pure-control-group">
                                 <label for="masterip">Подключенные устройства</label>
                                 <label>
                                     <table class="primary">
@@ -394,11 +586,11 @@
                                         </tbody>
                                     </table>
                                 </label>
-                            </div>
+                            </div> -->
 
                             <div class="pure-controls">
                                 <br>
-                                <button type="button" onclick="refr()" class="pure-button pure-button-primary">
+                                <button type="button" onclick="save_netstat()" class="pure-button pure-button-primary">
                                     Сохранить</button>
                             </div>
                         </fieldset>
@@ -454,33 +646,33 @@
                         <fieldset>
                             <div class="pure-control-group">
                                 <label for="slaven">Лог событий:</label>
-                                <textarea placeholder="Textarea" style="resize:vertical; width : 420px; max-height: 400px; min-height: 70px" id="log"></textarea>
+                                <textarea placeholder="Textarea" style="resize:vertical; width : 420px; height : 200px; max-height: 400px; min-height: 70px" id="log" pattern="![^a-zA-Z0-9]"></textarea>
                             </div>
                             <div class="pure-control-group">
                                 <label for="slaven">Принятые SMS:</label>
-                                <textarea placeholder="Textarea" style="resize:vertical; width : 420px; max-height: 200px; min-height: 70px" id = "sms_r"></textarea>
-                            </div>
-                            <div class="pure-controls">
-                                <button type="button" onclick="sm()" class="pure-button pure-button-primary">Тест SMS</button>
+                                <textarea placeholder="Textarea" style="resize:vertical; width : 420px; max-height: 200px; min-height: 70px" id = "sended"></textarea>
                             </div>
                             <div class="pure-controls">
                                 <label for="modal_1" class="button">Отправить SMS</label>
                                 <div class="modal">
                                     <input id="modal_1" type="checkbox" />
                                     <label for="modal_1" class="overlay"></label>
-                                    <article>
+                                    <article style="resize:none; width : 450px;">
                                         <header>
                                             <h3>Отправка SMS</h3>
                                             <label for="modal_1" class="close">&times;</label>
                                         </header>
                                         <section class="content">
                                             <div class="pure-control-group">
-                                                <label for="phone_num">Номер:</label>
-                                                <input id="phone_num" type="text" placeholder="+79101234567">
+                                                <label for="phone_num">Номер:</label><br>
+                                                <input id="phone_num" type="text" placeholder="+79101234567" maxlength="12">
                                             </div>
                                             <div class="pure-control-group">
-                                                <label for="slaven">Текст SMS:</label>
-                                                <textarea placeholder="Textarea" style="resize:vertical; width : 420px; max-height: 100px; min-height: 70px " id="SMS_text"></textarea>
+                                                <label for="slaven">Текст SMS:</label><br>
+                                                <textarea placeholder="Textarea" style="resize:none; width : 420px; max-height: 110px; min-height: 110px " id="SMS_text" maxlength="140" onkeydown="sms_length_update()"></textarea>
+                                                <br>
+                                                <p class="pure-form-message-inline" id = "sms_length" style="float: right;">0/140</p>
+                                                <br>
                                             </div>
                                         </section>
                                         <footer>
@@ -492,14 +684,14 @@
                                     </article>
                                 </div>
                             </div>
-
-
-
                             <div class="pure-controls">
-                                <button type="button" onclick="sm()" class="pure-button pure-button-primary">Сбросить ВСЕ настройки</button>
+                                <button type="button" onclick="" class="pure-button pure-button-primary" disabled="Недоступно">Сбросить ВСЕ настройки</button>
                             </div>
                             <div class="pure-controls">
-                                <button type="button" onclick="sm()" class="pure-button pure-button-primary">Перезагрузка</button>
+                                <button type="button" onclick="" class="pure-button pure-button-primary">Сброс промежуточного пробега</button>
+                            </div>
+                            <div class="pure-controls">
+                                <button type="button" onclick="" class="pure-button pure-button-primary">Перезагрузка</button>
                             </div>
                             <div class="pure-controls">
                                 <button type="button" onclick="logout()" class="pure-button pure-button-primary">Выйти из профиля</button>
@@ -513,16 +705,43 @@
                     <form class="pure-form pure-form-aligned">
                         <fieldset>
                             <div class="pure-control-group">
-                                <label for="slaven">Тип сообщения</label>
-                                <select id="slaven" class="pure-input-1" onChange="lol()" selected>
-                                    <option>Отправленные</option>
-                                    <option>Исходящие</option>
-                                    <option>Входящие</option>
-                                    <option>Удаленные</option>
+                                <label for="SMS_opts">Тип сообщения</label>
+                                <select id="SMS_opts" class="pure-input-1" onChange="SMS_opts_choise()" selected>
+                                    <option value="1">Отправленные</option>
+                                    <option value="2">Исходящие</option>
+                                    <option value="3">Входящие</option>
+                                    <option value="4">Удаленные</option>
                                 </select>
                             </div>
+                            <br>
+                            <div id="One_sms" style="visibility:collapse; display:none;"> <!--visibility:collapse;display:none;-->
+                                <!-- monitor coup template -->
+                                <div class="flex two pure-control" id = "list_elem">
+                                    <div class="flex one" style="width : 200px;">
+                                        <div style="padding-left: .6em; width : 100px; height : 20px;"><h4 class="SMS-name" align="center">SMS 1</h4></div>
+                                        <div style="padding-left: .6em; width : 100px; height : 60px;" align="center">
+                                            <img class="i-sec-ok" style="width : 55px;" src="data:image/png;base64,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"/>
 
-                            <div class="pure-control-group">
+                                        </div>
+                                    </div>
+                                    <div class="flex one ">
+                                        <div><h4><label style="width: auto; font-weight: normal;" class="text-n">+79101234567 Тут текст длинного предлинного смс сообщения</label></h4></div>
+                                        <div class="b-del   slim"><button type="button" onclick="del_sms(this.id)" class="pure-button pure-button-primary">Удалить</button></div>
+                                    </div>
+                                </div>
+                            </div> <!-- monitor coup template -->
+
+
+
+
+                            <div id="Sended_list"></div>
+                            <div id="Queue_list"></div>
+                            <div id="Recved_list"></div>
+                            <div id="Deleted_list"></div>
+
+
+
+                            <!-- <div class="pure-control-group">
                                 <label for="slaveip">IP адрес</label>
                                 <input id="slaveip" type="text" placeholder="xxx.xxx.xxx.xxx" readonly>
                                 <span class="pure-form-message-inline">Адрес со стороны сети МСУЕВ</span>
@@ -530,7 +749,7 @@
 
                             <div class="pure-controls">
                                 <button type="button" onclick="sm()" class="pure-button pure-button-primary">Установить конфигурацию</button>
-                            </div>
+                            </div> -->
                         </fieldset>
                     </form>
                 </div> <!-- tab slave -->
@@ -542,3 +761,4 @@
 </body>
 
 </html>
+
