@@ -902,15 +902,11 @@ app_init(options_t *opts)
             //exit(EXIT_FAILURE);
         }
     }
-<<<<<<< HEAD
 #endif
 
     nwy_gpio_set_dir(NWY_GPIO_78, NWY_OUTPUT);
     nwy_gpio_set_val(NWY_GPIO_78, NWY_HIGH);
     
-=======
-
->>>>>>> 6bf76d0b70116e7aa6e9abf08ab3545b3c46f076
     return 0;
 }
 
