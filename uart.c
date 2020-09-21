@@ -59,7 +59,7 @@ static int
 process_command(options_t *opts, char *buffer) {
     static int turn = 1;
     int reset_mileage = 0;
-    int res;
+    int res, len;
     unsigned char crc;
     char *reply, *status;
 
@@ -80,15 +80,19 @@ process_command(options_t *opts, char *buffer) {
     }
     else
     if(0 == strncasecmp("AT", buffer, 2)) {
-        int len = strlen(buffer);
+        len = strlen(buffer);
         reply = NULL;
         status = NULL;
+           
         printf("Sending %d bytes \"%s\" to modem\n", len, buffer);
         res = nwy_at_send_cmd(buffer, &reply, &status);
-        printf("Reply \"%s\" Status \"%s\" res=%d\n", reply, status, res);
+        printf("Reply from modem \"%s\" Status \"%s\" res=%d\n", (NULL==reply)? "": reply, status, res);
         
-        _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "%s\r\n", NULL==reply? status: reply);
+        _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "%s\r\n", (NULL==reply)? status: reply);
         pthread_cond_signal(&msg_ready);
+
+        free(reply);
+        free(status);
     }
 
     return 0;
@@ -105,6 +109,7 @@ uart_read_thread_main(void *arg)
     char buffer[MAX_MESSAGE_LENGTH+1];
     char *crlf;
     int maxfd = MAX(opts->uart_fd, opts->modem_fd);
+    struct timeval tm;
 
     printf("UART_READ thread start\n");
 
@@ -114,12 +119,20 @@ uart_read_thread_main(void *arg)
         FD_SET(opts->uart_fd, &rfds);
         FD_SET(opts->modem_fd, &rfds);
 
-        res = select(maxfd+1, &rfds, NULL, NULL, NULL); // blocking read
+        tm.tv_sec = 3;
+        tm.tv_usec = 0;
+
+        res = select(maxfd+1, &rfds, NULL, NULL, &tm); // blocking read
         if(-1 == res) {
             if(EINTR == errno)
                 continue;
             perror("UART_READ select() failed");
             break;
+        }
+
+        if(0 == res) {
+            printf(".\n");
+            continue;
         }
 
         if(FD_ISSET(opts->uart_fd, &rfds)) {
@@ -128,7 +141,7 @@ uart_read_thread_main(void *arg)
                 if(len > 0) {
                     bufsize += len;
                     crlf = strchr(buffer, '\r');
-                    if(NULL != crlf) {
+                    if(NULL != crlf && '\n' == crlf[1]) {
                         cmdsize = (crlf+1) - buffer;
                         *crlf = '\0';
                         printf("IN: \"%s\"\n", buffer);
@@ -152,6 +165,7 @@ uart_write_thread_main(void *arg)
 //    struct timeval tm;
 
     printf("UART_WRITE thread start\n");
+    
     for(;;) {
         pthread_cond_wait(&msg_ready, &msg_interlock);
 
@@ -165,7 +179,8 @@ uart_write_thread_main(void *arg)
             perror("select() failed");
             break;
         } else {
-            if(FD_ISSET(opts->uart_fd, &wfds)) {
+            if(FD_ISSET(opts->uart_fd, &wfds) && _sendbuflen > 0) {
+                _sendbuf[_sendbuflen] = 0;
                 printf("OUT: \"%s\"", _sendbuf);
                 nwy_uart_write(opts->uart_fd, (const unsigned char *)_sendbuf, _sendbuflen);
                 pthread_cond_signal(&msg_sent);

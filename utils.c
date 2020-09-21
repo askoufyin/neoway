@@ -66,7 +66,7 @@ options_init(options_t *o)
 
     pthread_mutex_init(&o->mutex, NULL);
 
-    /*--web interface--*/
+    /*--web interface--*/   
     //o->rssi[10] = strdup(NULL);
     memset(o->rssi, 0, sizeof(o->rssi));
     memset(o->threed_fix, 0, sizeof(o->threed_fix));

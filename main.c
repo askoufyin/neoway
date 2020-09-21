@@ -319,8 +319,13 @@ broadcast(options_t *opts)
 {
     int len, res;
     char buf[512];
+    time_t tm = time(NULL);
+    char strtime[64];
 
-    printf("Broadcasting announce\n");
+    strftime(strtime, sizeof(strtime), "%d-%m-%Y %H:%M:%S", localtime(&tm));
+
+    //printf("\0x1B[33mBroadcasting announce\0x1B[37m\n");
+    printf("%s Broadcasting announce\n", strtime);
 
     len = snprintf(buf, sizeof(buf),
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
@@ -2128,11 +2133,13 @@ static void* try_send_sms_from_queue(void *web_opts){
                 }
             }
             sleep(3);
+#if 0            
             printf("-----------------------------------\n");
             printf("-----------------------------------\n");
             printf("TRY TO SEND IS WORK\n");
             printf("-----------------------------------\n");
             printf("-----------------------------------\n");
+#endif
         }
 }
 

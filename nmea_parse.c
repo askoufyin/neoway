@@ -162,17 +162,36 @@ _parse_gll(nmea_msg_t *out, char *fields[], int count)
 {
     (void)count;
 
+    out->gll.valid = 'A' == fields[6][0]? 1: 0;
     out->gll.latitude = atof(fields[1]);
     out->gll.lat_flag = fields[2][0];
     out->gll.longitude = atof(fields[3]);
     out->gll.long_flag = fields[4][0];
-    out->gll.valid = ('A' == fields[6][0]);
 
     return NMEA_ERR_OK;
 }
 
 
-nmea_err_t
+static nmea_err_t
+_parse_rmc(nmea_msg_t *out, char *fields[], int count)
+{
+    (void)count;
+
+    out->rmc.valid = fields[1][0] == 'A'? 1: 0;
+    out->rmc.latitude = atof(fields[2]);
+    out->rmc.lat_flag = fields[3][0];
+    out->rmc.longitude = atof(fields[4]);
+    out->rmc.long_flag = fields[5][0];
+    out->rmc.speed = atof(fields[6]);
+    out->rmc.course = atof(fields[7]);
+    out->rmc.variation = atof(fields[9]);
+    out->rmc.var_flag = fields[10][0];
+
+    return NMEA_ERR_OK;
+}
+
+
+nmea_err_t   
 nmea_parse(const char *msg, nmea_msg_t *out)
 {
     int i, n, len;
@@ -193,7 +212,6 @@ nmea_parse(const char *msg, nmea_msg_t *out)
 
     strcpy(buf, msg+1); // skip '$'
     buf[len-2] = '\0';  // strip CR/LF
-
 
     fields[0] = buf;
     for(i=0, n=1; buf[i] != '\0'; ++i) {
@@ -224,14 +242,15 @@ nmea_parse(const char *msg, nmea_msg_t *out)
         case NMEA_GGA:
             return _parse_gga(out, fields, n);
         case NMEA_GSA:
-            return NMEA_ERR_OK;
+            return NMEA_ERR_OK; // STUB. To Be Done
         case NMEA_RMC:
-            return NMEA_ERR_OK;
+            return _parse_rmc(out, fields, n);
         case NMEA_VTG:
-            return NMEA_ERR_OK;
+            return NMEA_ERR_OK; // STUB. TBD.
         case NMEA_GNS:
-            return NMEA_ERR_OK;
+            return NMEA_ERR_OK; // STUB. TBD.
     }
 
-    return NMEA_ERR_UNKNOWN_SENTENCE; // Something went wrong
+    // Never will happen, but nevertheless we return an error - something went wrong
+    return NMEA_ERR_UNKNOWN_SENTENCE; 
 }
