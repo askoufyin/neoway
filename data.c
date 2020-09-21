@@ -5,12 +5,10 @@
 
 #include <nwy_common.h>
 #include <nwy_data.h>
+#include <nwy_gpio.h>
 #include <nwy_error.h>
 
 
-static char _APN[] = { "217.118.87.98" };
-static char _USER_NAME[] = { "beeline" };
-static char _PASSWORD[] = { "beeline" };
 static char _POST_CONNECT[] = { "/data/post-connect.sh" };
 
 
@@ -22,7 +20,7 @@ static int handle;
 static int retry_interval = 30; // secs
 
 
-int 
+int
 data_thread_init(options_t *opts)
 {
     /* For now, there is no initialization. Reserved for future use */
@@ -33,6 +31,7 @@ data_thread_init(options_t *opts)
 static void
 data_call_state_cb(int hndl, nwy_data_call_state_t ind_state, void *ind_struct)
 {
+    options_t *opts = (options_t *)ind_struct;
     char dev_name[16];
     char cmd[PATH_MAX];
     nwy_data_addr_t_info info;
@@ -41,7 +40,7 @@ data_call_state_cb(int hndl, nwy_data_call_state_t ind_state, void *ind_struct)
 
     switch(ind_state) {
         case NWY_DATA_CALL_CONNECTED:
-            nwy_gpio_set_val(78, 1); // GSM LED on
+            nwy_gpio_set_val(NWY_GPIO_78, NWY_HIGH); // GSM LED on
 
             res = nwy_data_get_device_name(hndl, dev_name, sizeof(dev_name));
             if (NWY_RES_OK != res) {
@@ -50,7 +49,7 @@ data_call_state_cb(int hndl, nwy_data_call_state_t ind_state, void *ind_struct)
             }
 
             res = nwy_data_get_ip_addr(hndl, &info, &valid_ip_cnt);
-            if(info.iface_addr_s.valid_addr == 0){
+            if(0 == info.iface_addr_s.valid_addr){
                 printf("Get IP address failed. Error=%d\n", res);
                 return;
             } //
@@ -66,9 +65,9 @@ data_call_state_cb(int hndl, nwy_data_call_state_t ind_state, void *ind_struct)
             sprintf(cmd, "%s %s %s %s %s %s", _POST_CONNECT, dev_name, ip_str, gw_str, pdns, sdns);
             system(cmd);
             break;
-        
+
         case NWY_DATA_CALL_DISCONNECTED:
-            nwy_gpio_set_val(78, 0); // GSM LED off
+            nwy_gpio_set_val(NWY_GPIO_78, NWY_LOW); // GSM LED off
 
             printf("Disonnected. Retry in %d secs.\n", retry_interval);
             sleep(retry_interval);
@@ -80,7 +79,7 @@ data_call_state_cb(int hndl, nwy_data_call_state_t ind_state, void *ind_struct)
                 return;
             }
             break;
-        
+
         case NWY_DATA_CALL_INVALID:
             break;
     }
@@ -95,28 +94,28 @@ establish_data_connection(options_t *opts)
     char apn_ip[20];
     int res;
 
-    
+
     printf("GPRS: Init\n");
 
     /* Resolve APN name */
-    hent = gethostbyname(_APN);
+    hent = gethostbyname(opts->gprs_apn);
     if(NULL == hent) {
-        printf("Cannot resolve host name %s\n", _APN);
+        printf("Cannot resolve host name %s\n", opts->gprs_apn);
         return;
     }
 
     inet_ntop(AF_INET, hent->h_addr_list[0], apn_ip, sizeof(apn_ip));
-    printf("%s is %s\n", _APN, apn_ip);
+    printf("%s is %s\n", opts->gprs_apn, apn_ip);
 
     handle = nwy_data_get_srv_handle(data_call_state_cb);
 
     /* Setup profile */
-    
+
     info.pdp_type = NWY_DATA_PDP_TYPE_IPV4;         // PPP dial or IPV4
     strcpy(info.apn, apn_ip);                       // Access point name
     info.auth_proto = NWY_DATA_AUTH_PROTO_PAP_CHAP; // Authorization protocol
-    strcpy(info.user_name, _USER_NAME);
-    strcpy(info.pwd, _PASSWORD);
+    strcpy(info.user_name, opts->gprs_user);
+    strcpy(info.pwd, opts->gprs_password);
 
     res = nwy_data_set_profile(1, NWY_DATA_PROFILE_3GPP, &info); // 3GPP=UMTS, 3GPP2=CDMA
     if(res < 0) {

@@ -1,9 +1,6 @@
 #ifndef NMEA_H
 #define NMEA_H
 
-#include <stdint.h>
-
-
 // Stultōrum infinītus est numerus
 
 /* We parse only limited set of NMEA messages and ignore others
@@ -64,6 +61,19 @@ struct nmea_gsv {
 };
 
 
+struct nmea_rmc {
+    char valid;                 // 1 if message have 'A' in validity field, 0 otherwise
+    float latitude;             // Lattitude, degrees
+    char lat_flag;              // N = north, S = south
+    float longitude;            // Longitude, degrees
+    char long_flag;             // E = east, W = west
+    float speed;                // Speed, knots
+    float course;               // Course, degrees
+    float variation;            // Magnetic variation, degrees
+    char var_flag;              // E or W (E = east, W = west)
+};
+
+
 typedef enum {
     NMEA_FIX_UNAVAILABLE = 0,   // Fix not available
     NMEA_FIX_GPS = 1,           // GPS fix
@@ -86,7 +96,7 @@ struct nmea_gga {
     char long_flag;             // [E]ast or [W]est
     nmea_fix_type_t fix_type;   // Fix type
     unsigned char sat_count;    // Number of satellites in use
-    u_int32_t dilution;         // Horizontal dilution (meters)
+    unsigned int dilution;      // Horizontal dilution (meters)
     float altitude;             // Antenna altitude above sea level (meters)
     float g_separation;         // Geoidal separation (meters)
 };
@@ -99,7 +109,7 @@ typedef enum {
     NMEA_GSA,
     NMEA_GGA,                   // Global Positioning System Fix Data
     NMEA_GNS,
-    NMEA_RMC,
+    NMEA_RMC,                   // Recommended minimum specific GPS/Transit data
     NMEA_VTG
 }
 nmea_sentence_t;
@@ -112,6 +122,7 @@ typedef struct _nmea_msg {
         struct nmea_gll gll;
         struct nmea_gsv gsv;
         struct nmea_gga gga;
+        struct nmea_rmc rmc;
     };
 } nmea_msg_t;
 
