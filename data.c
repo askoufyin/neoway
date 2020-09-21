@@ -41,6 +41,8 @@ data_call_state_cb(int hndl, nwy_data_call_state_t ind_state, void *ind_struct)
 
     switch(ind_state) {
         case NWY_DATA_CALL_CONNECTED:
+            nwy_gpio_set_val(78, 1); // GSM LED on
+
             res = nwy_data_get_device_name(hndl, dev_name, sizeof(dev_name));
             if (NWY_RES_OK != res) {
                 printf("Get device name failed. Error=%d\n", res);
@@ -66,6 +68,8 @@ data_call_state_cb(int hndl, nwy_data_call_state_t ind_state, void *ind_struct)
             break;
         
         case NWY_DATA_CALL_DISCONNECTED:
+            nwy_gpio_set_val(78, 0); // GSM LED off
+
             printf("Disonnected. Retry in %d secs.\n", retry_interval);
             sleep(retry_interval);
 

@@ -61,9 +61,9 @@ typedef struct _options {
     char *kud_address;              // IP address of the KUD device
     char uuid[32];                  // Unique ID of the device for the UPVS protocol. Generated based on the device MAC address
     char r_uuid[32];                // UUID:service ID pair, received from the UPVS master
-    uint32_t baud_rate;             // UART baud rate
     char *uart_tty;                 // Name of the UART TTY device
-    uint32_t modem_baud_rate;       // Modem baud rate
+    int uart_baud_rate;             // UART baud rate
+    int modem_baud_rate;            // Modem baud rate
     char *modem_tty;                // Name of the modem TTY device
     int go_daemon;                  // 0 = Run in foreground, any other value - become a daemon on startup
     int udp_broadcast;
@@ -75,7 +75,7 @@ typedef struct _options {
     int gps_enabled;
     /* GPRS */
     int gprs_enabled;
-    char *gprs_apn;
+    char *gprs_apn;                 // Access point name
     char *gprs_user;
     char *gprs_password;
     char *gprs_post_connect;

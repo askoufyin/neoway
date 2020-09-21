@@ -19,8 +19,8 @@ modem_init(char *device, u_int32_t baudrate)
 
     printf("Init: MODEM\nOpening device %s\nBaudrate %u\n", device, baudrate);
     //fd = nwy_uart_open(device, baudrate, FC_NONE);
-
-    fd = open(device, O_RDWR);
+    //fd = open(device, O_RDWR);
+    fd = nwy_at_port_init(device);
     if(fd < 0) {
         printf("nwy_uart_open() failed\n");
     }
@@ -163,7 +163,7 @@ modem_thread_main(void *arg)
     iobuf_t inbuf, outbuf;
     stage_fn fn = stage_main;
 
-    printf("Modem thread start\n", opts->modem_tty);
+    printf("Modem thread start @ %s\n", opts->modem_tty);
 
     fd = opts->modem_fd;
 
@@ -172,12 +172,13 @@ modem_thread_main(void *arg)
 
     /* Initiate modem setup sequence
      */
-    strcpy((char *)outbuf.buf, "AT\r\n");
-    outbuf.len = 4;
+    //strcpy((char *)outbuf.buf, "AT\r\n");
+    //outbuf.len = 4;
 
     for(;;) {
         FD_ZERO(&rfds);
         FD_ZERO(&wfds);
+        
         FD_SET(fd, &rfds);
         if(outbuf.len > 0)
             FD_SET(fd, &wfds); // Do not check write access when there is no data to send
@@ -187,12 +188,14 @@ modem_thread_main(void *arg)
             if(EINTR == errno)
                 continue;
             break;
+        } else {
+            printf("Got %d bytes from UART\n", res);
         }
 
         if(FD_ISSET(fd, &rfds)) {
             /* Read answer */
-            //res = nwy_uart_read(fd, inbuf.buf+inbuf.len, UART_BUF_SIZE-inbuf.len);
-            res = read(fd, inbuf.buf+inbuf.len, UART_BUF_SIZE-inbuf.len);
+            res = nwy_uart_read(fd, inbuf.buf+inbuf.len, UART_BUF_SIZE-inbuf.len);
+            //res = read(fd, inbuf.buf+inbuf.len, UART_BUF_SIZE-inbuf.len);
             if(res > 0) {
                 inbuf.len += res;
                 inbuf.buf[inbuf.len] = 0;
@@ -204,7 +207,7 @@ modem_thread_main(void *arg)
                     printf("(%d) %s", inbuf.len, (char *)inbuf.buf);
                     hexdump(&inbuf);
                     printf("\n");
-                    fn = check_answer(opts, &inbuf, &outbuf, fn);
+                    //fn = check_answer(opts, &inbuf, &outbuf, fn);
                     if(NULL == fn)
                         break; // Something went wrong!
                     inbuf.len = 0;

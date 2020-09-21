@@ -44,8 +44,7 @@ static char _helpstr[] =
 void
 options_init(options_t *o)
 {
-
-    o->baud_rate = DEFAULT_UART_BAUD_RATE;
+    o->uart_baud_rate = DEFAULT_UART_BAUD_RATE;
     o->modem_baud_rate = DEFAULT_MODEM_BAUD_RATE;
     o->pid_file = strdup(PID_FILE);
     o->kud_address = strdup(GATEWAY_ADDRESS);
@@ -58,7 +57,12 @@ options_init(options_t *o)
     o->uart_fd = -1;
     
     o->gps_enabled = TRUE;
+
     o->gprs_enabled = TRUE;
+    o->gprs_apn = strdup("");
+    o->gprs_user = strdup("");
+    o->gprs_password = strdup("");
+    o->gprs_post_connect = strdup("post-connect.sh");
 
     pthread_mutex_init(&o->mutex, NULL);
 

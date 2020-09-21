@@ -10,21 +10,23 @@ static options_t _opts;
 
 confoption_t options[] = {
     { "uart_tty",           TYPE_STRING,    &_opts.uart_tty },
-    { "baudrate",           TYPE_INT,       &_opts.baud_rate },
+    { "uart_baudrate",      TYPE_INT,       &_opts.uart_baud_rate },
     { "modem_tty",          TYPE_STRING,    &_opts.modem_tty },
     { "modem_baudrate",     TYPE_INT,       &_opts.modem_baud_rate},
     { "go_daemon",          TYPE_BOOL,      &_opts.go_daemon },
     { "enable_gps",         TYPE_BOOL,      &_opts.gps_enabled },
     { "debug_print",        TYPE_BOOL,      &_opts.debug_print },
+    /* GPS */
     { "gps_enabled",        TYPE_BOOL,      &_opts.gps_enabled },
+    /* UPVS & KUD */
     { "broadcast_address",  TYPE_IPADDR,    &_opts.udp_broadcast },
     { "upvs_port",          TYPE_INT,       NULL },
     /* GPRS */
     { "gprs_enabled",       TYPE_BOOL,      &_opts.gprs_enabled },
-    { "gprs_apn",           TYPE_STRING,    NULL },
-    { "gprs_user",          TYPE_STRING,    NULL },
-    { "gprs_password",      TYPE_STRING,    NULL },
-    { "gprs_post_connect",  TYPE_STRING,    NULL },
+    { "gprs_apn",           TYPE_STRING,    &_opts.gprs_apn },
+    { "gprs_user",          TYPE_STRING,    &_opts.gprs_user },
+    { "gprs_password",      TYPE_STRING,    &_opts.gprs_password },
+    { "gprs_post_connect",  TYPE_STRING,    &_opts.gprs_post_connect },
 };  
 
 
@@ -154,7 +156,7 @@ load_config(const char *file, /* in, out */ options_t *opts)
 
     while(!feof(fp)) {
         ++line;
-        
+
         memset(str, sizeof(str), 0);
         fgets(str, sizeof(str)-1, fp);
 

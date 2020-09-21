@@ -47,4 +47,7 @@ echo "POST-CONNECT: setting nameservers"
 echo $DNS1 > /etc/resolv.conf
 echo $DNS2 >> /etc/resolv.conf
 
+echo "POST-CONNECT: synchronizing clock"
+/sbin/ntpd -n -q -p 132.163.96.4
+
 echo "POST-CONNECT: done"
