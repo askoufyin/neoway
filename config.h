@@ -15,7 +15,7 @@
 #define UMASK                   (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH)
 #define BROADCAST_ADDRESS       "10.7.255.255"
 #define BROADCAST_PERIOD        20
-#define GATEWAY_ADDRESS         "10.7.254.23"
+#define GATEWAY_ADDRESS         "10.7.254.24"
 #define DEVICE_TYPE             "NEOWAY_"
 
 
