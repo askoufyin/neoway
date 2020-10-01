@@ -244,7 +244,7 @@ nmea_parse(const char *msg, nmea_msg_t *out)
         case NMEA_GSA:
             return NMEA_ERR_OK; // STUB. To Be Done
         case NMEA_RMC:
-            return _parse_rmc(out, fields, n);
+            return _parse_rmc(out, fields, n);   
         case NMEA_VTG:
             return NMEA_ERR_OK; // STUB. TBD.
         case NMEA_GNS:

@@ -901,13 +901,17 @@ app_init(options_t* opts)
                 opts->gprs_enabled = FALSE;
                 break;
 
-            case NWY_SIM_PIN_REQ:
-                res = nwy_sim_verify_pin(NWY_SIM_ID_SLOT_1, opts->pin);
-                if (res < 0) {
-                    printf("SIM PIN verify failed. Error code is %d\n", res);
-                    opts->gprs_enabled = FALSE;
-                };
-                break;
+                case NWY_SIM_PIN_REQ:
+                    res = nwy_sim_verify_pin(NWY_SIM_ID_SLOT_1, opts->pin);
+                    if(res < 0) {
+                        printf("SIM PIN verify failed. Error code is %d\n", res);
+                        opts->gprs_enabled = FALSE;
+                    };
+                    break;
+                
+                case NWY_SIM_READY:
+                    printf("SIM card installed and ready\n");
+                    break;
             }
         }
     }

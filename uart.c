@@ -55,6 +55,10 @@ crc8(const char *data, size_t len)
 }
 
 
+static const char _gps_prefix[] = "$MYGPSPOS: ";
+#define _gps_prefix_len sizeof(_gps_prefix)
+
+
 static int
 process_command(options_t *opts, char *buffer) {
     static int turn = 1;
@@ -72,6 +76,10 @@ process_command(options_t *opts, char *buffer) {
         return 0;
 
     if(0 == strncasecmp("INFO", buffer, 4)) {
+        pthread_mutex_lock(&opts->mutex);
+        sscanf(buffer+5, "%f,%f", &opts->total_mileage, &opts->mileage);
+        pthread_mutex_unlock(&opts->mutex);
+
         _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "$INFO,%s,%d,", NWY_SIM_READY==opts->sim_status? "V": "N", reset_mileage);
         crc = crc8(_sendbuf, _sendbuflen);
         _sendbuflen += sprintf(_sendbuf+_sendbuflen, "%02X\r\n", crc);
@@ -88,6 +96,12 @@ process_command(options_t *opts, char *buffer) {
         res = nwy_at_send_cmd(buffer, &reply, &status);
         printf("Reply from modem \"%s\" Status \"%s\" res=%d\n", (NULL==reply)? "": reply, status, res);
         
+        if(NULL != reply && 0 == strncasecmp(_gps_prefix, reply, 11)) {
+            pthread_mutex_lock(&opts->mutex);
+            nmea_parse(reply+_gps_prefix_len, &opts->last_nmea_msg);
+            pthread_mutex_unlock(&opts->mutex);
+        }
+
         _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "%s\r\n", (NULL==reply)? status: reply);
         pthread_cond_signal(&msg_ready);
 
