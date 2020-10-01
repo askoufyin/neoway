@@ -8,6 +8,8 @@
 
 #include "lib/expat.h"
 
+#include "nmea.h"
+
 
 typedef int pid_t;
 
@@ -80,6 +82,12 @@ typedef struct _options {
     char *gprs_password;
     char *gprs_post_connect;
     struct sockaddr_in baddr;
+    /* Синхронизация */
+    pthread_mutex_t mutex;
+    /* GPS-координаты */
+    nmea_msg_t last_nmea_msg;
+    float total_mileage;            // Полный пробег, км
+    float mileage;                  // Пробег с последнего сброса, км
     /* Фсякая бяка для УПВС */
     int level;                      // Nesting level of the current XML tag
     enum xml_element elem;
@@ -91,7 +99,6 @@ typedef struct _options {
     char phone_number[PHONE_NUMBER_MAX];
     char sms_text[SMS_TEXT_MAX];
     /* -- */
-    pthread_mutex_t mutex;
     int modem_fd;
     int uart_fd;
     /* -web interface- */

@@ -890,6 +890,10 @@ app_init(options_t *opts)
                         opts->gprs_enabled = FALSE;
                     };
                     break;
+                
+                case NWY_SIM_READY:
+                    printf("SIM card installed and ready\n");
+                    break;
             }
         }
     }

@@ -65,7 +65,10 @@ options_init(options_t *o)
     o->gprs_post_connect = strdup("post-connect.sh");
 
     pthread_mutex_init(&o->mutex, NULL);
-
+    o->total_mileage = 0;
+    o->mileage = 0;
+    memset(&o->last_nmea_msg, 0, sizeof(o->last_nmea_msg));
+    
     /*--web interface--*/   
     //o->rssi[10] = strdup(NULL);
     memset(o->rssi, 0, sizeof(o->rssi));
