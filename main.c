@@ -41,7 +41,7 @@
 #include "nwy_sim.h"
 
 //#include "tcp_web.h"   пока не добавлено
-//#define WEBPOSTGETINCONSOLE  //убрать если отвлекает вывод пост гет запросов в консоли
+#define WEBPOSTGETINCONSOLE  //убрать если отвлекает вывод пост гет запросов в консоли
 
 static location_rec_t _buffer[CIRCULAR_BUFFER_SIZE];
 static pthread_mutex_t _bufmtx;
@@ -1442,6 +1442,7 @@ static void* tcp_web_thread_main(void* arg)
     }*/
     nwy_sms_add_mtmessage_handler(test_sms_evt_handler, NULL);    //Добавить обработчик события получения смс
     Read_smsFrom_txt("sms_memory.txt\0", opts);
+    int count_to_save_sms = 0;
     //Работа с клиентом
     while (1)
     {
@@ -1536,6 +1537,14 @@ static void* tcp_web_thread_main(void* arg)
                 printf("Num: %s\n SMS: %s\n Len: %d\n", phone_num, sms_text, strlen(sms_text));
                 do_send_sms(phone_num, 0, strlen(sms_text), sms_text, 0, opts, 3);
             }
+            else if (!strcmp(postcomand, "SMS_save\0"))
+            {
+                send(new_tcp_socket, "HTTP/1.1 200 Ok \r\n\r\n", strlen("HTTP/1.1 200 Ok \r\n\r\n"), 0);
+                Write_smsTo_txt("sms_memory.txt\0", opts);
+                #ifdef WEBPOSTGETINCONSOLE
+                printf("SMS_saving: OK\n");
+                #endif
+            }
             else if (!strcmp(postcomand, "save_netstat\0"))
             {
                 send(new_tcp_socket, "HTTP/1.1 200 Ok \r\n\r\n", strlen("HTTP/1.1 200 Ok \r\n\r\n"), 0);
@@ -1613,7 +1622,7 @@ static void* tcp_web_thread_main(void* arg)
             switch (user_id)
             {
             case 0:
-                if (!strcmp(fileadrr, "index.html\0") || !strcmp(filetype, "ico\0") || !strcmp(filetype, "png\0") || !strcmp(fileadrr, "blocked.html\0") || !strcmp(fileadrr, "login.js\0") || !strcmp(fileadrr, "picnic.css\0"))
+                if (!strcmp(fileadrr, "index.html\0") || !strcmp(filetype, "ico\0") || !strcmp(filetype, "png\0") || !strcmp(fileadrr, "blocked.html\0") || !strcmp(fileadrr, "login.js\0") || !strcmp(fileadrr, "picnic.css\0") || !strcmp(fileadrr, "sms_memory.txt"))
                 {
                     printf("Guest Ok\n");
                 }
@@ -1713,6 +1722,12 @@ static void* tcp_web_thread_main(void* arg)
                 send(new_tcp_socket, buffer, strlen(buffer), 0);
             }
             else if (!strcmp(fileadrr, "sms.json\0")) {
+                /*count_to_save_sms++;
+                if (count_to_save_sms > 30)
+                {
+                    count_to_save_sms = 0;
+                    Write_smsTo_txt("sms_memory.txt\0", opts);
+                }*/
                 if (recv_flag == true)                             //если приходило смс, добавис его в список
                 {
                     recv_flag = false;
@@ -2426,16 +2441,17 @@ int Write_smsTo_txt(const char* file, void* web_opts) {
         }
     }
     sprintf(buff, "Sended\r\n%sRecved\r\n%sQueue\r\n%sDeleted\r\n%s\0", sended_sms, recved_sms, queue_sms, deleted_sms);
-    printf("%s", buff); //отладка
+    //printf("%s", buff); //отладка
     fp = fopen("sms_memory.txt", "wb");
     if (NULL == fp) {
-        perror("fopen()");
-        return -1;
+        //perror("fopen()");
+        printf("fd = NULL\n");
+        //return -1;
     }
     /*Тут запись в файл fwrite*/
     //sprintf(buff, "%s\0", "Sended\r\n3 +79108441072 Some sms text one\r\n3 +79108441072 Some sms text two\r\n5 +79108441072 Some sms text three\r\n3 +79108441072 Some sms text four\r\n7 +79108441072 Some sms text Five\r\nQueue\r\nRecved\r\nDeleted\r\n6 +79108441072 Some sms text six\r\n3 +79108441072 Some sms text Seven");
     fwrite(&buff, 1, sizeof(buff), fp);
-    fflush(fp);
+    //fflush(fp);
     fclose(fp);
 
     /* Copy modified data back */
@@ -2459,9 +2475,11 @@ int Read_smsFrom_txt(const char* file, void* web_opts) {
     /* Now open and parse configuration file */
     fp = fopen("sms_memory.txt", "r");
     if (NULL == fp) {
-        perror("fopen()");
-        printf("FAIL\n");
-        return -1;
+        fp = fopen("sms_memory.txt", "wb");
+        fclose(fp);
+        printf("sms_memory.txt was create\n");
+        fp = fopen("sms_memory.txt", "r");
+
     }
     line = 1;
     while (!feof(fp)) {
@@ -2538,22 +2556,22 @@ int Read_smsFrom_txt(const char* file, void* web_opts) {
                 switch (flag) {
                 case 1:
                     sprintf(opts->sended[s_p].text[opts->sended[s_p].j], buff);
-                    //printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->sended[s_p].phone[opts->sended[s_p].j], opts->sended[s_p].text[opts->sended[s_p].j]);
+                    printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->sended[s_p].phone[opts->sended[s_p].j], opts->sended[s_p].text[opts->sended[s_p].j]);
                     opts->sended[s_p].j++;
                     break;
                 case 2:
                     sprintf(opts->queue[s_p].text[opts->queue[s_p].j], buff);
-                    //printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->queue[s_p].phone[opts->queue[s_p].j], opts->queue[s_p].text[opts->queue[s_p].j]);
+                    printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->queue[s_p].phone[opts->queue[s_p].j], opts->queue[s_p].text[opts->queue[s_p].j]);
                     opts->queue[s_p].j++;
                     break;
                 case 3:
                     sprintf(opts->recved[s_p].text[opts->recved[s_p].j], buff);
-                    //printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->recved[s_p].phone[opts->recved[s_p].j], opts->recved[s_p].text[opts->recved[s_p].j]);
+                    printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->recved[s_p].phone[opts->recved[s_p].j], opts->recved[s_p].text[opts->recved[s_p].j]);
                     opts->recved[s_p].j++;
                     break;
                 case 4:
                     sprintf(opts->deleted[s_p].text[opts->deleted[s_p].j], buff);
-                    //printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->deleted[s_p].phone[opts->deleted[s_p].j], opts->deleted[s_p].text[opts->deleted[s_p].j]);
+                    printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->deleted[s_p].phone[opts->deleted[s_p].j], opts->deleted[s_p].text[opts->deleted[s_p].j]);
                     opts->deleted[s_p].j++;
                     break;
                 }
@@ -2652,3 +2670,4 @@ main(int argc, char* argv[])
     options_cleanup(&opts);
     return EXIT_SUCCESS;
 }
+
