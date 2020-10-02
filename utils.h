@@ -21,6 +21,8 @@ typedef int pid_t;
 #define SMS_TEXT_MAX            512 // Bytes, not chars!
 #define MAX_MESSAGE_LENGTH      8192
 
+#define MAX_PATH_LENGTH 256
+
 
 enum xml_element {
     XML_NONE = 0,
@@ -102,6 +104,7 @@ typedef struct _options {
     int modem_fd;
     int uart_fd;
     /* -web interface- */
+    char *web_dir_i_path;
     char rssi[5];
     char rsrq[10];        //unused
     char snr[10];         //unused
