@@ -329,7 +329,7 @@ broadcast(options_t* opts)
     strftime(strtime, sizeof(strtime), "%d-%m-%Y %H:%M:%S", localtime(&tm));
 
     //printf("\0x1B[33mBroadcasting announce\0x1B[37m\n");
-    printf("%s Broadcasting announce\n", strtime);
+    printf("%s ----------- Broadcasting announce --------------\n", strtime);
 
     len = snprintf(buf, sizeof(buf),
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
@@ -427,6 +427,7 @@ enum {
     XML_SMS,
     XML_ROUTER,
     XML_QUERY_STATE_VARIABLE,
+    XML_INFO2,
     //
     XML_MAX
 };
@@ -442,6 +443,7 @@ read_xmls()
     xmls[XML_SMS] = get_file_contents("/data/xml/sms.xml");
     xmls[XML_ROUTER] = get_file_contents("/data/xml/routing.xml");
     xmls[XML_QUERY_STATE_VARIABLE] = get_file_contents("/data/xml/queryvariable.xml");
+    xmls[XML_INFO2] = get_file_contents("/data/xml/info2.xml");
 }
 
 
@@ -482,6 +484,9 @@ process_get(options_t* opts)
         }
         else if (0 == strcasecmp(p, "ROUTING")) {
             _sendbuflen = sprintf(_sendbuf, xmls[XML_ROUTER], opts->r_uuid);
+        }
+        else if (0 == strcasecmp(p, "INFO")) {
+            _sendbuflen = sprintf(_sendbuf, xmls[XML_INFO2], opts->r_uuid);
         }
     }
 }
