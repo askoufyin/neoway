@@ -27,7 +27,9 @@ confoption_t options[] = {
     { "gprs_user",          TYPE_STRING,    &_opts.gprs_user },
     { "gprs_password",      TYPE_STRING,    &_opts.gprs_password },
     { "gprs_post_connect",  TYPE_STRING,    &_opts.gprs_post_connect },
-};  
+    /*WEB*/
+    { "web_path",           TYPE_STRING,    &_opts.web_dir_i_path },
+};
 
 
 static int
@@ -56,13 +58,13 @@ process_config_line(char *line, int lineno)
     int i, arg;
     float farg;
 
-    /* Search for the end of the keyword. Keyword separated from value by spaces or tabs 
+    /* Search for the end of the keyword. Keyword separated from value by spaces or tabs
      */
     for(s=line; !isblank(*s); ++s);
-    
+
     *s++ = '\0';
 
-    /* Skip blanks and advance to the beginning of the value 
+    /* Skip blanks and advance to the beginning of the value
      */
     while('='==*s || isblank(*s)) {
         s++;
@@ -112,7 +114,7 @@ process_config_line(char *line, int lineno)
 
                 case TYPE_FLOAT:
                     farg = strtof(s, &ptr);
-                    
+
                     if('\0' != *ptr) {
                         printf("Config: Parameter %s on line %d: Malformed float value '%s'\n", line, lineno, s);
                     } else {
@@ -121,13 +123,13 @@ process_config_line(char *line, int lineno)
                     break;
 
                 default: // Redundant, but code standard requires that default case always be present
-                    break; 
+                    break;
             }
             break; // for
         }
     }
 
-    /* Unknown keywords are silently ignored 
+    /* Unknown keywords are silently ignored
      */
 }
 
@@ -163,7 +165,7 @@ load_config(const char *file, /* in, out */ options_t *opts)
         /* Search for comment and cut it off */
         s = strchr(str, '#');
         if(NULL != s) {
-            *s = '\0'; 
+            *s = '\0';
         }
 
         if(0 == strlen(str)) {

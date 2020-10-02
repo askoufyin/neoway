@@ -908,7 +908,7 @@ app_init(options_t* opts)
                         opts->gprs_enabled = FALSE;
                     };
                     break;
-                
+
                 case NWY_SIM_READY:
                     printf("SIM card installed and ready\n");
                     break;
@@ -1399,6 +1399,7 @@ static void at_free(char** p)
 static void* tcp_web_thread_main(void* arg)
 {
     options_t* opts = (options_t*)arg;
+    printf("WEB DIR: %s\n",opts->web_dir_i_path);
     char* at_com = malloc(sizeof(char) * 100);
     int i = 0;
     int j = 0;
@@ -1938,7 +1939,8 @@ static void* tcp_web_thread_main(void* arg)
                 #endif
             }
             else {
-                //sprintf(fileadrr, "/data/www/Server/", fileadrr);
+                sprintf(fileadrr, "%s/%s", opts->web_dir_i_path, fileadrr);
+                printf("Fopen: %s\n", fileadrr);
                 sFile = fopen(fileadrr, "r");
                 if (sFile == NULL) {
                     printf("File open: Error\n");
@@ -2674,4 +2676,3 @@ main(int argc, char* argv[])
     options_cleanup(&opts);
     return EXIT_SUCCESS;
 }
-

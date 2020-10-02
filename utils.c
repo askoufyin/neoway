@@ -55,7 +55,7 @@ options_init(options_t *o)
     o->broadcast_period = BROADCAST_PERIOD;
     o->modem_fd = -1;
     o->uart_fd = -1;
-    
+
     o->gps_enabled = TRUE;
 
     o->gprs_enabled = TRUE;
@@ -68,8 +68,8 @@ options_init(options_t *o)
     o->total_mileage = 0;
     o->mileage = 0;
     memset(&o->last_nmea_msg, 0, sizeof(o->last_nmea_msg));
-    
-    /*--web interface--*/   
+
+    /*--web interface--*/
     //o->rssi[10] = strdup(NULL);
     memset(o->rssi, 0, sizeof(o->rssi));
     memset(o->threed_fix, 0, sizeof(o->threed_fix));
@@ -84,6 +84,7 @@ options_init(options_t *o)
     memset(o->power_type, 0, sizeof(o->power_type));
     memset(o->last_mileage, 0, sizeof(o->last_mileage));
     memset(o->carrige_mileage, 0, sizeof(o->carrige_mileage));
+    memset(&o->web_dir_i_path, 0, sizeof(o->web_dir_i_path));
 }
 
 
@@ -250,4 +251,3 @@ get_UUID(unsigned char *uuid)
     close(sock);
     return (it == end)? -4: 0;
 }
-
