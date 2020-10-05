@@ -250,7 +250,7 @@
                 cln.getElementsByClassName("SMS-name")[0].innerHTML = "SMS[" + i + "]";
                 //cln.className = "flex two obj" + i + " pure-control";
                 cln.id = "Send"+i;
-                cln.getElementsByClassName("pure-button")[0].id = "S_del_but " +i;
+
                 //gelements_send[i] = cln;
                 //monitor_update_item(gelements[i], gdata["coup"][i]);
             }
@@ -260,7 +260,7 @@
                 cln.getElementsByClassName("text-n")[0].innerHTML = obj.queue[i];
                 cln.getElementsByClassName("SMS-name")[0].innerHTML = "SMS[" + i + "]";
                 cln.id = "Queue"+i;
-                cln.getElementsByClassName("pure-button")[0].id = "Q_del_but " +i;
+
                 //gelements_send[i] = cln;
                 //monitor_update_item(gelements[i], gdata["coup"][i]);
             }
@@ -270,7 +270,7 @@
                 cln.getElementsByClassName("text-n")[0].innerHTML = obj.recved[i];
                 cln.getElementsByClassName("SMS-name")[0].innerHTML = "SMS[" + i + "]";
                 cln.id = "Recv"+i;
-                cln.getElementsByClassName("pure-button")[0].id = "R_del_but " +i;
+
                 //gelements_send[i] = cln;
                 //monitor_update_item(gelements[i], gdata["coup"][i]);
             }
@@ -280,8 +280,7 @@
                 cln.getElementsByClassName("text-n")[0].innerHTML = obj.deleted[i];
                 cln.getElementsByClassName("SMS-name")[0].innerHTML = "SMS[" + i + "]";
                 cln.id = "Del"+i;
-                cln.getElementsByClassName("pure-button")[0].id = "D_del_but " +i;
-                cln.getElementsByClassName("pure-button")[0].innerHTML = "Удалить навсегда";
+
 
                 //gelements_del[i] = cln;//monitor_update_item(gelements[i], gdata["coup"][i]);
             }
@@ -512,7 +511,7 @@
                         <fieldset>
                             <div class="pure-control-group">
                                 <label for="inet">Выбрать IP</label>
-                                <select id="inet" class="pure-input-1" selected>
+                                <select id="inet" class="pure-input-1" selected readonly>
                                     <option>10.7.254.1</option>
                                     <option>10.7.254.2</option>
                                     <option>10.7.254.5</option>
@@ -534,13 +533,13 @@
 
                             <div class="pure-control-group">
                                 <label for="slaven">Маска подсети</label>
-                                <input type="text" id="netmask" value="255.255.255.0">
+                                <input type="text" id="netmask" value="255.255.255.0" readonly>
                             </div>
                             <br>
                             <div class="pure-control-group">
                                 <label for="slaven">DHCP</label>
                                 <label>
-                                    <input type="checkbox">
+                                    <input type="checkbox" disabled="Недоступно">
                                     <span class="checkable">Включить</span>
                                 </label>
                             </div>
@@ -549,7 +548,7 @@
                                 <label for="slaven">Интервал связи со спутником GPS</label>
                                 <label>
                                     <div class="slidecontainer" onclick="sliderRef()" onmousemove="sliderRef()">
-                                        <input type="range" min="5" max="20" value="12" class="slider" id="myRange">
+                                        <input type="range" min="5" max="20" value="12" class="slider" id="myRange" readonly>
                                     </div>
                                     <span class="pure-form-message-inline" id="gps_time">x</span>
                                 </label>
@@ -590,7 +589,7 @@
 
                             <div class="pure-controls">
                                 <br>
-                                <button type="button" onclick="save_netstat()" class="pure-button pure-button-primary">
+                                <button type="button" onclick="save_netstat()" class="pure-button pure-button-primary" disabled="Недоступно">
                                     Сохранить</button>
                             </div>
                         </fieldset>
@@ -634,7 +633,7 @@
                             </div>
                             <div class="pure-controls">
                                 <br>
-                                <button type="button" onclick="sm()" class="pure-button pure-button-primary">Сохранить</button>
+                                <button type="button" onclick="sm()" class="pure-button pure-button-primary" disabled="Недоступно">Сохранить</button>
                             </div>
                         </fieldset>
                     </form>
@@ -648,12 +647,8 @@
                                 <label for="slaven">Лог событий:</label>
                                 <textarea placeholder="Textarea" style="resize:vertical; width : 420px; height : 200px; max-height: 400px; min-height: 70px" id="log" pattern="![^a-zA-Z0-9]"></textarea>
                             </div>
-                            <div class="pure-control-group">
-                                <label for="slaven">Принятые SMS:</label>
-                                <textarea placeholder="Textarea" style="resize:vertical; width : 420px; max-height: 200px; min-height: 70px" id = "sended"></textarea>
-                            </div>
                             <div class="pure-controls">
-                                <label for="modal_1" class="button">Отправить SMS</label>
+                                <label for="modal_1" class="button" disabled="Недоступно">Отправить SMS</label>
                                 <div class="modal">
                                     <input id="modal_1" type="checkbox" />
                                     <label for="modal_1" class="overlay"></label>
@@ -688,10 +683,10 @@
                                 <button type="button" onclick="" class="pure-button pure-button-primary" disabled="Недоступно">Сбросить ВСЕ настройки</button>
                             </div>
                             <div class="pure-controls">
-                                <button type="button" onclick="" class="pure-button pure-button-primary">Сброс промежуточного пробега</button>
+                                <button type="button" onclick="" class="pure-button pure-button-primary" disabled="Недоступно">Сброс промежуточного пробега</button>
                             </div>
                             <div class="pure-controls">
-                                <button type="button" onclick="" class="pure-button pure-button-primary">Перезагрузка</button>
+                                <button type="button" onclick="" class="pure-button pure-button-primary" disabled="Недоступно">Перезагрузка</button>
                             </div>
                             <div class="pure-controls">
                                 <button type="button" onclick="logout()" class="pure-button pure-button-primary">Выйти из профиля</button>
@@ -726,7 +721,7 @@
                                     </div>
                                     <div class="flex one ">
                                         <div><h4><label style="width: auto; font-weight: normal;" class="text-n">+79101234567 Тут текст длинного предлинного смс сообщения</label></h4></div>
-                                        <div class="b-del   slim"><button type="button" onclick="del_sms(this.id)" class="pure-button pure-button-primary">Удалить</button></div>
+                                        <div class="b-del   slim"></div>
                                     </div>
                                 </div>
                             </div> <!-- monitor coup template -->
@@ -761,4 +756,3 @@
 </body>
 
 </html>
-

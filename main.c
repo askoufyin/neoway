@@ -1082,25 +1082,25 @@ void Header_Parse()
     while (buffer[i] != ' ')                             //Обработка параметров первой строки
     {                                                    //Вида "GET / HTTP1.1"
         if (buffer[0] == '\0') break;
-        method[j] = buffer[i];                       //POST or GET
+        method[j] = buffer[i];                           //POST or GET
         i++;
         j++;
     }
     method[j] = '\0';
     i++; j = 0; i++;
-    while (buffer[i] != ' ')
+    while (buffer[i] != ' ')                            //чтение имени запрашиваемого файла вида index.html
     {
         if (buffer[i] == '\0') break;
-        fileadrr[j] = buffer[i];                      //"index.sFile"?
+        fileadrr[j] = buffer[i];
         i++;
         j++;
-        if (buffer[i] == '.')                         //Если в запрсе точка
+        if (buffer[i] == '.')                           //Если в запрсе точка
         {
-            fileadrr[j] = '\0';                   //закончили читать имя файла
+            fileadrr[j] = '\0';                         //закончили читать имя файла
             i++; j = 0;
-            while (buffer[i] != ' ')              //читаем расширение файла
+            while (buffer[i] != ' ')                    //читаем расширение файла
             {
-                filetype[j] = buffer[i];      //"index.sFile"?
+                filetype[j] = buffer[i];                //
                 i++;
                 j++;
             }
@@ -1115,7 +1115,7 @@ void Header_Parse()
     }
     if (method[0] == 'P')
     {
-        while ((buffer[i] != '\n') || (buffer[i - 2] != '\n'))
+        while ((buffer[i] != '\n') || (buffer[i - 2] != '\n'))    //ищет конец первой строки \r\n\r\n
         {
             i++;
         }
@@ -1718,7 +1718,9 @@ static void* tcp_web_thread_main(void* arg)
                 (((int)(difftime(end, start) / 60) % 60 < 10) ? sprintf(mmm, "0%d", (int)(difftime(end, start) / 60) % 60) : sprintf(mmm, "%d", (int)(difftime(end, start) / 60) % 60));
                 (((int)(difftime(end, start) / 3600) % 60 < 10) ? sprintf(hhh, "0%d", (int)(difftime(end, start) / 3600) % 60) : sprintf(hhh, "%d", (int)(difftime(end, start) / 3600) % 60));
                 sprintf(opts->up_time_string, "%s : %s : %s\0", hhh, mmm, sss);
-                sprintf(buffer, "{\"rssi\" : \"%s дБм\",\n\"rsrq\" : \" - \",\n\"snr\" : \" - \",\n\"rxlen\" : \" - \"\n,\"spn\" : \" -\"\n,\"threed_fix\" : \"%s\"\n,\"gps_cords\" : \" %c %f\xC2\xB0 %c %f\xC2\xB0\"\n,\"sys_time\" : \" %d:%d:%d (GMT +3)\"\n,\"num_sput\" : \"%d\"\n,\"reg_in_mesh\" : \" %s %s\"\n,\"mobile_data\" : \"%s\"\n,\"imsi\" : \"%s\"\n,\"imei\" : \"%s\"\n,\"uptime\" : \"%s\"\n,\"carrige_mileage\" : \"%s\"\n,\"last_mileage\" : \"%s\"\n,\"power_type\" : \"%s\"\n}\0", opts->rssi, opts->threed_fix, lat_sign, lat, lon_sign, lon, hh + 3, mm, ss, num_sput_val, opts->operator_cod, opts->country_cod, opts->mobile_data, opts->imsi, opts->imei, opts->up_time_string, opts->carrige_mileage, opts->last_mileage, opts->power_type);
+                pthread_mutex_lock(&opts->mutex);      //Мютекс чтобы взять пробег
+                sprintf(buffer, "{\"rssi\" : \"%s дБм\",\n\"rsrq\" : \" - \",\n\"snr\" : \" - \",\n\"rxlen\" : \" - \"\n,\"spn\" : \" -\"\n,\"threed_fix\" : \"%s\"\n,\"gps_cords\" : \" %c %f\xC2\xB0 %c %f\xC2\xB0\"\n,\"sys_time\" : \" %d:%d:%d (GMT +3)\"\n,\"num_sput\" : \"%d\"\n,\"reg_in_mesh\" : \" %s %s\"\n,\"mobile_data\" : \"%s\"\n,\"imsi\" : \"%s\"\n,\"imei\" : \"%s\"\n,\"uptime\" : \"%s\"\n,\"carrige_mileage\" : \"%f км\"\n,\"last_mileage\" : \"%f км\"\n,\"power_type\" : \"%s\"\n}\0", opts->rssi, opts->threed_fix, lat_sign, lat, lon_sign, lon, hh + 3, mm, ss, num_sput_val, opts->operator_cod, opts->country_cod, opts->mobile_data, opts->imsi, opts->imei, opts->up_time_string, opts->total_mileage, opts->mileage, opts->power_type);
+                pthread_mutex_unlock(&opts->mutex);
                 send(new_tcp_socket, buffer, strlen(buffer), 0);
                 at_com = NULL;
             }
@@ -1733,7 +1735,7 @@ static void* tcp_web_thread_main(void* arg)
                     count_to_save_sms = 0;
                     Write_smsTo_txt("sms_memory.txt\0", opts);
                 }*/
-                if (recv_flag == true)                             //если приходило смс, добавис его в список
+                if (recv_flag == true)                             //если приходило смс, добавить его в список
                 {
                     recv_flag = false;
                     //printf("FLAG IS %d\nNUM IS %s\nTEXT IS %s\n", recv_flag, recv_phone, recv_text);
@@ -1761,8 +1763,8 @@ static void* tcp_web_thread_main(void* arg)
                         //printf ("i= %d\n", i);
                         char string_whithout_quotes[500] = { 0 };
                         int ia = 0, ib = 0;
-                        for (ib = 0; ib < 500; ib++)
-                        {
+                        for (ib = 0; ib < 500; ib++)                   //Находит все кавычки и заменяет их для корректного отображения браузером
+                        {                                              //Для sms.json в части sended
                             if (opts->sended[s_p].text[i][ib] == '\0')
                             {
                                 string_whithout_quotes[ia] = opts->sended[s_p].text[i][ib];
@@ -1805,8 +1807,8 @@ static void* tcp_web_thread_main(void* arg)
                         char one_sms[600] = { 0 };
                         char string_whithout_quotes[500] = { 0 };
                         int ia = 0, ib = 0;
-                        for (ib = 0; ib < 500; ib++)
-                        {
+                        for (ib = 0; ib < 500; ib++)                        //Находит все кавычки и заменяет их для корректного отображения браузером
+                        {                                                   //в части queue
                             if (opts->queue[s_p].text[i][ib] == '\0')
                             {
                                 string_whithout_quotes[ia] = opts->queue[s_p].text[i][ib];
@@ -1850,8 +1852,8 @@ static void* tcp_web_thread_main(void* arg)
                         char one_sms[600] = { 0 };
                         char string_whithout_quotes[500] = { 0 };
                         int ia = 0, ib = 0;
-                        for (ib = 0; ib < 500; ib++)
-                        {
+                        for (ib = 0; ib < 500; ib++)                         //Находит все кавычки и заменяет их для корректного отображения браузером
+                        {                                                    //в части deleted
                             if (opts->deleted[s_p].text[i][ib] == '\0')
                             {
                                 string_whithout_quotes[ia] = opts->deleted[s_p].text[i][ib];
@@ -1895,8 +1897,8 @@ static void* tcp_web_thread_main(void* arg)
                         char one_sms[600] = { 0 };
                         char string_whithout_quotes[500] = { 0 };
                         int ia = 0, ib = 0;
-                        for (ib = 0; ib < 500; ib++)
-                        {
+                        for (ib = 0; ib < 500; ib++)                            //Находит все кавычки и заменяет их для корректного отображения браузером
+                        {                                                       //в части recved
                             if (opts->recved[s_p].text[i][ib] == '\0')
                             {
                                 string_whithout_quotes[ia] = opts->recved[s_p].text[i][ib];
@@ -1939,17 +1941,15 @@ static void* tcp_web_thread_main(void* arg)
                 #endif
             }
             else {
-                printf("FileAddr: %s\n", fileadrr);
-                //sprintf(opts->web_dir_i_path, fileadrr);
                 char fullpath[30] = {0};
-                strcat(fullpath, opts->web_dir_i_path);
-                strcat(fullpath, "/");
-                strcat(fullpath, fileadrr);
+                strcat(fullpath, opts->web_dir_i_path);   //собираем адрсс из PATH в neowayhelper.conf
+                strcat(fullpath, "/");                    //слэша
+                strcat(fullpath, fileadrr);               //и имени файла
                 printf("Fopen: %s\n", fullpath);
                 sFile = fopen(fullpath, "r");
                 if (sFile == NULL) {
                     printf("File open: Error\n");
-                    sprintf(fileadrr, "/data/www/Server/404.html", fileadrr);
+                    sprintf(fileadrr, "/data/www/Server/404.html", fileadrr);  //В случае ошибки или отсутствия файла подсунуть 404
                     sFile = fopen(fileadrr, "r");
                 }
                 else {
@@ -1958,7 +1958,7 @@ static void* tcp_web_thread_main(void* arg)
                     #endif
                 }
                 fseek(sFile, 0, SEEK_END);                                    //Открываем файл и перемещаем каретку в конечное положение
-                nFileLen = ftell(sFile);                                       //Получаем текущее значение указателя
+                nFileLen = ftell(sFile);                                      //Получаем текущее значение указателя
                 fseek(sFile, 0, SEEK_SET);                                    //Перемещаем каретку в начало, чтобы корректно работать с файлом
                 for (i = 0; (rc = getc(sFile)) != EOF && i < nFileLen; buffer[i++] = rc);    //Посимвольно считываем все биты из файла пока они не закончатся или не переполнится буффер
                 buffer[i] = '\0';
@@ -1994,11 +1994,11 @@ static void* tcp_web_thread_main(void* arg)
     printf("-------------------------\n");
 }
 
-void die(char* s)
-{
-    perror(s);
-    exit(1);
-}
+//void die(char* s)
+//{
+//    perror(s);
+//    exit(1);
+//}
 
 // static void* UDP_server (void *arg)
 // {
@@ -2067,7 +2067,6 @@ static int do_send_sms(char* number, int encoding, int length, char* context, in
      */
 
     nwy_sms_info_type_t sms_data = { 0 };
-    //strcat(number, "\0");
     strcpy(sms_data.phone_num, number);
     sms_data.msg_context_len = length;
 
