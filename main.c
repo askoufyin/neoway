@@ -1944,9 +1944,14 @@ static void* tcp_web_thread_main(void* arg)
                 #endif
             }
             else {
-                sprintf(fileadrr, "%s/%s", opts->web_dir_i_path, fileadrr);
-                printf("Fopen: %s\n", fileadrr);
-                sFile = fopen(fileadrr, "r");
+                printf("FileAddr: %s\n", fileadrr);
+                //sprintf(opts->web_dir_i_path, fileadrr);
+                char fullpath[30] = {0};
+                strcat(fullpath, opts->web_dir_i_path);
+                strcat(fullpath, "/");
+                strcat(fullpath, fileadrr);
+                printf("Fopen: %s\n", fullpath);
+                sFile = fopen(fullpath, "r");
                 if (sFile == NULL) {
                     printf("File open: Error\n");
                     sprintf(fileadrr, "/data/www/Server/404.html", fileadrr);
