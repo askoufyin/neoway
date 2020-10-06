@@ -77,10 +77,6 @@
                     console.log(x.responseText);
                     obj = JSON.parse(this.responseText);
                     document.getElementById('rssi').innerHTML = obj.rssi;
-                    document.getElementById('rsrq').innerHTML = obj.rsrq;
-                    document.getElementById('snr').innerHTML = obj.snr;
-                    document.getElementById('rxlen').innerHTML = obj.rxlen;
-                    document.getElementById('spn').innerHTML = obj.spn;
                     document.getElementById('3d_fix').innerHTML = obj.threed_fix;
                     document.getElementById('gps_cords').innerHTML = obj.gps_cords;
                     document.getElementById('sys_time').innerHTML = obj.sys_time;
@@ -434,22 +430,6 @@
                                     <div class="pure-control-group">
                                         <label style="width: 11em;">RSSI:</label>
                                         <label style="width: auto;" id="rssi"></label>
-                                    </div>
-                                    <div class="pure-control-group">
-                                        <label style="width: 11em;">RSRQ:</label>
-                                        <label style="width: auto;" id="rsrq"></label>
-                                    </div>
-                                    <div class="pure-control-group">
-                                        <label style="width: 11em;">SNR:</label>
-                                        <label style="width: auto;" id="snr"></label>
-                                    </div>
-                                    <div class="pure-control-group">
-                                        <label style="width: 11em;">RXLEN:</label>
-                                        <label style="width: auto;" id="rxlen"></label>
-                                    </div>
-                                    <div class="pure-control-group">
-                                        <label style="width: 11em;">SPN:</label>
-                                        <label style="width: auto;" id="spn"></label>
                                     </div>
                                     <div class="pure-control-group">
                                         <label style="width: 11em;">3D FIX:</label>
