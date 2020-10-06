@@ -2,6 +2,7 @@
 #include "modem.h"
 #include "thread_funcs.h"
 
+#include <strings.h>
 #include <sys/select.h>
 #include <termios.h>
 
@@ -66,6 +67,7 @@ process_command(options_t *opts, char *buffer) {
     int res, len;
     unsigned char crc;
     char *reply, *status;
+    char power_src[100];
 
     for(;'\0' != *buffer; ++buffer) {
         if(*buffer != ' ' && *buffer != '\t' && *buffer != '\n')
@@ -76,9 +78,20 @@ process_command(options_t *opts, char *buffer) {
         return 0;
 
     if(0 == strncasecmp("INFO", buffer, 4)) {
+        memset(power_src, 0, sizeof(power_src));
         pthread_mutex_lock(&opts->mutex);
-        sscanf(buffer+5, "%f,%f", &opts->total_mileage, &opts->mileage);
+        sscanf(buffer+5, "%f,%f,%s", &opts->total_mileage, &opts->mileage,power_src);
         pthread_mutex_unlock(&opts->mutex);
+
+        printf("Total mileage: %f, mileage since last reset: %f\n", opts->total_mileage, opts->mileage);
+
+        if(0 == strcasecmp("NO_BATTERY", power_src)) {
+            opts->power_source = POWER_SOURCE_NORMAL;
+            printf("Power source: NORMAL\n");
+        } else {
+            opts->power_source = POWER_SOURCE_BATTERY;
+            printf("Power source: BATTERY\n");
+        }
 
         _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "$INFO,%s,%d,", NWY_SIM_READY==opts->sim_status? "V": "N", reset_mileage);
         crc = crc8(_sendbuf, _sendbuflen);

@@ -67,6 +67,7 @@ options_init(options_t *o)
     pthread_mutex_init(&o->mutex, NULL);
     o->total_mileage = 0;
     o->mileage = 0;
+    o->power_source = POWER_SOURCE_NORMAL;
     memset(&o->last_nmea_msg, 0, sizeof(o->last_nmea_msg));
 
     /*--web interface--*/
@@ -84,7 +85,7 @@ options_init(options_t *o)
     memset(o->power_type, 0, sizeof(o->power_type));
     memset(o->last_mileage, 0, sizeof(o->last_mileage));
     memset(o->carrige_mileage, 0, sizeof(o->carrige_mileage));
-    memset(&o->web_dir_i_path, 0, sizeof(o->web_dir_i_path));
+    o->web_dir_i_path = strdup("/data/www"); // Значение по умолчанию
 }
 
 
