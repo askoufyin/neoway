@@ -2452,7 +2452,12 @@ int Write_smsTo_txt(const char* file, void* web_opts) {
     }
     sprintf(buff, "Sended\r\n%sRecved\r\n%sQueue\r\n%sDeleted\r\n%s\0", sended_sms, recved_sms, queue_sms, deleted_sms);
     //printf("%s", buff); //отладка
-    fp = fopen("sms_memory.txt", "wb");
+    char fullpath[30] = {0};
+    strcat(fullpath, opts->web_dir_i_path);   //собираем адрсс из PATH в neowayhelper.conf
+    strcat(fullpath, "/");                    //слэша
+    strcat(fullpath, file);               //и имени файла
+    printf("Fopen: %s\n", fullpath);
+    fp = fopen(fullpath, "wb");
     if (NULL == fp) {
         //perror("fopen()");
         printf("fd = NULL\n");
@@ -2483,115 +2488,127 @@ int Read_smsFrom_txt(const char* file, void* web_opts) {
     /* First, copy contents of passed options into the temporary variable */
     //memcpy(&_opts, opts, sizeof(_opts));
     /* Now open and parse configuration file */
-    fp = fopen("sms_memory.txt", "r");
+    char fullpath[30] = {0};
+    strcat(fullpath, opts->web_dir_i_path);   //собираем адрсс из PATH в neowayhelper.conf
+    strcat(fullpath, "/");                    //слэша
+    strcat(fullpath, file);               //и имени файла
+    fp = fopen(fullpath, "r");
     if (NULL == fp) {
-        fp = fopen("sms_memory.txt", "wb");
-        fclose(fp);
-        printf("sms_memory.txt was create\n");
-        fp = fopen("sms_memory.txt", "r");
-
-    }
-    line = 1;
-    while (!feof(fp)) {
-        memset(str, sizeof(str), 0);
-        fgets(str, sizeof(str) - 1, fp);
-
-        /* Search for comment and cut it off */
-        s = strchr(str, '#');
-        if (NULL != s) {
-            *s = '\0';
-        }
-
-        if (0 == strlen(str)) {
-            continue;
-        }
-
-        /* Skip leading spaces */
-        for (s = str; isspace(*s); s++);
-
-        /* Skip trailing spaces */
-        for (i = strlen(s) - 1; i > 0 && isspace(s[i]); i--);
-        s[i + 1] = '\0';
-
-        if (0 != strlen(s)) {
-            //printf("%d %s\n", line, s);
-            /*parse this string*/
-            if (!strcmp("Sended\0", s)) {
-                flag = 1;
-            }
-            else if (!strcmp("Queue\0", s)) {
-                flag = 2;
-            }
-            else if (!strcmp("Recved\0", s)) {
-                flag = 3;
-            }
-            else if (!strcmp("Deleted\0", s)) {
-                flag = 4;
-            }
-            else {
-                i = 0; j = 0;
-                while (s[i] != ' ') {
-                    buff[j] = s[i];
-                    i++; j++;
-                }
-                buff[j] = '\0';
-                j = 0; i++;
-                s_p = atoi(buff);
-                while (s[i] != ' ') {
-                    buff[j] = s[i];
-                    i++; j++;
-                }
-                buff[j] = '\0';
-                j = 0; i++;
-                //printf ("flag:%d\r\n", flag);
-                switch (flag) {
-                case 1:
-                    sprintf(opts->sended[s_p].phone[opts->sended[s_p].j], buff);
-                    break;
-                case 2:
-                    sprintf(opts->queue[s_p].phone[opts->queue[s_p].j], buff);
-                    break;
-                case 3:
-                    sprintf(opts->recved[s_p].phone[opts->recved[s_p].j], buff);
-                    break;
-                case 4:
-                    sprintf(opts->deleted[s_p].phone[opts->deleted[s_p].j], buff);
-                    break;
-                }
-                while (s[i] != '\0') {
-                    buff[j] = s[i];
-                    i++; j++;
-                }
-                buff[j] = '\0';
-                switch (flag) {
-                case 1:
-                    sprintf(opts->sended[s_p].text[opts->sended[s_p].j], buff);
-                    printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->sended[s_p].phone[opts->sended[s_p].j], opts->sended[s_p].text[opts->sended[s_p].j]);
-                    opts->sended[s_p].j++;
-                    break;
-                case 2:
-                    sprintf(opts->queue[s_p].text[opts->queue[s_p].j], buff);
-                    printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->queue[s_p].phone[opts->queue[s_p].j], opts->queue[s_p].text[opts->queue[s_p].j]);
-                    opts->queue[s_p].j++;
-                    break;
-                case 3:
-                    sprintf(opts->recved[s_p].text[opts->recved[s_p].j], buff);
-                    printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->recved[s_p].phone[opts->recved[s_p].j], opts->recved[s_p].text[opts->recved[s_p].j]);
-                    opts->recved[s_p].j++;
-                    break;
-                case 4:
-                    sprintf(opts->deleted[s_p].text[opts->deleted[s_p].j], buff);
-                    printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->deleted[s_p].phone[opts->deleted[s_p].j], opts->deleted[s_p].text[opts->deleted[s_p].j]);
-                    opts->deleted[s_p].j++;
-                    break;
-                }
-                j = 0; i = 0;
-
-            }
-            line++;
+        fp = fopen(fullpath, "wb");
+        if(fp != NULL)
+        {
+            fclose(fp);
+            printf("sms_memory.txt was create\n");
+            fp = fopen(fullpath, "r");
         }
     }
-    printf("OK\n");
+        if (fp != NULL)
+        {
+            line = 1;
+            while (!feof(fp)) {
+                memset(str, sizeof(str), 0);
+                fgets(str, sizeof(str) - 1, fp);
+
+                /* Search for comment and cut it off */
+                s = strchr(str, '#');
+                if (NULL != s) {
+                    *s = '\0';
+                }
+
+                if (0 == strlen(str)) {
+                    continue;
+                }
+
+                /* Skip leading spaces */
+                for (s = str; isspace(*s); s++);
+
+                /* Skip trailing spaces */
+                for (i = strlen(s) - 1; i > 0 && isspace(s[i]); i--);
+                s[i + 1] = '\0';
+
+                if (0 != strlen(s)) {
+                    //printf("%d %s\n", line, s);
+                    /*parse this string*/
+                    if (!strcmp("Sended\0", s)) {
+                        flag = 1;
+                    }
+                    else if (!strcmp("Queue\0", s)) {
+                        flag = 2;
+                    }
+                    else if (!strcmp("Recved\0", s)) {
+                        flag = 3;
+                    }
+                    else if (!strcmp("Deleted\0", s)) {
+                        flag = 4;
+                    }
+                    else {
+                        i = 0; j = 0;
+                        while (s[i] != ' ') {
+                            buff[j] = s[i];
+                            i++; j++;
+                        }
+                        buff[j] = '\0';
+                        j = 0; i++;
+                        s_p = atoi(buff);
+                        while (s[i] != ' ') {
+                            buff[j] = s[i];
+                            i++; j++;
+                        }
+                        buff[j] = '\0';
+                        j = 0; i++;
+                        //printf ("flag:%d\r\n", flag);
+                        switch (flag) {
+                        case 1:
+                            sprintf(opts->sended[s_p].phone[opts->sended[s_p].j], buff);
+                            break;
+                        case 2:
+                            sprintf(opts->queue[s_p].phone[opts->queue[s_p].j], buff);
+                            break;
+                        case 3:
+                            sprintf(opts->recved[s_p].phone[opts->recved[s_p].j], buff);
+                            break;
+                        case 4:
+                            sprintf(opts->deleted[s_p].phone[opts->deleted[s_p].j], buff);
+                            break;
+                        }
+                        while (s[i] != '\0') {
+                            buff[j] = s[i];
+                            i++; j++;
+                        }
+                        buff[j] = '\0';
+                        switch (flag) {
+                        case 1:
+                            sprintf(opts->sended[s_p].text[opts->sended[s_p].j], buff);
+                            printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->sended[s_p].phone[opts->sended[s_p].j], opts->sended[s_p].text[opts->sended[s_p].j]);
+                            opts->sended[s_p].j++;
+                            break;
+                        case 2:
+                            sprintf(opts->queue[s_p].text[opts->queue[s_p].j], buff);
+                            printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->queue[s_p].phone[opts->queue[s_p].j], opts->queue[s_p].text[opts->queue[s_p].j]);
+                            opts->queue[s_p].j++;
+                            break;
+                        case 3:
+                            sprintf(opts->recved[s_p].text[opts->recved[s_p].j], buff);
+                            printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->recved[s_p].phone[opts->recved[s_p].j], opts->recved[s_p].text[opts->recved[s_p].j]);
+                            opts->recved[s_p].j++;
+                            break;
+                        case 4:
+                            sprintf(opts->deleted[s_p].text[opts->deleted[s_p].j], buff);
+                            printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->deleted[s_p].phone[opts->deleted[s_p].j], opts->deleted[s_p].text[opts->deleted[s_p].j]);
+                            opts->deleted[s_p].j++;
+                            break;
+                        }
+                        j = 0; i = 0;
+
+                    }
+                    line++;
+                }
+            }
+            printf("OK\n");
+        }
+        else {
+            printf("ERROR\n");
+        }
     fclose(fp);
 
     /* Copy modified data back */
