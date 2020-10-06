@@ -53,5 +53,8 @@ deploy:
 	@cp -r -v xml /xchg/
 	@cp post-connect.sh /xchg/
 	@cp neowayhelper.conf /xchg/
+	@mkdir /xchg/www
+	@find RelAx/Web_docs/ -type f | xargs -t -I % cp % /xchg/www
+	
 	
 	

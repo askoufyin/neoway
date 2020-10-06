@@ -10,14 +10,18 @@
         <country>Россия</country>
         <version>0.1</version>
         <serviceList>
-             <service>
-                 <serviceType>СМС шлюз</serviceType>
-                 <serviceID>SMSG</serviceID>
-             </service>
-             <service>
-                 <serviceType>Роутинг трафика</serviceType>
-                 <serviceID>ROUTING</serviceID>
-             </service>
+            <service>
+                <serviceType>СМС шлюз</serviceType>
+                <serviceID>SMSG</serviceID>
+            </service>
+            <service>
+                <serviceType>Роутинг трафика</serviceType>
+                <serviceID>ROUTING</serviceID>
+            </service>
+            <service>
+                <serviceType>Информация</serviceType>
+                <serviceID>INFO</serviceID>
+            </service>    
         </serviceList>
     </device>
 </root>

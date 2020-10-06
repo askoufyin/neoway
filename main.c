@@ -329,7 +329,7 @@ broadcast(options_t* opts)
     strftime(strtime, sizeof(strtime), "%d-%m-%Y %H:%M:%S", localtime(&tm));
 
     //printf("\0x1B[33mBroadcasting announce\0x1B[37m\n");
-    printf("%s Broadcasting announce\n", strtime);
+    printf("%s ----------- Broadcasting announce --------------\n", strtime);
 
     len = snprintf(buf, sizeof(buf),
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
@@ -427,6 +427,7 @@ enum {
     XML_SMS,
     XML_ROUTER,
     XML_QUERY_STATE_VARIABLE,
+    XML_INFO2,
     //
     XML_MAX
 };
@@ -442,6 +443,7 @@ read_xmls()
     xmls[XML_SMS] = get_file_contents("/data/xml/sms.xml");
     xmls[XML_ROUTER] = get_file_contents("/data/xml/routing.xml");
     xmls[XML_QUERY_STATE_VARIABLE] = get_file_contents("/data/xml/queryvariable.xml");
+    xmls[XML_INFO2] = get_file_contents("/data/xml/info2.xml");
 }
 
 
@@ -482,6 +484,9 @@ process_get(options_t* opts)
         }
         else if (0 == strcasecmp(p, "ROUTING")) {
             _sendbuflen = sprintf(_sendbuf, xmls[XML_ROUTER], opts->r_uuid);
+        }
+        else if (0 == strcasecmp(p, "INFO")) {
+            _sendbuflen = sprintf(_sendbuf, xmls[XML_INFO2], opts->r_uuid);
         }
     }
 }
@@ -1718,8 +1723,21 @@ static void* tcp_web_thread_main(void* arg)
                 (((int)(difftime(end, start) / 60) % 60 < 10) ? sprintf(mmm, "0%d", (int)(difftime(end, start) / 60) % 60) : sprintf(mmm, "%d", (int)(difftime(end, start) / 60) % 60));
                 (((int)(difftime(end, start) / 3600) % 60 < 10) ? sprintf(hhh, "0%d", (int)(difftime(end, start) / 3600) % 60) : sprintf(hhh, "%d", (int)(difftime(end, start) / 3600) % 60));
                 sprintf(opts->up_time_string, "%s : %s : %s\0", hhh, mmm, sss);
+                char pwrtype[10];
+                if(opts->power_source == POWER_SOURCE_NORMAL)
+                {
+                    sprintf(pwrtype, "От сети\0");
+                }
+                else if(opts->power_source == POWER_SOURCE_BATTERY)
+                {
+                    sprintf(pwrtype, "От батареи\0");
+                }
+                else
+                {
+                    sprintf(pwrtype, "Error\0");
+                }
                 pthread_mutex_lock(&opts->mutex);      //Мютекс чтобы взять пробег
-                sprintf(buffer, "{\"rssi\" : \"%s дБм\",\n\"rsrq\" : \" - \",\n\"snr\" : \" - \",\n\"rxlen\" : \" - \"\n,\"spn\" : \" -\"\n,\"threed_fix\" : \"%s\"\n,\"gps_cords\" : \" %c %f\xC2\xB0 %c %f\xC2\xB0\"\n,\"sys_time\" : \" %d:%d:%d (GMT +3)\"\n,\"num_sput\" : \"%d\"\n,\"reg_in_mesh\" : \" %s %s\"\n,\"mobile_data\" : \"%s\"\n,\"imsi\" : \"%s\"\n,\"imei\" : \"%s\"\n,\"uptime\" : \"%s\"\n,\"carrige_mileage\" : \"%f км\"\n,\"last_mileage\" : \"%f км\"\n,\"power_type\" : \"%s\"\n}\0", opts->rssi, opts->threed_fix, lat_sign, lat, lon_sign, lon, hh + 3, mm, ss, num_sput_val, opts->operator_cod, opts->country_cod, opts->mobile_data, opts->imsi, opts->imei, opts->up_time_string, opts->total_mileage, opts->mileage, opts->power_type);
+                sprintf(buffer, "{\"rssi\" : \"%s дБм\",\n\"threed_fix\" : \"%s\"\n,\"gps_cords\" : \" %c %f\xC2\xB0 %c %f\xC2\xB0\"\n,\"sys_time\" : \" %d:%d:%d (GMT +3)\"\n,\"num_sput\" : \"%d\"\n,\"reg_in_mesh\" : \" %s %s\"\n,\"mobile_data\" : \"%s\"\n,\"imsi\" : \"%s\"\n,\"imei\" : \"%s\"\n,\"uptime\" : \"%s\"\n,\"carrige_mileage\" : \"%f км\"\n,\"last_mileage\" : \"%f км\"\n,\"power_type\" : \"%s\"\n}\0", opts->rssi, opts->threed_fix, lat_sign, lat, lon_sign, lon, hh + 3, mm, ss, num_sput_val, opts->operator_cod, opts->country_cod, opts->mobile_data, opts->imsi, opts->imei, opts->up_time_string, opts->total_mileage, opts->mileage, pwrtype);
                 pthread_mutex_unlock(&opts->mutex);
                 send(new_tcp_socket, buffer, strlen(buffer), 0);
                 at_com = NULL;
