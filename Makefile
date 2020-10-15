@@ -12,13 +12,13 @@ GCC_VERSION=4.9.2
 #--------------------------------------------------------------
 LOCAL_INC_DIR = -I./
 
-USR_INC_DIR = -I/home/skuf1973/NeowaySDK/include
+USR_INC_DIR = -I//home/sekanix/Tests/N720_OPEN_LINUX_SDK_28/include
 	
 #--------------------------------------------------------------
 # LIB
 #--------------------------------------------------------------
 STD_LIB_FILES =	
-USR_LIB_FILES =	-L/home/skuf1973/NeowaySDK/libs -lnwy_device -lnwy_common -lnwy_service -ldl -pthread
+USR_LIB_FILES =	-L/home/sekanix/Tests/N720_OPEN_LINUX_SDK_28/libs -lnwy_device -lnwy_common -lnwy_service -ldl -pthread
 
 #--------------------------------------------------------------
 # Source code files

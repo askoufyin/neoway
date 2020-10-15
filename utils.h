@@ -113,19 +113,12 @@ typedef struct _options {
     /* -web interface- */
     char *web_dir_i_path;
     char rssi[5];
-    char rsrq[10];        //unused
-    char snr[10];         //unused
-    char rxlen[10];       //unused
-    char spn[10];         //unused
     char threed_fix[10];
     char gps_cords[30];
     char reg_in_mesh[10];
     char mobile_data[10];
     char imsi[20];
     char imei[20];
-    char carrige_mileage[10]; //общий пробег
-    char last_mileage[10];    //пробег с последнего старта? (предположительно старта неовэя)
-    char power_type[10];      //Батарея или сеть
     char up_time_string[20];
     char country_cod[10];
     char operator_cod[10];
