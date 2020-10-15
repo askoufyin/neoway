@@ -1,1 +1,1 @@
-clear && make clean NeowayTest && cp -v NeowayTest /xchg/ && cp -r -v xml /xchg/ && cp -v post-connect.sh /xchg/ && cp -v neowayhelper.conf /xchg/ && mkdir /xchg/www && find RelAx/Web_docs/ -type f | xargs -t -I % cp % /xchg/www
+clear && make clean NeowayTest && cp -v NeowayTest /xchg/ && cp -r -v xml /xchg/ && cp -v post-connect.sh /xchg/ && cp -v neowayhelper.conf /xchg/ && mkdir -p /xchg/www && find RelAx/Web_docs/ -type f | xargs -t -I % cp % /xchg/www && cp -v neoway /xchg

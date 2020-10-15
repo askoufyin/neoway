@@ -5,10 +5,10 @@
         <deviceType>ИСТК</deviceType>
         <serialNumber>000000000000</serialNumber>
         <modelName>Neoway N720</modelName>
-        <friendlyName>Интеллектуальная Система Технического Контроля</friendlyName>
+        <friendlyName>Интеллектуальная Система Телематического Контроля</friendlyName>
         <company>КСК Элком</company>
         <country>Россия</country>
-        <version>0.1</version>
+        <version>0.2</version>
         <serviceList>
             <service>
                 <serviceType>СМС шлюз</serviceType>
@@ -21,7 +21,11 @@
             <service>
                 <serviceType>Информация</serviceType>
                 <serviceID>INFO</serviceID>
-            </service>    
+            </service>
+            <service>
+                <serviceType>Веб</serviceType>
+                <serviceID>WEB</serviceID>
+            </service>
         </serviceList>
     </device>
 </root>

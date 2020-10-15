@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scpd urn="%s">
+    <serviceStateTable>
+        <stateVariable>
+            <name>www</name>
+            <friendlyName>Сайт</friendlyName>
+            <dataType>string</dataType>
+        </stateVariable>
+    </serviceStateTable>
+</scpd>

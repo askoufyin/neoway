@@ -25,6 +25,7 @@
 #include "nwy_gpio.h"   //для хартбита
 #include "nwy_pm.h"     //для хз чего
 #include "nwy_sms.h"    //для отправки смс
+#include "nwy_at.h"
 #include "nwy_sim.h"
 
 #include "config.h"
@@ -428,6 +429,7 @@ enum {
     XML_ROUTER,
     XML_QUERY_STATE_VARIABLE,
     XML_INFO2,
+    XML_WEB,
     //
     XML_MAX
 };
@@ -444,6 +446,7 @@ read_xmls()
     xmls[XML_ROUTER] = get_file_contents("/data/xml/routing.xml");
     xmls[XML_QUERY_STATE_VARIABLE] = get_file_contents("/data/xml/queryvariable.xml");
     xmls[XML_INFO2] = get_file_contents("/data/xml/info2.xml");
+    xmls[XML_WEB] = get_file_contents("/data/xml/web.xml");
 }
 
 
@@ -464,20 +467,17 @@ process_get(options_t* opts)
 {
     char* p = strchr(opts->r_uuid, ':');
 
-    if (NULL == p) {
-        switch (opts->elem) {
+    switch (opts->elem) {
         case XML_BODY:
             if (XML_CMD_QUERY_STATE_VARIABLE == opts->xml_cmd) {
                 queryStateVariable(opts);
             }
             break;
         default:
-            _sendbuflen = sprintf(_sendbuf, xmls[XML_INFO], opts->uuid);
             break;
-        }
-
     }
-    else {
+    
+    if(NULL != p) {
         ++p;
         if (0 == strcasecmp(p, "SMSG")) {
             _sendbuflen = sprintf(_sendbuf, xmls[XML_SMS], opts->r_uuid);
@@ -488,6 +488,11 @@ process_get(options_t* opts)
         else if (0 == strcasecmp(p, "INFO")) {
             _sendbuflen = sprintf(_sendbuf, xmls[XML_INFO2], opts->r_uuid);
         }
+        else if(0 == strcasecmp(p, "WEB")) {
+            _sendbuflen = sprintf(_sendbuf, xmls[XML_WEB], opts->r_uuid);
+        }
+    } else {
+        _sendbuflen = sprintf(_sendbuf, xmls[XML_INFO], opts->uuid);
     }
 }
 
@@ -728,7 +733,7 @@ network_thread_main(void* arg)
         tm.tv_sec = opts->broadcast_period;
         tm.tv_usec = 0;
 
-        res = select(maxsock + 1, &rfds, &wfds, NULL, &tm);
+        res = select(maxsock+1, &rfds, &wfds, NULL, &tm);
         now = time(NULL);
         if (res < 0) {
             if (EINTR == errno)
@@ -875,6 +880,38 @@ parse_command_line(options_t* opts, int argc, char* argv[])
 }
 
 
+static int
+detect_sim_card(options_t *opts)
+{
+    char *res, *reply;
+    int rc;
+    
+    res = NULL;
+    reply = NULL;
+    rc = nwy_at_send_cmd("AT+CCID", &res, &reply);
+
+    printf("res=\"%s\", reply=\"%s\"\n", res==NULL? "": res, reply==NULL? "": reply);
+
+    if(0 == rc && NULL != reply) {
+        if(0 == strcasecmp(reply, "ERROR")) {
+            opts->sim_status = NWY_SIM_NOT_INSERTED;
+            opts->gprs_enabled = FALSE;
+            printf("SIM card not found. GSM services disabled.\n");
+        } else {
+            opts->sim_status = NWY_SIM_READY;
+            printf("SIM card ready. %s\n", res);
+        }
+    } else {
+        printf("nwy_at_send_cmd() returns error code %d\n", rc);
+    }
+
+    free(res);
+    free(reply);
+
+    return 0;
+}
+
+
 int
 app_init(options_t* opts)
 {
@@ -890,16 +927,22 @@ app_init(options_t* opts)
         exit(EXIT_FAILURE);
     }
 
+    opts->modem_fd = modem_init(opts->modem_tty, opts->uart_baud_rate);
+    if (-1 == opts->modem_fd) {
+        printf("MODEM init failed\n");
+        exit(EXIT_FAILURE);
+    }
+
     if (opts->gprs_enabled) {
         /* Get SIM status */
         printf("Querying SIM (SLOT 1) status\n");
+#if 0
         opts->sim_status = nwy_sim_get_card_status(NWY_SIM_ID_SLOT_1);
         if (opts->sim_status < 0) {
             printf("Error (%d) querying SIM (SLOT 1) status. GPRS service disabled.\n", opts->sim_status);
             opts->sim_status = NWY_SIM_NOT_INSERTED;
             opts->gprs_enabled = FALSE;
-        }
-        else {
+        } else {
             switch (opts->sim_status) {
             case NWY_SIM_NOT_INSERTED:
                 printf("SIM card not present (SLOT 1). Disabling SMS and GPRS services.\n");
@@ -919,12 +962,9 @@ app_init(options_t* opts)
                     break;
             }
         }
-    }
-
-    opts->modem_fd = modem_init(opts->modem_tty, opts->uart_baud_rate);
-    if (-1 == opts->modem_fd) {
-        printf("MODEM init failed\n");
-        exit(EXIT_FAILURE);
+#else
+        detect_sim_card(opts);
+#endif        
     }
 
 #if 0
