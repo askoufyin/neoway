@@ -42,7 +42,7 @@ crc8(const char *data, size_t len)
 
     for(i = 0; i < len; i++) {
         crc ^= data[i];
-#if 0        
+#if 0
         for(j = 0; j < 8; j++) {
             if ((crc & 0x80) != 0)
                 crc = (unsigned char)((crc << 1) ^ 0x31);
@@ -104,19 +104,22 @@ process_command(options_t *opts, char *buffer) {
         len = strlen(buffer);
         reply = NULL;
         status = NULL;
-           
+
         printf("Sending %d bytes \"%s\" to modem\n", len, buffer);
         res = nwy_at_send_cmd(buffer, &reply, &status);
         printf("Reply from modem \"%s\" Status \"%s\" res=%d\n", (NULL==reply)? "": reply, status, res);
-        
+
         if(NULL != reply && 0 == strncasecmp(_gps_prefix, reply, 11)) {
             pthread_mutex_lock(&opts->mutex);
             nmea_parse(reply+_gps_prefix_len, &opts->last_nmea_msg);
             pthread_mutex_unlock(&opts->mutex);
         }
 
-        _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "%s\r\n", (NULL==reply)? status: reply);
-        pthread_cond_signal(&msg_ready);
+        if(NULL != status)
+        {
+            _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "%s\r\n", (NULL==reply)? status: reply);
+            pthread_cond_signal(&msg_ready);
+        }
 
         free(reply);
         free(status);
@@ -192,7 +195,7 @@ uart_write_thread_main(void *arg)
 //    struct timeval tm;
 
     printf("UART_WRITE thread start\n");
-    
+
     for(;;) {
         pthread_cond_wait(&msg_ready, &msg_interlock);
 
