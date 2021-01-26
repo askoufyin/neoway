@@ -92,6 +92,7 @@ typedef struct _options {
     struct sockaddr_in baddr;
     /* Синхронизация */
     pthread_mutex_t mutex;
+    pthread_mutex_t mutex_modem;
     /* GPS-координаты */
     nmea_msg_t last_nmea_msg;
     float total_mileage;            // Полный пробег, км
@@ -122,6 +123,13 @@ typedef struct _options {
     char up_time_string[20];
     char country_cod[10];
     char operator_cod[10];
+    float lon;
+    float lat;
+    char lat_sign;
+    char lon_sign;
+    char valid_GPRMC;
+    char sput_time[20];
+    int num_sput_val;
     /*-Work whith SMS-*/
     int sms_priority;
     neoway_sms_data_t queue[8],sended[8],deleted[8],recved[8];

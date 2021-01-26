@@ -65,6 +65,7 @@ options_init(options_t *o)
     o->gprs_post_connect = strdup("post-connect.sh");
 
     pthread_mutex_init(&o->mutex, NULL);
+    pthread_mutex_init(&o->mutex_modem, NULL);
     o->total_mileage = 0;
     o->mileage = 0;
     o->power_source = POWER_SOURCE_NORMAL;
@@ -83,6 +84,11 @@ options_init(options_t *o)
     memset(o->mobile_data, 0, sizeof(o->mobile_data));
     memset(o->up_time_string, 0, sizeof(o->up_time_string));
     o->web_dir_i_path = strdup("/data/www"); // Значение по умолчанию
+    o->lon = 0;
+    o->lat = 0;
+    //memset(o->lat_sign, 0, sizeof(o->lat_sign));
+    //memset(o->lon_sign, 0, sizeof(o->lon_sign));
+    memset(o->sput_time, 0, sizeof(o->sput_time));
 }
 
 

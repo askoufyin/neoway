@@ -104,7 +104,8 @@ process_command(options_t *opts, char *buffer) {
         len = strlen(buffer);
         reply = NULL;
         status = NULL;
-
+        printf("wait mutex Leha!\n");
+        pthread_mutex_lock(&opts->mutex_modem);
         printf("Sending %d bytes \"%s\" to modem\n", len, buffer);
         res = nwy_at_send_cmd(buffer, &reply, &status);
         printf("Reply from modem \"%s\" Status \"%s\" res=%d\n", (NULL==reply)? "": reply, status, res);
@@ -120,7 +121,7 @@ process_command(options_t *opts, char *buffer) {
             _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "%s\r\n", (NULL==reply)? status: reply);
             pthread_cond_signal(&msg_ready);
         }
-
+        pthread_mutex_unlock(&opts->mutex_modem);
         free(reply);
         free(status);
     }
