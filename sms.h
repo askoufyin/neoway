@@ -6,6 +6,8 @@
 #include <pthread.h>
 #include "utils.h"
 
+#include "nwy_sms.h"
+
 
 #ifdef __cplusplus
 extern "C" {

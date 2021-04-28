@@ -1,20 +1,30 @@
 #include "uart.h"
 #include "modem.h"
 #include "thread_funcs.h"
+#include "sms.h"
 
 #include <strings.h>
 #include <sys/select.h>
 #include <termios.h>
+#include <stdbool.h> //
 
 //#include "nwy_loc.h"
 #include "nwy_uart.h"
 #include "nwy_error.h"
 #include "nwy_common.h"
 #include "nwy_sim.h"
+#include "nwy_sms.h"
+
+
 
 
  #define MAX_SMS_IN_PRIORITY 20 //Предельное количество смс в каждом приоритете. Приоритеты 1-7
  #define MAX_SMS_LENGTH 160     //Предельное количество символов в смс, годится только для отправки латиницы
+
+
+ /*char phone_num[13], sms_text[500] = { '\0' }; //Переменные для работы с смс
+ char recv_phone[13], recv_text[500] = { '\0' };
+ bool recv_flag = false;*/
 
 
  int Write_smsTo_txt(const char* file, void* web_opts) {

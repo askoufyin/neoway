@@ -15,7 +15,7 @@ int lat_D, lon_D;
 float lat_M = 0, lon_M = 0;
 int hh, mm, ss, ms;
 
-#define WEBPOSTGETINCONSOLE  //убрать если отвлекает вывод пост гет запросов в консоли
+//#define WEBPOSTGETINCONSOLE  //убрать если отвлекает вывод пост гет запросов в консоли
 
 void At_init(void* web_opts)
  {
@@ -38,7 +38,7 @@ void At_init(void* web_opts)
      char* p_resp = NULL;
      char* p_result = NULL;
      int i = 0, j = 0;
-             printf("wait mutex Sanya!\n");
+     //printf("wait mutex Sanya!\n");
      pthread_mutex_lock(&opts->mutex_modem);
      int ret = nwy_at_send_cmd(at_com, &p_resp, &p_result);
      if (ret != 0)
@@ -46,6 +46,7 @@ void At_init(void* web_opts)
          #ifdef WEBPOSTGETINCONSOLE
          printf("Send at cmd %s: Fail\n", at_com);
          #endif
+         pthread_mutex_unlock(&opts->mutex_modem);
          return;
      }
      else
@@ -73,8 +74,15 @@ void At_init(void* web_opts)
                  i++; j++;
              }
              opts->rssi[j] = '\0';
+             if(atoi(opts->rssi) != 99)
+             {
              int rssi_val = -113 + atoi(opts->rssi) * 2;
-             snprintf(opts->rssi, sizeof(opts->rssi), "%d", rssi_val);
+             snprintf(opts->rssi, sizeof(opts->rssi), "%d дБм", rssi_val);
+            }
+            else
+            {
+                snprintf(opts->rssi, sizeof(opts->rssi), "No signal");
+            }
          }
          else if (!strcmp(at_com, "AT+CIMI\0") && p_resp[0] == '+' && p_resp[1] == 'C' && p_resp[2] == 'I' && p_resp[3] == 'M' && p_resp[4] == 'I')
          {
@@ -174,7 +182,7 @@ void At_init(void* web_opts)
                  opts->lat = lat_D + lat_M / 60;
                  opts->lon = lon_D + lon_M / 60;
              }
-             snprintf(opts->sput_time, sizeof(opts->sput_time),"%d:%d:%d", hh+3, mm, ss);
+             snprintf(opts->sput_time, sizeof(opts->sput_time),"%d:%d:%d (GMT +3)", hh+3, mm, ss);
          }
          else if (!strcmp(at_com, "AT$MYGPSPOS=1\0") && p_resp[0] == '$' && p_resp[1] == 'M' && p_resp[2] == 'Y' && p_resp[3] == 'G' && p_resp[4] == 'P')
          {

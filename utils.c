@@ -68,6 +68,7 @@ options_init(options_t *o)
     pthread_mutex_init(&o->mutex_modem, NULL);
     o->total_mileage = 0;
     o->mileage = 0;
+    o->reset_mileage = 0;
     o->power_source = POWER_SOURCE_NORMAL;
     memset(&o->last_nmea_msg, 0, sizeof(o->last_nmea_msg));
 
@@ -83,6 +84,8 @@ options_init(options_t *o)
     memset(o->gps_cords, 0, sizeof(o->gps_cords));
     memset(o->mobile_data, 0, sizeof(o->mobile_data));
     memset(o->up_time_string, 0, sizeof(o->up_time_string));
+    memset(o->gsm_ip_state, 0, sizeof(o->gsm_ip_state));
+
     o->web_dir_i_path = strdup("/data/www"); // Значение по умолчанию
     o->lon = 0;
     o->lat = 0;

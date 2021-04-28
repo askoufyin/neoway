@@ -12,6 +12,7 @@
 #include "nwy_common.h"
 #include "nwy_sim.h"
 
+//#define PRINTF_LOG
 
 /* TODO: Make this variables static, add functions to manage data in the buffer
  */
@@ -23,9 +24,10 @@ int
 uart_init(char *devname, uint32_t baudrate)
 {
     int fd;
-
+#ifdef PRINTF_LOG
     printf("Init: UART\n");
     printf("Opening device %s\nBaudrate %u\n", devname, baudrate);
+#endif
     fd = nwy_uart_open(devname, baudrate, FC_NONE);
     if(-1 == fd)
         perror("nwy_uart_open()");
@@ -63,7 +65,7 @@ static const char _gps_prefix[] = "$MYGPSPOS: ";
 static int
 process_command(options_t *opts, char *buffer) {
     static int turn = 1;
-    int reset_mileage = 0;
+    //int reset_mileage = 0;
     int res, len;
     unsigned char crc;
     char *reply, *status;
@@ -82,18 +84,24 @@ process_command(options_t *opts, char *buffer) {
         pthread_mutex_lock(&opts->mutex);
         sscanf(buffer+5, "%f,%f,%s", &opts->total_mileage, &opts->mileage,power_src);
         pthread_mutex_unlock(&opts->mutex);
-
+    #ifdef PRINTF_LOG
         printf("Total mileage: %f, mileage since last reset: %f\n", opts->total_mileage, opts->mileage);
-
+    #endif
         if(0 == strcasecmp("NO_BATTERY", power_src)) {
             opts->power_source = POWER_SOURCE_NORMAL;
+        #ifdef PRINTF_LOG
             printf("Power source: NORMAL\n");
+        #endif
         } else {
             opts->power_source = POWER_SOURCE_BATTERY;
+        #ifdef PRINTF_LOG
             printf("Power source: BATTERY\n");
+        #endif
         }
-
-        _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "$INFO,%s,%d,", NWY_SIM_READY==opts->sim_status? "V": "N", reset_mileage);
+        pthread_mutex_lock(&opts->mutex);
+        _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "$INFO,%s,%d,", NWY_SIM_READY==opts->sim_status? "V": "N", opts->reset_mileage);
+        if (opts->reset_mileage == 1) opts->reset_mileage = 0;
+        pthread_mutex_unlock(&opts->mutex);
         crc = crc8(_sendbuf, _sendbuflen);
         _sendbuflen += sprintf(_sendbuf+_sendbuflen, "%02X\r\n", crc);
         _sendbuf[_sendbuflen] = 0;
@@ -104,12 +112,15 @@ process_command(options_t *opts, char *buffer) {
         len = strlen(buffer);
         reply = NULL;
         status = NULL;
-        printf("wait mutex Leha!\n");
+        //printf("wait mutex Leha!\n");
         pthread_mutex_lock(&opts->mutex_modem);
+        #ifdef PRINTF_LOG
         printf("Sending %d bytes \"%s\" to modem\n", len, buffer);
+        #endif
         res = nwy_at_send_cmd(buffer, &reply, &status);
+        #ifdef PRINTF_LOG
         printf("Reply from modem \"%s\" Status \"%s\" res=%d\n", (NULL==reply)? "": reply, status, res);
-
+        #endif
         if(NULL != reply && 0 == strncasecmp(_gps_prefix, reply, 11)) {
             pthread_mutex_lock(&opts->mutex);
             nmea_parse(reply+_gps_prefix_len, &opts->last_nmea_msg);
@@ -141,9 +152,9 @@ uart_read_thread_main(void *arg)
     char *crlf;
     int maxfd = MAX(opts->uart_fd, opts->modem_fd);
     struct timeval tm;
-
+#ifdef PRINTF_LOG
     printf("UART_READ thread start\n");
-
+#endif
     bufsize = 0;
     for(;;) {
         FD_ZERO(&rfds);
@@ -162,7 +173,9 @@ uart_read_thread_main(void *arg)
         }
 
         if(0 == res) {
+        #ifdef PRINTF_LOG
             printf(".\n");
+        #endif
             continue;
         }
 
@@ -175,7 +188,9 @@ uart_read_thread_main(void *arg)
                     if(NULL != crlf && '\n' == crlf[1]) {
                         cmdsize = (crlf+1) - buffer;
                         *crlf = '\0';
+                    #ifdef PRINTF_LOG
                         printf("IN: \"%s\"\n", buffer);
+                    #endif
                         process_command(opts, buffer);
                         memmove(buffer, crlf+1, bufsize - cmdsize);
                         bufsize -= cmdsize;
@@ -194,8 +209,9 @@ uart_write_thread_main(void *arg)
     int res, len;
     fd_set wfds;
 //    struct timeval tm;
-
+#ifdef PRINTF_LOG
     printf("UART_WRITE thread start\n");
+#endif
 
     for(;;) {
         pthread_cond_wait(&msg_ready, &msg_interlock);
@@ -212,7 +228,9 @@ uart_write_thread_main(void *arg)
         } else {
             if(FD_ISSET(opts->uart_fd, &wfds) && _sendbuflen > 0) {
                 _sendbuf[_sendbuflen] = 0;
+                #ifdef PRINTF_LOG
                 printf("OUT: \"%s\"", _sendbuf);
+                #endif
                 nwy_uart_write(opts->uart_fd, (const unsigned char *)_sendbuf, _sendbuflen);
                 pthread_cond_signal(&msg_sent);
             }
