@@ -115,9 +115,11 @@ process_command(options_t *opts, char *buffer) {
             pthread_mutex_unlock(&opts->mutex);
         }
 
-        _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "%s\r\n", (NULL==reply)? status: reply);
-        pthread_cond_signal(&msg_ready);
-
+        if(NULL != status) { 
+            _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "%s\r\n", (NULL==reply)? status: reply);
+            pthread_cond_signal(&msg_ready);
+        }
+        
         free(reply);
         free(status);
     }

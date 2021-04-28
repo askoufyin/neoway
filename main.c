@@ -23,7 +23,7 @@
 #include "nwy_error.h"
 #include "nwy_common.h"
 #include "nwy_gpio.h"   //для хартбита
-#include "nwy_pm.h"     //для хз чего
+#include "nwy_pm.h"     //для хз чего - power management (*Олексий)
 #include "nwy_sms.h"    //для отправки смс
 #include "nwy_at.h"
 #include "nwy_sim.h"
@@ -39,7 +39,8 @@
 #include "modem.h"
 #include "utils.h"
 #include "watchdog.h"
-#include "nwy_sim.h"
+#include "upvs.h"
+
 
 //#include "tcp_web.h"   пока не добавлено
 #define WEBPOSTGETINCONSOLE  //убрать если отвлекает вывод пост гет запросов в консоли
@@ -423,19 +424,69 @@ get_file_contents(const char* fn)
 }
 
 
-enum {
-    XML_INFO = 0,
-    XML_SMS,
-    XML_ROUTER,
-    XML_QUERY_STATE_VARIABLE,
-    XML_INFO2,
-    XML_WEB,
-    //
-    XML_MAX
-};
-
-
 char* xmls[XML_MAX];
+
+
+static void XMLCALL
+process_element_start(void* userdata, const XML_Char* name, const XML_Char** attrs)
+{
+    xml_context_t *ctx = (xml_context_t *)userdata;
+    xml_tag_t *tag;
+
+    tag = xml_tag(ctx, name, NULL);
+    if(NULL != tag) {
+        if(NULL == ctx->last) {
+            ctx->last = tag;
+        } else {
+            if(ctx->tag_closed) {
+                ctx->last->next = tag;
+                tag->parent = ctx->last->parent;
+            } else {
+                ctx->last->child = tag;
+                tag->parent = ctx->last;
+            }
+        }
+        
+        if(NULL == ctx->root) {
+            ctx->root = tag;
+        }
+    }
+
+    ++ctx->level;
+    ctx->tag_closed = FALSE;
+}
+
+
+static void XMLCALL
+process_element_end(void *userdata, const XML_Char *name)
+{
+    xml_context_t *ctx = (xml_context_t*)userdata;
+
+    (void)name;
+
+    if (--ctx->level == 0) {
+        //process_get(opts);
+    }
+
+    ctx->tag_closed = TRUE;
+}
+
+
+static void
+process_uvps_request(xml_tag_t *root)
+{
+    if(xml_is(root, "body")) {
+
+    }
+}
+
+
+static void XMLCALL
+process_character_data(void *userdata, const XML_Char *text, int len)
+{
+    xml_context_t *ctx = (xml_context_t *)userdata;
+    //ctx->last->content = buf_strncpy(ctx->strings, text, len);
+}
 
 
 void
@@ -456,12 +507,12 @@ queryStateVariable(options_t* opts)
     char value[256];
 
     sprintf(value, "%s", "Пока нет");
-    _sendbuflen = sprintf(_sendbuf, xmls[XML_QUERY_STATE_VARIABLE], opts->uuid, opts->xml_variable, value, opts->xml_variable);
+    _sendbuflen = sprintf(_sendbuf, xmls[XML_QUERY_STATE_VARIABLE], opts->r_uuid, opts->xml_variable, value, opts->xml_variable);
     _sendbuf[_sendbuflen] = 0;
     printf(_sendbuf);
 }
 
-
+   
 static void
 process_get(options_t* opts)
 {
@@ -492,7 +543,7 @@ process_get(options_t* opts)
             _sendbuflen = sprintf(_sendbuf, xmls[XML_WEB], opts->r_uuid);
         }
     } else {
-        _sendbuflen = sprintf(_sendbuf, xmls[XML_INFO], opts->uuid);
+        _sendbuflen = sprintf(_sendbuf, xmls[XML_INFO], opts->r_uuid);
     }
 }
 
@@ -560,7 +611,7 @@ action_send_sms(options_t* opts)
 
 
 static void XMLCALL
-process_character_data(void* userdata, const XML_Char* text, int len)
+process_character_data_old(void* userdata, const XML_Char* text, int len)
 {
     options_t* opts = (options_t*)userdata;
     char temp[1024];
@@ -603,9 +654,9 @@ process_character_data(void* userdata, const XML_Char* text, int len)
 
 
 static void XMLCALL
-process_element_start(void* userdata, const XML_Char* name, const XML_Char** attrs)
+process_element_start_old(void* userdata, const XML_Char* name, const XML_Char** attrs)
 {
-    options_t* opts = (options_t*)userdata;
+    options_t *opts = (options_t *)userdata;
     int i;
 
     if (0 == opts->level) {
@@ -690,7 +741,7 @@ process_element_start(void* userdata, const XML_Char* name, const XML_Char** att
 
 
 static void XMLCALL
-process_element_end(void* userdata, const XML_Char* name)
+process_element_end_old(void* userdata, const XML_Char* name)
 {
     options_t* opts = (options_t*)userdata;
 
@@ -702,7 +753,7 @@ process_element_end(void* userdata, const XML_Char* name)
 }
 
 
-static void*
+static void *
 network_thread_main(void* arg)
 {
     options_t* opts = (options_t*)arg;
@@ -711,10 +762,15 @@ network_thread_main(void* arg)
     int res, maxsock;
     time_t last_ts, now;
     int i, sock;
+    buf_t tags, chars;
     char buf[8192];
     XML_Parser parser;
+    xml_context_t ctx;
 
     parser = XML_ParserCreate(NULL);
+    buf_init(&tags, sizeof(xml_tag_t)*100);
+    buf_init(&chars, 8192);
+    xml_context_init(&ctx, &tags, &chars);
 
     printf("Network thread start\n");
 
@@ -765,10 +821,12 @@ network_thread_main(void* arg)
                     opts->level = 0;
                     opts->xml_action = NULL;
 
+                    xml_context_reset(&ctx);
+                    
                     XML_SetUserData(parser, opts);
-                    XML_SetStartElementHandler(parser, process_element_start);
-                    XML_SetEndElementHandler(parser, process_element_end);
-                    XML_SetCharacterDataHandler(parser, process_character_data);
+                    XML_SetStartElementHandler(parser, process_element_start_old);
+                    XML_SetEndElementHandler(parser, process_element_end_old);
+                    XML_SetCharacterDataHandler(parser, process_character_data_old);
                     XML_Parse(parser, buf, res, TRUE);
 
                     process_get(opts);
@@ -886,6 +944,8 @@ detect_sim_card(options_t *opts)
     char *res, *reply;
     int rc;
     
+    printf("Detecting SIM card.\n");
+
     res = NULL;
     reply = NULL;
     rc = nwy_at_send_cmd("AT+CCID", &res, &reply);
@@ -912,10 +972,40 @@ detect_sim_card(options_t *opts)
 }
 
 
+static char *_pid_file;
+
+
+static void
+remove_pid(void)
+{
+    unlink(_pid_file); // But do not close the file! It will maintain on disk until closed!
+}
+
+
+static void
+write_pid(options_t *opts)
+{
+    FILE *pf;
+
+    printf("Saving PID to %s\n", opts->pid_file);
+    pf = fopen(opts->pid_file, "w");
+    if(NULL != pf) {
+        fprintf(pf, "%d\n", getpid());
+        fclose(pf);
+    } else {
+        printf("Cannot open PID file %s for write\n", opts->pid_file);
+    }
+
+    _pid_file = opts->pid_file; // for atexit
+    atexit(remove_pid);
+}
+
+
 int
 app_init(options_t* opts)
 {
     int res;
+
     if (0 != network_init(opts)) {
         printf("Network init failed\n");
         exit(EXIT_FAILURE);
@@ -979,6 +1069,8 @@ app_init(options_t* opts)
     nwy_gpio_set_dir(NWY_GPIO_78, NWY_OUTPUT);
     nwy_gpio_set_val(NWY_GPIO_78, NWY_HIGH);
 
+    write_pid(opts);
+
     return 0;
 }
 
@@ -1010,7 +1102,7 @@ app_init(options_t* opts)
 #define MAX_SMS_LENGTH 160     //Предельное количество символов в смс, годится только для отправки латиницы
 
 
-char buffer[65000] = { 0 };    //Буфер для вычитывания файлов и принятия внешних запросов
+char buffer[128768] = { 0 };    //Буфер для вычитывания файлов и принятия внешних запросов
 //Переменные, для вычитывания данных из внешнего запроса
 char method[10] = { 0 },                //Метод Post, get или что то еще
 fileadrr[100] = { 0 },                //Адрес файла к которому обращение
@@ -1709,7 +1801,10 @@ static void* tcp_web_thread_main(void* arg)
 
 
             if (send(new_tcp_socket, "HTTP/1.1 200 OK\r\n", strlen("HTTP/1.1 200 OK\r\n"), 0) == -1)
-                printf("ERROR SEND\n");
+            {
+                perror("ERROR SEND\n");
+                //printf("ERROR SEND\n");
+            }
             if (fileadrr[0] == '.')                                                                         //Если запрос пустой, то кидаем на стартовую страницу
             {
                 send(new_tcp_socket, "Content-Type: text/html;charset=utf-8\r\n\r\n", strlen("Content-Type: text/html;charset=utf-8\r\n\r\n"), 0);
@@ -2020,7 +2115,12 @@ static void* tcp_web_thread_main(void* arg)
                 fseek(sFile, 0, SEEK_SET);                                    //Перемещаем каретку в начало, чтобы корректно работать с файлом
                 for (i = 0; (rc = getc(sFile)) != EOF && i < nFileLen; buffer[i++] = rc);    //Посимвольно считываем все биты из файла пока они не закончатся или не переполнится буффер
                 buffer[i] = '\0';
-                send(new_tcp_socket, buffer, nFileLen, 0);                                   //Выдаем буфер браузеру
+                printf("%d %p %d \n" , new_tcp_socket, buffer, nFileLen);
+                printf("%s\n", buffer);
+                if(send(new_tcp_socket, buffer, nFileLen, 0)<0)
+                {
+                    perror("Send page:");
+                }                                   //Выдаем буфер браузеру
                 // Закрываем файл
                 #ifdef WEBPOSTGETINCONSOLE
                 printf("Закрытие файла: ");

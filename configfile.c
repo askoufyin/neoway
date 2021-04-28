@@ -14,6 +14,7 @@ confoption_t options[] = {
     { "modem_tty",          TYPE_STRING,    &_opts.modem_tty },
     { "modem_baudrate",     TYPE_INT,       &_opts.modem_baud_rate},
     { "go_daemon",          TYPE_BOOL,      &_opts.go_daemon },
+    { "pid_file",           TYPE_STRING,    &_opts.pid_file },
     { "enable_gps",         TYPE_BOOL,      &_opts.gps_enabled },
     { "debug_print",        TYPE_BOOL,      &_opts.debug_print },
     /* GPS */

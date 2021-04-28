@@ -109,8 +109,9 @@ establish_data_connection(options_t *opts)
 
     handle = nwy_data_get_srv_handle(data_call_state_cb);
 
-    /* Setup profile */
-
+    /* Setup profile. For unknown reasons this code fails on some boards with error code -200.
+     * Need to investigete this case.
+     */
     info.pdp_type = NWY_DATA_PDP_TYPE_IPV4;         // PPP dial or IPV4
     strcpy(info.apn, apn_ip);                       // Access point name
     info.auth_proto = NWY_DATA_AUTH_PROTO_PAP_CHAP; // Authorization protocol

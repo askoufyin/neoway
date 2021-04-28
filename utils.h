@@ -141,7 +141,7 @@ extern "C" {
 extern void options_init(options_t *);
 extern void options_cleanup(options_t *);
 extern int daemonize(options_t *, int);
-extern int write_pid(options_t *, pid_t);
+//extern int write_pid(options_t *, pid_t);
 extern void help(options_t *);
 extern int get_UUID(unsigned char *);
 #ifdef __cplusplus
