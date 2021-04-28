@@ -31,7 +31,7 @@ LOCAL_OBJECTS = $(notdir $(patsubst %.c, %.o,$(LOCAL_SRC_FILES)))
 #--------------------------------------------------------------
 # Compilation options
 #--------------------------------------------------------------
-LOCAL_CFLAGS = -march=armv7-a -mfpu=neon -g
+LOCAL_CFLAGS = -march=armv7-a -mfpu=neon -g -Xlinker -Map=output.map 
 
 
 .PHONY: $(APP_NAME)

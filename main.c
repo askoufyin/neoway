@@ -36,6 +36,8 @@
 #include "at_commands.h"
 #include "thread_funcs.h"
 #include "uart.h"
+#include "sms.h"
+#include "send_at.h"
 #include "modem.h"
 #include "utils.h"
 #include "watchdog.h"
@@ -43,7 +45,16 @@
 
 
 //#include "tcp_web.h"   пока не добавлено
-#define WEBPOSTGETINCONSOLE  //убрать если отвлекает вывод пост гет запросов в консоли
+//#define WEBPOSTGETINCONSOLE  //убрать если отвлекает вывод пост гет запросов в консоли
+inline void d_log(const char *fmt, ...)
+{
+    #ifdef WEBPOSTGETINCONSOLE
+        va_list ar;
+        va_start(ar, fmt);
+        vprintf(fmt, ar);
+        va_end(ar);
+    #endif
+}
 
 static location_rec_t _buffer[CIRCULAR_BUFFER_SIZE];
 static pthread_mutex_t _bufmtx;
@@ -63,7 +74,7 @@ process_msg_location(nwy_gps_location_t* loc)
     int i, len;
     unsigned char crc, * ptr;
 
-    //printf("Long: %f, Lat: %f, Alt: %f, Speed: %f, Flags: 0x%08x\n", loc->longitude, loc->latitude, loc->altitude, loc->speed, loc->flags);
+    //d_log("Long: %f, Lat: %f, Alt: %f, Speed: %f, Flags: 0x%08x\n", loc->longitude, loc->latitude, loc->altitude, loc->speed, loc->flags);
 
     /* Allocate record from circular buffer */
     rec = &_buffer[_writeptr];
@@ -93,7 +104,7 @@ process_msg_location(nwy_gps_location_t* loc)
     _sendbuf[len + 5] = '\0';
     _sendbuflen = len + 4; // for UART_WRITE thread.
 
-    printf("%s", _sendbuf);
+    d_log("%s", _sendbuf);
 
     pthread_cond_signal(&msg_ready); // wake up UART_WRITE thread
 }
@@ -108,23 +119,23 @@ nwy_loc_event_handler(nwy_loc_ind_t* msg)
 
     switch (msg->ind_type) {
     case NWY_LOC_LOCATION_INFO_IND_MSG:
-        printf("NWY_LOC_LOCATION_INFO_IND_MSG\n");
+        d_log("NWY_LOC_LOCATION_INFO_IND_MSG\n");
         process_msg_location(&msg->ind_msg.gps_loc_msg);
         break;
 #if 1
     case NWY_LOC_STATUS_INFO_IND_MSG:
-        printf("NWY_LOC_STATUS_INFO_IND_MSG\n");
+        d_log("NWY_LOC_STATUS_INFO_IND_MSG\n");
         break;
 
     case NWY_LOC_SV_INFO_IND_MSG:
         if (msg->ind_msg.sv_info_msg.size > 0) {
-            printf("NWY_LOC_SV_INFO_IND_MSG (%d)\n\n", msg->ind_msg.sv_info_msg.size);
+            d_log("NWY_LOC_SV_INFO_IND_MSG (%d)\n\n", msg->ind_msg.sv_info_msg.size);
             for (i = 0; i < msg->ind_msg.sv_info_msg.size; ++i) {
                 nwy_gps_sv_info_t* info = &msg->ind_msg.sv_info_msg.sv_list[i];
-                printf("\tAzimuth: %f\n", info->azimuth);
-                printf("\tElevation: %f\n", info->elevation);
-                printf("\tPRN: %d\n", info->prn);
-                printf("\tSNR: %f\n\n", info->snr);
+                d_log("\tAzimuth: %f\n", info->azimuth);
+                d_log("\tElevation: %f\n", info->elevation);
+                d_log("\tPRN: %d\n", info->prn);
+                d_log("\tSNR: %f\n\n", info->snr);
             }
         }
         break;
@@ -134,43 +145,43 @@ nwy_loc_event_handler(nwy_loc_ind_t* msg)
         if (NMEA_ERR_OK == err) {
             if (NMEA_GSV == nmsg.type) {
                 if (nmsg.gsv.complete) {
-                    //printf("%s: %d satellites\n", nmea_system_name(nmsg.type), nmsg.gsv.count);
+                    //d_log("%s: %d satellites\n", nmea_system_name(nmsg.type), nmsg.gsv.count);
                 }
             }
             else if (NMEA_GGA == nmsg.type) {
 
             }
             else {
-                //printf("NWY_LOC_NMEA_INFO_IND_MSG: %s", msg->ind_msg.nmea_msg.nmea);
+                //d_log("NWY_LOC_NMEA_INFO_IND_MSG: %s", msg->ind_msg.nmea_msg.nmea);
             }
         }
         else {
-            printf("nmea_parse(\"%s\") = %d\n", msg->ind_msg.nmea_msg.nmea, err);
+            d_log("nmea_parse(\"%s\") = %d\n", msg->ind_msg.nmea_msg.nmea, err);
         }
         break;
 
     case NWY_LOC_CAPABILITIES_INFO_IND_MSG:
-        printf("NWY_LOC_CAPABILITIES_INFO_IND_MSG\n");
+        d_log("NWY_LOC_CAPABILITIES_INFO_IND_MSG\n");
         break;
 
     case NWY_LOC_UTC_TIME_REQ_IND_MSG:
-        printf("NWY_LOC_UTC_TIME_REQ_IND_MSG\n");
+        d_log("NWY_LOC_UTC_TIME_REQ_IND_MSG\n");
         break;
 
     case NWY_LOC_XTRA_DATA_REQ_IND_MSG:
-        printf("NWY_LOC_XTRA_DATA_REQ_IND_MSG\n");
+        d_log("NWY_LOC_XTRA_DATA_REQ_IND_MSG\n");
         break;
 
     case NWY_LOC_AGPS_STATUS_IND_MSG:
-        printf("NWY_LOC_AGPS_STATUS_IND_MSG\n");
+        d_log("NWY_LOC_AGPS_STATUS_IND_MSG\n");
         break;
 
     case NWY_LOC_NI_NOTIFICATION_IND_MSG:
-        printf("NWY_LOC_NI_NOTIFICATION_IND_MSG\n");
+        d_log("NWY_LOC_NI_NOTIFICATION_IND_MSG\n");
         break;
 
     case NWY_LOC_XTRA_REPORT_SERVER_IND_MSG:
-        printf("NWY_LOC_XTRA_REPORT_SERVER_IND_MSG\n");
+        d_log("NWY_LOC_XTRA_REPORT_SERVER_IND_MSG\n");
         break;
 #endif
     default:
@@ -185,7 +196,7 @@ agps_init()
     nwy_loc_position_mode_info_type_t pos_mode;
     int result;
 
-    printf("Init: AGPS (v6)\n");
+    d_log("Init: AGPS (v6)\n");
 
     nwy_loc_add_event_handler(nwy_loc_event_handler);
 
@@ -203,7 +214,7 @@ agps_init()
     );
 
     if (0 != result) {
-        printf("nwy_loc_set_indication_mask() failed, error code = %d\n", result);
+        d_log("nwy_loc_set_indication_mask() failed, error code = %d\n", result);
         return -1;
     }
 
@@ -224,15 +235,15 @@ network_init(options_t* opts)
     struct sockaddr_in kud;
     unsigned short broadcast_port = 19001; // TODO: Move this constant to options_t!
 
-    printf("Init: Network\n");
+    d_log("Init: Network\n");
     res = get_UUID(mac);
     if (res < 0) {
-        printf("get_UUID() failed. code=%d\n", res);
+        d_log("get_UUID() failed. code=%d\n", res);
         return res;
     }
 
     sprintf(opts->uuid, "NEOWAY_%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    printf("UUID %s\n", opts->uuid);
+    d_log("UUID %s\n", opts->uuid);
 
     /* Create broadcast socket
      */
@@ -253,7 +264,7 @@ network_init(options_t* opts)
 
     hent = gethostbyname(opts->broadcast_addr);
     if (NULL == hent) {
-        printf("Cannot resolve host name %s\n", opts->broadcast_addr);
+        d_log("Cannot resolve host name %s\n", opts->broadcast_addr);
         return -2;
     }
 
@@ -262,7 +273,7 @@ network_init(options_t* opts)
     opts->baddr.sin_addr.s_addr = *((in_addr_t*)hent->h_addr_list[0]);
     opts->baddr.sin_port = htons(broadcast_port);
 
-    printf("Broadcast address is %s:%u\n", inet_ntoa(opts->baddr.sin_addr), broadcast_port);
+    d_log("Broadcast address is %s:%u\n", inet_ntoa(opts->baddr.sin_addr), broadcast_port);
 
     opts->tcp_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (opts->tcp_sock < 0) {
@@ -272,7 +283,7 @@ network_init(options_t* opts)
 
     hent = gethostbyname(opts->kud_address);
     if (NULL == hent) {
-        printf("Cannot resolve host name %s\n", opts->broadcast_addr);
+        d_log("Cannot resolve host name %s\n", opts->broadcast_addr);
         return -2;
     }
 
@@ -281,7 +292,7 @@ network_init(options_t* opts)
     kud.sin_addr.s_addr = *((in_addr_t*)hent->h_addr_list[0]);
     kud.sin_port = htons(broadcast_port);
 
-    printf("Gateway address is %s:%u\n", inet_ntoa(kud.sin_addr), broadcast_port);
+    d_log("Gateway address is %s:%u\n", inet_ntoa(kud.sin_addr), broadcast_port);
 
     res = bind(opts->tcp_sock, (const struct sockaddr*) & kud, sizeof(kud));
     if (res < 0) {
@@ -302,18 +313,18 @@ network_init(options_t* opts)
 static void*
 agps_thread_main(void* arg)
 {
-    printf("AGPS thread start\n");
+    d_log("AGPS thread start\n");
     nwy_loc_location_type_t loc_info;
 
     for (;;) {
         int result = nwy_loc_get_curr_location(&loc_info, 10);
         if (0 != result) {
             if (-703 == result) {
-                printf("nwy_loc_get_curr_location() timeout\n");
+                d_log("nwy_loc_get_curr_location() timeout\n");
             }
             else {
-                printf("-----\nnwy_loc_get_curr_location() failed, returned value was %d\n", result);
-                printf("Trying to recover\n-----\n");
+                d_log("-----\nnwy_loc_get_curr_location() failed, returned value was %d\n", result);
+                d_log("Trying to recover\n-----\n");
             }
         }
     }
@@ -330,8 +341,10 @@ broadcast(options_t* opts)
 
     strftime(strtime, sizeof(strtime), "%d-%m-%Y %H:%M:%S", localtime(&tm));
 
-    //printf("\0x1B[33mBroadcasting announce\0x1B[37m\n");
-    printf("%s ----------- Broadcasting announce --------------\n", strtime);
+    //d_log("\0x1B[33mBroadcasting announce\0x1B[37m\n");
+    #ifdef WEBPOSTGETINCONSOLE
+    d_log("%s ----------- Broadcasting announce --------------\n", strtime);
+    #endif
 
     len = snprintf(buf, sizeof(buf),
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
@@ -363,9 +376,9 @@ receive_command(options_t* opts, fd_set* fds)
         if (res < 0)
             perror("recv()");
         else if (0 == res) {
-            printf("Other side closed connection\n");
+            d_log("Other side closed connection\n");
         }
-        printf("Received %d bytes\n", res);
+        d_log("Received %d bytes\n", res);
     }
 #endif
 
@@ -377,12 +390,12 @@ receive_command(options_t* opts, fd_set* fds)
         if (res < 0)
             perror("recvfrom()");
 
-        printf("Datagram received (%d bytes) from %s\n", res, inet_ntoa(sin.sin_addr));
+        d_log("Datagram received (%d bytes) from %s\n", res, inet_ntoa(sin.sin_addr));
     }
 
     if (res >= 0) {
         buf[res] = 0;
-        printf("%s\n", buf);
+        d_log("%s\n", buf);
     }
 }
 
@@ -395,7 +408,7 @@ get_file_contents(const char* fn)
     long flen;
 
     if (NULL == fp) {
-        printf("%s: ", fn);
+        d_log("%s: ", fn);
         perror("fopen()");
         return strdup("");
     }
@@ -403,7 +416,7 @@ get_file_contents(const char* fn)
     fseek(fp, 0, SEEK_END);
     flen = ftell(fp);
 
-    printf("Reading %s (%ld bytes)\n", fn, flen);
+    d_log("Reading %s (%ld bytes)\n", fn, flen);
 
     data = (char*)malloc(flen + 3);
     if (NULL == data) {
@@ -509,7 +522,7 @@ queryStateVariable(options_t* opts)
     sprintf(value, "%s", "Пока нет");
     _sendbuflen = sprintf(_sendbuf, xmls[XML_QUERY_STATE_VARIABLE], opts->r_uuid, opts->xml_variable, value, opts->xml_variable);
     _sendbuf[_sendbuflen] = 0;
-    printf(_sendbuf);
+    d_log(_sendbuf);
 }
 
    
@@ -575,7 +588,7 @@ action_send_sms(options_t* opts)
 
     localhost = (struct in_addr*)hent->h_addr_list[0];
 
-    printf("IP=%s\n", inet_ntoa(*localhost));
+    d_log("IP=%s\n", inet_ntoa(*localhost));
 
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = localhost->s_addr;
@@ -602,7 +615,7 @@ action_send_sms(options_t* opts)
     }
     else {
         req[len] = 0;
-        printf("RECV: %s\n", req);
+        d_log("RECV: %s\n", req);
     }
 
     shutdown(webs, SHUT_RDWR);
@@ -620,12 +633,16 @@ process_character_data_old(void* userdata, const XML_Char* text, int len)
     case XML_UUID:
         strncpy(opts->r_uuid, text, len);
         opts->r_uuid[len] = 0;
-        printf("UUID = %s\n", opts->r_uuid);
+        #ifdef WEBPOSTGETINCONSOLE
+        d_log("UUID = %s\n", opts->r_uuid);
+        #endif
         break;
     case XML_NAME:
         strncpy(temp, text, len);
         temp[len] = 0;
-        printf("Action name = %s\n", temp);
+        #ifdef WEBPOSTGETINCONSOLE
+        d_log("Action name = %s\n", temp);
+        #endif
         memset(opts->phone_number, 0, sizeof(opts->phone_number));
         memset(opts->sms_text, 0, sizeof(opts->sms_text));
         opts->xml_action = action_send_sms;
@@ -633,14 +650,20 @@ process_character_data_old(void* userdata, const XML_Char* text, int len)
     case XML_VALUE:
         strncpy(temp, text, len);
         temp[len] = 0;
-        printf("SET %s = %s\n", opts->xml_variable, temp);
+        #ifdef WEBPOSTGETINCONSOLE
+        d_log("SET %s = %s\n", opts->xml_variable, temp);
+        #endif
         if (0 == strcasecmp("telno", opts->xml_variable)) {
             strcpy(opts->phone_number, temp);
-            printf("telno %s\n", opts->phone_number);
+            #ifdef WEBPOSTGETINCONSOLE
+            d_log("telno %s\n", opts->phone_number);
+            #endif
         }
         else if (0 == strcasecmp("text", opts->xml_variable)) {
             strcpy(opts->sms_text, temp);
-            printf("text %s\n", opts->sms_text);
+            #ifdef WEBPOSTGETINCONSOLE
+            d_log("text %s\n", opts->sms_text);
+            #endif
         }
         else if (0 == strcasecmp("pin", opts->xml_variable) && 4 == len) {
             opts->pin[0] = text[0];
@@ -666,11 +689,11 @@ process_element_start_old(void* userdata, const XML_Char* name, const XML_Char**
     if (1 == opts->level) {
         if (0 == strcasecmp(name, "queryStateVariable")) {
             opts->xml_cmd = XML_CMD_QUERY_STATE_VARIABLE;
-            printf("Mode = %d\n", opts->xml_cmd);
+            d_log("Mode = %d\n", opts->xml_cmd);
         }
         else if (0 == strcasecmp(name, "action")) {
             opts->xml_cmd = XML_CMD_ACTION;
-            printf("ACTION\n");
+            d_log("ACTION\n");
         }
     }
 
@@ -688,7 +711,7 @@ process_element_start_old(void* userdata, const XML_Char* name, const XML_Char**
             }
             else if (0 == strcasecmp(name, "argumentList")) {
                 opts->xml_cmd = XML_CMD_ACTION_ARGS;
-                printf("Expecting action argument list\n");
+                d_log("Expecting action argument list\n");
             }
             break;
         }
@@ -698,7 +721,7 @@ process_element_start_old(void* userdata, const XML_Char* name, const XML_Char**
         if (XML_CMD_ACTION_ARGS == opts->xml_cmd) {
             memset(opts->xml_variable, 0, sizeof(opts->xml_variable));
             strcpy(opts->xml_variable, name);
-            printf("Arg: %s\n", name);
+            d_log("Arg: %s\n", name);
         }
     }
 
@@ -712,25 +735,25 @@ process_element_start_old(void* userdata, const XML_Char* name, const XML_Char**
         }
     }
 
-    printf("%d %s\n", opts->level, name);
+    d_log("%d %s\n", opts->level, name);
 
     if (0 == strcasecmp(name, "get")) {
-        printf("XML_GET\n");
+        d_log("XML_GET\n");
         opts->elem = XML_GET;
     }
     else if (0 == strcasecmp(name, "UUID")) {
         opts->elem = XML_UUID;
-        printf("XML_UUID\n");
+        d_log("XML_UUID\n");
     }
     else if (0 == strcasecmp(name, "body")) {
         opts->elem = XML_BODY;
-        printf("XML_BODY\n");
+        d_log("XML_BODY\n");
         if (NULL != attrs) {
             for (i = 0; NULL != attrs[i]; i += 2) {
                 if (0 == strcasecmp("urn", attrs[i])) {
                     memset(opts->r_uuid, 0, sizeof(opts->r_uuid));
                     strcpy(opts->r_uuid, attrs[i + 1]);
-                    printf("R_UUID = %s\n", attrs[i + 1]);
+                    d_log("R_UUID = %s\n", attrs[i + 1]);
                 }
             }
         }
@@ -772,7 +795,7 @@ network_thread_main(void* arg)
     buf_init(&chars, 8192);
     xml_context_init(&ctx, &tags, &chars);
 
-    printf("Network thread start\n");
+    d_log("Network thread start\n");
 
     read_xmls();
 
@@ -810,14 +833,16 @@ network_thread_main(void* arg)
                 socklen_t len = sizeof(in_addr);
 
                 sock = accept(opts->tcp_sock, (struct sockaddr*) & in_addr, &len);
-                printf("Accepted connection from %s:%u\n", inet_ntoa(in_addr.sin_addr), ntohs(in_addr.sin_port));
+                #ifdef WEBPOSTGETINCONSOLE
+                d_log("Accepted connection from %s:%u\n", inet_ntoa(in_addr.sin_addr), ntohs(in_addr.sin_port));
+                #endif
 
                 res = recv(sock, buf, sizeof(buf), 0);
                 if (res > 0) {
                     memset(_sendbuf, 0, sizeof(_sendbuf));
                     _sendbuflen = 0;
 
-                    //printf("%s", buf);
+                    //d_log("%s", buf);
                     opts->level = 0;
                     opts->xml_action = NULL;
 
@@ -835,7 +860,7 @@ network_thread_main(void* arg)
                         opts->xml_action(opts);
                     }
 
-                    //printf("%s", _sendbuf);
+                    //d_log("%s", _sendbuf);
                     if (0 != _sendbuflen) {
                         res = send(sock, _sendbuf, _sendbuflen, 0);
                     }
@@ -1005,15 +1030,16 @@ int
 app_init(options_t* opts)
 {
     int res;
+    char buf[32] = {0};
 
     if (0 != network_init(opts)) {
-        printf("Network init failed\n");
+        d_log("Network init failed\n");
         exit(EXIT_FAILURE);
     }
 
     opts->uart_fd = uart_init(opts->uart_tty, opts->uart_baud_rate);
     if (-1 == opts->uart_fd) {
-        printf("UART init failed\n");
+        d_log("UART init failed\n");
         exit(EXIT_FAILURE);
     }
 
@@ -1025,16 +1051,18 @@ app_init(options_t* opts)
 
     if (opts->gprs_enabled) {
         /* Get SIM status */
-        printf("Querying SIM (SLOT 1) status\n");
-#if 0
+        d_log("Querying SIM (SLOT 1) status\n");
         opts->sim_status = nwy_sim_get_card_status(NWY_SIM_ID_SLOT_1);
+
         if (opts->sim_status < 0) {
+            d_log("Error (%d) querying SIM (SLOT 1) status. GPRS service disabled.\n", opts->sim_status);
             printf("Error (%d) querying SIM (SLOT 1) status. GPRS service disabled.\n", opts->sim_status);
             opts->sim_status = NWY_SIM_NOT_INSERTED;
             opts->gprs_enabled = FALSE;
         } else {
             switch (opts->sim_status) {
             case NWY_SIM_NOT_INSERTED:
+                d_log("SIM card not present (SLOT 1). Disabling SMS and GPRS services.\n");
                 printf("SIM card not present (SLOT 1). Disabling SMS and GPRS services.\n");
                 opts->gprs_enabled = FALSE;
                 break;
@@ -1042,25 +1070,31 @@ app_init(options_t* opts)
                 case NWY_SIM_PIN_REQ:
                     res = nwy_sim_verify_pin(NWY_SIM_ID_SLOT_1, opts->pin);
                     if(res < 0) {
+                        d_log("SIM PIN verify failed. Error code is %d\n", res);
                         printf("SIM PIN verify failed. Error code is %d\n", res);
                         opts->gprs_enabled = FALSE;
                     };
                     break;
 
                 case NWY_SIM_READY:
+                    d_log("SIM card installed and ready\n");
                     printf("SIM card installed and ready\n");
                     break;
             }
         }
-#else
-        detect_sim_card(opts);
-#endif        
+        //detect_sim_card(opts);
+    }
+
+    opts->modem_fd = modem_init(opts->modem_tty, opts->uart_baud_rate);
+    if (-1 == opts->modem_fd) {
+        d_log("MODEM init failed\n");
+        exit(EXIT_FAILURE);
     }
 
 #if 0
     if (opts->gps_enabled) {
         if (0 != agps_init()) {
-            printf("AGPS init failed\n");
+            d_log("AGPS init failed\n");
             //exit(EXIT_FAILURE);
         }
     }
@@ -1075,13 +1109,10 @@ app_init(options_t* opts)
 }
 
 
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
+// --------------------------Alexander_code-----------------------
+// --------------------------Alexander_code-----------------------
+// --------------------------Alexander_code-----------------------
+
 
 /*---------------------------Macro Definition---------------------------*/
 #define PORT 80               //Требует Rут права
@@ -1095,46 +1126,33 @@ app_init(options_t* opts)
 #undef LOG_MSG_MASK
 #define LOG_MSG_MASK     LOG_MASK_STD
 
-#define NWY_AT_PORT      "/dev/smd9"
+
 #define BUFLEN 512             //Max length of buffer
 #define SERVER "10.7.254.6"    //Адресс локальной машины пк связанной с железкой сейчас
-#define MAX_SMS_IN_PRIORITY 20 //Предельное количество смс в каждом приоритете. Приоритеты 1-7
-#define MAX_SMS_LENGTH 160     //Предельное количество символов в смс, годится только для отправки латиницы
 
 
 char buffer[128768] = { 0 };    //Буфер для вычитывания файлов и принятия внешних запросов
 //Переменные, для вычитывания данных из внешнего запроса
-char method[10] = { 0 },                //Метод Post, get или что то еще
-fileadrr[100] = { 0 },                //Адрес файла к которому обращение
-filetype[10] = { 0 },                //Расширение файла
-postcomand[20] = { 0 },                //Команда для сервера через POST
-postbody[1000] = { 0 };                //Тело Post запроса
-//Переменные, для хранения основных параметров монитора, остальные ищи в options_t в utils.h
-int num_sput_val = 0,
-carrige_mileage_val = 0,
-last_mileage_val = 0,
-power_type_val = 0;
-
-// char country_cod[10], operator_cod[10];
-int hh, mm, ss, ms;                 //Переменные времени от GPS идут в системное время
-char fix_state;                     //Состояние фиксации спутниками нет/плоскость/3-х мерное пространство
-int lat_D, lon_D;
-float lat_M = 0, lon_M = 0, lat = 0, lon = 0;
-char lat_sign = '\0', lon_sign = '\0';
+char method[10],               //Метод Post, get или что то еще
+fileadrr[100],                 //Адрес файла к которому обращение
+filetype[10],                  //Расширение файла
+postcomand[20],                //Команда для сервера через POST
+postbody[1000];                //Тело Post запроса
+char fullfileadrr[100] = { 0 };
+//Переменные, для хранения основных параметров монитора ищи в options_t в utils.h
 
 char phone_num[13], sms_text[500] = { '\0' }; //Переменные для работы с смс
 char recv_phone[13], recv_text[500] = { '\0' };
 bool recv_flag = false;
 bool queue_flag = false;
 
-char web_log[64000] = { 0 };
-char inet_web[16] = { 0 };          //ifconfig bridge0 inet 192.168.0.0 netmask 255.255.255.0
-char netmask_web[16] = { 0 };
-char gps_time_web[5] = { 0 };
+char web_log[256000];
+char inet_web[16];          //ifconfig bridge0 inet 192.168.0.0 netmask 255.255.255.0
+char netmask_web[16];
+char gps_time_web[5];
 
-int opt = 1, rc;
+int opt = 1, rc, wb_i = 0;
 int user_id = 0;                   //2 - Admin, 1 - Viewer, 0 - Her kakoi-to
-int ret;
 time_t start, end;
 int server_fd, new_tcp_socket, valread;  //
 
@@ -1143,35 +1161,11 @@ int addrlen = sizeof(address);
 
 void Header_Parse();                                //Функция которая разбирает ключевые заголовки из buffer и складывает в предназначенные для этого массивы
 void Start_Socket();                                //Socket+bind+listen
-void At_init(void* web_opts);                       //Инициализация для работы с AT
-void send_at_cmd(char* at_com, void* web_opts);     //Отправка АТ команды
-static void at_free(char** p);
-//static void* TCP_server (void *arg);
-//static void* UDP_server (void *arg);
+
 static void del_sms_num(char* but_type, int num, void* web_opts);
 static void* HeartBit(void* arg);
 static int do_send_sms(char* number, int encoding, int length, char* context, int async, void* opts_sms, int sms_priority);
 static void test_sms_evt_handler(nwy_mt_sms_event_t ind_type, void* ind_struct);
-int Read_smsFrom_txt(const char* file, void* web_opts);
-int Write_smsTo_txt(const char* file, void* web_opts);
-
-// int main(int argc, char const *argv[])
-// {
-//         sprintf(web_log, "%s%s", web_log, "Start systems...\\n");
-//         system("ifconfig bridge0 inet 10.7.254.10 netmask 255.255.255.0\n");
-//         system("ethtool -s eth0 speed 100 duplex full autoneg on\n");
-//
-//         pthread_t thread, thread2, thread3;
-//         pthread_create(&thread, NULL, TCP_server, "1");
-//         pthread_create(&thread2, NULL, UDP_server, "2");
-//         pthread_create(&thread3, NULL, HeartBit, "3");
-//         while(1)
-//         {
-//                 printf("\033[92mNORMAL WORK MAIN\033[0m\n");
-//                 sleep(5);
-//         }
-//         return 0;
-// }
 
 void Start_Socket()
 {
@@ -1182,7 +1176,7 @@ void Start_Socket()
         exit(EXIT_FAILURE);
     }
     start = time(NULL);
-    printf("SOCKET: OK\n");
+    d_log("SOCKET: OK\n");
     // Forcefully attaching socket to the port 8080
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)))
     {
@@ -1200,13 +1194,13 @@ void Start_Socket()
         perror("bind failed");
         exit(EXIT_FAILURE);
     }
-    printf("BIND: OK\n");
+    d_log("BIND: OK\n");
     if (listen(server_fd, 10) < 0)
     {
         perror("listen");
         exit(EXIT_FAILURE);
     }
-    printf("LISTEN: OK\n");
+    d_log("LISTEN: OK\n");
 }
 
 void Header_Parse()
@@ -1278,265 +1272,10 @@ void Header_Parse()
     if (filetype[0] == '\0') { filetype[0] = 'h'; filetype[1] = 't'; filetype[2] = 'm'; filetype[3] = 'l'; filetype[4] = '\0'; }
 }
 
-void At_init(void* web_opts)
-{
-    options_t* opts = (options_t*)web_opts;
-    ret = nwy_at_port_init(NWY_AT_PORT);
-    if (ret != 0)
-    {
-        LOGI("Init port error \n", NWY_AT_PORT);
-    }
-    else
-    {
-        send_at_cmd("AT$MYGPSPWR=1\0", opts);
-        printf("AT: OK\n");
-    }
-}
-
-void send_at_cmd(char* at_com, void* web_opts)
-{
-    options_t* opts = (options_t*)web_opts;
-    char* p_resp = NULL;
-    char* p_result = NULL;
-    int ret;
-    int i = 0, j = 0;
-    ret = nwy_at_send_cmd(at_com, &p_resp, &p_result);
-    if (ret != 0)
-    {
-        printf("Send at cmd %s failed\n", at_com);
-        return;
-    }
-    if (p_resp != NULL)
-    {
-        #ifdef WEBPOSTGETINCONSOLE
-        printf("Recv at response:\n%s\n%s\n", p_resp, p_result);
-        #endif
-
-        if (!strcmp(at_com, "AT+CSQ\0"))
-        {
-            while (p_resp[i] != ' ')
-            {
-                i++;
-            }
-            i++;
-            while (p_resp[i] != ',')
-            {
-                opts->rssi[j] = p_resp[i];
-                i++; j++;
-            }
-            opts->rssi[j] = '\0';
-            int rssi_val = -113 + atoi(opts->rssi) * 2;
-            sprintf(opts->rssi, "%d", rssi_val);
-        }
-        else if (!strcmp(at_com, "AT+CIMI\0"))
-        {
-            while (p_resp[i] != ' ')
-            {
-                i++;
-            }
-            i++;
-            while (p_resp[i] != '\0')
-            {
-                opts->imsi[j] = p_resp[i];
-                if (j <= 2)
-                {
-                    opts->country_cod[j] = p_resp[i];
-                    opts->country_cod[j + 1] = '\0';
-                }
-                if (j == 3 || j == 4)
-                {
-                    opts->operator_cod[j - 3] = p_resp[i];
-                    opts->operator_cod[j - 2] = '\0';
-                }
-                i++; j++;
-            }
-            switch (atoi(opts->country_cod))
-            {
-            case 250:
-                sprintf(opts->country_cod, "RUS\0");
-                break;
-            default:
-                sprintf(opts->country_cod, "\0");
-                break;
-            }
-            switch (atoi(opts->operator_cod))
-            {
-            case 1:
-                sprintf(opts->operator_cod, "MTS\0");
-                break;
-            case 2:
-                sprintf(opts->operator_cod, "Megafon\0");
-                break;
-            case 11:
-                sprintf(opts->operator_cod, "Yota\0");
-                break;
-            case 14:
-                sprintf(opts->operator_cod, "Megafon\0");
-                break;
-            case 20:
-                sprintf(opts->operator_cod, "Tele2\0");
-                break;
-            case 28:
-                sprintf(opts->operator_cod, "Beeline\0");
-                break;
-            case 62:
-                sprintf(opts->operator_cod, "Tinkoff\0");
-                break;
-            case 99:
-                sprintf(opts->operator_cod, "Beeline\0");
-                break;
-            default:
-                sprintf(opts->operator_cod, "\0");
-                break;
-            }
-            opts->imsi[j] = '\0';
-        }
-        else if (!strcmp(at_com, "AT+CGSN\0"))
-        {
-            while (p_resp[i] != ' ')
-            {
-                i++;
-            }
-            i++;
-            while (p_resp[i] != '\0')
-            {
-                opts->imei[j] = p_resp[i];
-                i++; j++;
-            }
-            opts->imei[j] = '\0';
-        }
-        else if (!strcmp(at_com, "AT$MYGPSPOS=3\0"))
-        {
-            sscanf(p_resp, "$MYGPSPOS: $GPRMC,%2d%2d%2d.%2d,%c,%2d%f,%c,%3d%f,%c", &hh, &mm, &ss, &ms, &fix_state, &lat_D, &lat_M, &lat_sign, &lon_D, &lon_M, &lon_sign);
-            if (lat_sign == '\0' || lon_sign == '\0')
-            {
-                lat = 0;
-                lon = 0;
-                lat_sign = '-';
-                lon_sign = '-';
-            }
-            else
-            {
-                lat = lat_D + lat_M / 60;
-                lon = lon_D + lon_M / 60;
-            }
-        }
-        else if (!strcmp(at_com, "AT$MYGPSPOS=1\0"))
-        {
-            while (p_resp[i] != ',')
-            {
-                i++;
-            }
-            i++;
-            while (p_resp[i] != ',')
-            {
-                i++;
-            }
-            i++;
-            while (p_resp[i] != ',')
-            {
-                if (p_resp[i] == '1')
-                {
-                    sprintf(opts->threed_fix, "invalid\0");
-                }
-                if (p_resp[i] == '2')
-                {
-                    sprintf(opts->threed_fix, "2D FIX\0");
-                }
-                if (p_resp[i] == '3')
-                {
-                    sprintf(opts->threed_fix, "3D FIX\0");
-                }
-                i++;
-            }
-            i++;
-            num_sput_val = 0;
-            while (num_sput_val < 12)
-            {
-                if (p_resp[i] == ',')
-                {
-                    num_sput_val++;
-                    if (p_resp[i + 1] == ',')
-                    {
-                        break;
-                    }
-                }
-                i++;
-            }
-            opts->gps_cords[j] = ' ';
-            j++;
-            while (p_resp[i] != ',')
-            {
-                i++;
-            }
-            i++;
-            while (p_resp[i] != ',')
-            {
-                opts->gps_cords[j] = p_resp[i];
-                i++; j++;
-                if (j == 15)
-                {
-                    j++;
-                    j++;
-                }
-                if (p_resp[i] == '.')
-                {
-                    i++;
-                }
-            }
-            opts->gps_cords[j] = '\0';
-        }
-        else if (!strcmp(at_com, "AT$MYSYSINFO\0"))
-        {
-            while (p_resp[i] != ' ')
-            {
-                i++;
-            }
-            i++;
-            switch (atoi(&p_resp[i]))
-            {
-            case 0:
-                sprintf(opts->mobile_data, "No Signal\0");
-                break;
-            case 2:
-                sprintf(opts->mobile_data, "2G\0");
-                break;
-            case 3:
-                sprintf(opts->mobile_data, "3G\0");
-                break;
-            case 4:
-                sprintf(opts->mobile_data, "LTE\0");
-                break;
-            }
-        }
-    }
-    else{
-    #ifdef WEBPOSTGETINCONSOLE
-        printf("Recv at response: %s\n", p_result);
-    #endif
-    }
-    #ifdef WEBPOSTGETINCONSOLE
-    printf("Send at cmd %s: OK\n", "at_com");
-    #endif
-    at_free(&p_resp);
-    at_free(&p_result);
-    return;
-}
-
-static void at_free(char** p)
-{
-    if ((*p) != NULL)
-    {
-        free(*p);
-        (*p) = NULL;
-    }
-}
-
-
 static void* tcp_web_thread_main(void* arg)
 {
     options_t* opts = (options_t*)arg;
-    printf("WEB DIR: %s\n",opts->web_dir_i_path);
+    d_log("WEB DIR: %s\n",opts->web_dir_i_path);
     char* at_com = malloc(sizeof(char) * 100);
     int i = 0;
     int j = 0;
@@ -1548,11 +1287,11 @@ static void* tcp_web_thread_main(void* arg)
 
     end = time(NULL);
 
-    char sss[2], mmm[2], hhh[2];            //складываем в строки секунды часы и минуты
-    (((int)difftime(end, start) % 60 < 10) ? sprintf(sss, "0%d", (int)difftime(end, start) % 60) : sprintf(sss, "%d", (int)difftime(end, start) % 60));
-    (((int)(difftime(end, start) / 60) % 60 < 10) ? sprintf(mmm, "0%d", (int)(difftime(end, start) / 60) % 60) : sprintf(mmm, "%d", (int)(difftime(end, start) / 60) % 60));
-    (((int)(difftime(end, start) / 3600) % 60 < 10) ? sprintf(hhh, "0%d", (int)(difftime(end, start) / 3600) % 60) : sprintf(hhh, "%d", (int)(difftime(end, start) / 3600) % 60));
-    sprintf(opts->up_time_string, "%s : %s : %s\0", hhh, mmm, sss);
+    char sss[5], mmm[5], hhh[5];            //складываем в строки секунды часы и минуты
+    (((int)difftime(end, start) % 60 < 10) ? snprintf(sss, sizeof(sss), "0%d", (int)difftime(end, start) % 60) : snprintf(sss, sizeof(sss), "%d", (int)difftime(end, start) % 60));
+    (((int)(difftime(end, start) / 60) % 60 < 10) ? snprintf(mmm, sizeof(mmm), "0%d", (int)(difftime(end, start) / 60) % 60) : snprintf(mmm, sizeof(mmm), "%d", (int)(difftime(end, start) / 60) % 60));
+    (((int)(difftime(end, start) / 3600) % 60 < 10) ? snprintf(hhh, sizeof(hhh), "0%d", (int)(difftime(end, start) / 3600) % 60) : snprintf(hhh, sizeof(hhh), "%d", (int)(difftime(end, start) / 3600) % 60));
+    snprintf(opts->up_time_string, sizeof(opts->up_time_string), "%s : %s : %s\0", hhh, mmm, sss);
 
     int s_p;                           //выставляем нулевое количкстов всех сообщений, пополнится само при чтении файла sms_memory.txt
     for (s_p = 7; s_p >= 0; s_p--)
@@ -1565,22 +1304,22 @@ static void* tcp_web_thread_main(void* arg)
     /*opts->sended[3].j = 3;
     //Тестовое заполнение массива сообщений
     for (i = opts->sended[3].j-1; i >= 0; i--)
-    {       printf ("i = %d\n", i);
+    {       d_log ("i = %d\n", i);
             //int j = opts->sended[s_p].j;
-            sprintf(opts->sended[3].phone[i], "%s\0", "+7910123456"); printf("%s\n", opts->sended[3].phone[i]); sprintf(opts->sended[3].text[i], "%s%d\0", "Text", i); printf("%s\n", opts->sended[3].text[i]);
+            snprintf(opts->sended[3].phone[i], "%s\0", "+7910123456"); d_log("%s\n", opts->sended[3].phone[i]); snprintf(opts->sended[3].text[i], "%s%d\0", "Text", i); d_log("%s\n", opts->sended[3].text[i]);
     }
     opts->sended[7].j = 4;
     //Тестовое заполнение массива сообщений
     for (i = opts->sended[7].j-1; i >= 0; i--)
-    {       printf ("i = %d\n", i);
+    {       d_log ("i = %d\n", i);
             //int j = opts->sended[s_p].j;
-            sprintf(opts->sended[7].phone[i], "%s\0", "+7910123456"); printf("%s\n", opts->sended[7].phone[i]); sprintf(opts->sended[7].text[i], "%s%d\0", "Text", i); printf("%s\n", opts->sended[7].text[i]);
+            snprintf(opts->sended[7].phone[i], "%s\0", "+7910123456"); d_log("%s\n", opts->sended[7].phone[i]); snprintf(opts->sended[7].text[i], "%s%d\0", "Text", i); d_log("%s\n", opts->sended[7].text[i]);
     }
     opts->deleted[5].j = 5;
     for (i = opts->deleted[5].j-1; i >= 0; i--)
-    {       printf ("i = %d\n", i);
+    {       d_log ("i = %d\n", i);
             //int j = opts->sended[s_p].j;
-            sprintf(opts->deleted[5].phone[i], "%s\0", "+7910123456"); printf("%s\n", opts->deleted[5].phone[i]); sprintf(opts->deleted[5].text[i], "%s%d\0", "Text", i); printf("%s\n", opts->deleted[5].text[i]);
+            snprintf(opts->deleted[5].phone[i], "%s\0", "+7910123456"); d_log("%s\n", opts->deleted[5].phone[i]); snprintf(opts->deleted[5].text[i], "%s%d\0", "Text", i); d_log("%s\n", opts->deleted[5].text[i]);
     }*/
     nwy_sms_add_mtmessage_handler(test_sms_evt_handler, NULL);    //Добавить обработчик события получения смс
     Read_smsFrom_txt("sms_memory.txt\0", opts);
@@ -1593,43 +1332,41 @@ static void* tcp_web_thread_main(void* arg)
         {
             perror("accept");
 #ifdef WEBPOSTGETINCONSOLE
-            printf("\033[91mACCEPT:\033[0m FAIL, %f seconds from start\n", difftime(end, start));
+            d_log("\033[91mACCEPT:\033[0m FAIL, %f seconds from start\n", difftime(end, start));
 #endif
             continue;                                                                        //exit(EXIT_FAILURE);
         }
         end = time(NULL);
 #ifdef WEBPOSTGETINCONSOLE
-        printf("\033[91mACCEPT:\033[0m OK, %f seconds from start\n", difftime(end, start));
+        d_log("\033[91mACCEPT:\033[0m OK, %f seconds from start\n", difftime(end, start));
 #endif
         valread = recv(new_tcp_socket, buffer, sizeof(buffer) - 1, 0);                              //Разбираем запрос от браузера
         end = time(NULL);
 #ifdef WEBPOSTGETINCONSOLE
-        printf("\033[91mRecv:\033[0m End, %f seconds from start\n", difftime(end, start));
+        d_log("\033[91mRecv:\033[0m End, %f seconds from start\n", difftime(end, start));
 #endif
         if (valread <= 0)
         {
             send(new_tcp_socket, "HTTP/1.1 400\r\n", strlen("HTTP/1.1 400\r\n"), 0);
-            //printf("Fatalerror\n");
+            //d_log("Fatalerror\n");
             close(new_tcp_socket);
             continue;
         }
         buffer[valread] = '\0';                                                 //Добавляем конец строки на позиции конца строки
         #ifdef WEBPOSTGETINCONSOLE
-        printf("\033[91mREAD:\033[0m OK, %d symbols\n", valread);
+        d_log("\033[91mREAD:\033[0m OK, %d symbols\n", valread);
         #endif
         Header_Parse();
+        snprintf(fullfileadrr, 100, "%s.%s", fileadrr, filetype);              //Собираем целый адресс из имени и расширения
         //Вывод на экран всего что там напарсилось
         #ifdef WEBPOSTGETINCONSOLE
-        printf("%s\n", buffer);
-        printf("\033[92mMethod:\033[0m %s\n", method);
-        printf("\033[92mAddr:\033[0m %s \n", fileadrr);
-        printf("\033[92mType:\033[0m %s\n", filetype);
-        printf("\033[92mComand:\033[0m %s\n", postcomand);
-        printf("\033[92mBody:\033[0m %s\n", postbody);
-        #endif
-        sprintf(fileadrr, "%s.%s", fileadrr, filetype);                                                 //Собираем целый адресс из имени и расширения
-        #ifdef WEBPOSTGETINCONSOLE
-        printf("\033[92mAddr:\033[0m %s \n", fileadrr);
+        //d_log("%s\n", buffer);
+        d_log("\033[92mMethod:\033[0m %s\n", method);
+        //d_log("\033[92mAddr:\033[0m %s \n", fileadrr);
+        //d_log("\033[92mType:\033[0m %s\n", filetype);
+        //d_log("\033[92mComand:\033[0m %s\n", postcomand);
+        //d_log("\033[92mBody:\033[0m %s\n", postbody);
+        d_log("\033[92mAddr:\033[0m %s \n", fullfileadrr);
         #endif
 
         if (method[0] == 'P' && method[1] == 'O' && method[2] == 'S' && method[3] == 'T')
@@ -1649,10 +1386,10 @@ static void* tcp_web_thread_main(void* arg)
             {
                 send(new_tcp_socket, "HTTP/1.1 200 Ok \r\n\r\n", strlen("HTTP/1.1 200 Ok \r\n\r\n"), 0);
                 if (user_id == 2) {
-                    sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "Admin is unlogged\\n");
+                    wb_i += snprintf(&web_log[wb_i], sizeof(web_log), "[%s] %s", opts->up_time_string, "Admin is unlogged\\n");
                 }
                 else if (user_id == 1) {
-                    sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "User is unlogged\\n");
+                    wb_i += snprintf(&web_log[wb_i], sizeof(web_log), "[%s] %s", opts->up_time_string, "User is unlogged\\n");
                 }
                 user_id = 0;
             }
@@ -1676,7 +1413,7 @@ static void* tcp_web_thread_main(void* arg)
                 }
                 sms_text[j] = '\0';
                 //squeeze (sms_text, '\n'); //удалим запрещенный \n
-                printf("Num: %s\n SMS: %s\n Len: %d\n", phone_num, sms_text, strlen(sms_text));
+                d_log("Num: %s\n SMS: %s\n Len: %d\n", phone_num, sms_text, strlen(sms_text));
                 do_send_sms(phone_num, 0, strlen(sms_text), sms_text, 0, opts, 3);
             }
             else if (!strcmp(postcomand, "SMS_save\0"))
@@ -1684,7 +1421,7 @@ static void* tcp_web_thread_main(void* arg)
                 send(new_tcp_socket, "HTTP/1.1 200 Ok \r\n\r\n", strlen("HTTP/1.1 200 Ok \r\n\r\n"), 0);
                 Write_smsTo_txt("sms_memory.txt\0", opts);
                 #ifdef WEBPOSTGETINCONSOLE
-                printf("SMS_saving: OK\n");
+                d_log("SMS_saving: OK\n");
                 #endif
             }
             else if (!strcmp(postcomand, "save_netstat\0"))
@@ -1714,20 +1451,20 @@ static void* tcp_web_thread_main(void* arg)
                     j++;
                 }
                 gps_time_web[j] = '\0';
-                printf("inet: %s\nnetmask: %s\ngps_time: %s\n", inet_web, netmask_web, gps_time_web);
+                d_log("inet: %s\nnetmask: %s\ngps_time: %s\n", inet_web, netmask_web, gps_time_web);
                 char sys_com[100] = { 0 };
-                sprintf(sys_com, "ifconfig bridge0 inet %s netmask %s\n", inet_web, netmask_web);
+                snprintf(sys_com, 100, "ifconfig bridge0 inet %s netmask %s\n", inet_web, netmask_web);
                 system(sys_com);
-                sprintf(web_log, "%s[%s] Сетевая конфигурация обновлена!\\nip:%s\\nnetmask:%s\\n", web_log, opts->up_time_string, inet_web, netmask_web);
-                //printf("%s", sys_com);
+                wb_i += snprintf(&web_log[wb_i], 64000, "[%s] Сетевая конфигурация обновлена!\\nip:%s\\nnetmask:%s\\n", opts->up_time_string, inet_web, netmask_web);
+                //d_log("%s", sys_com);
                 // j = 0; i++;
             }
             else if (!strcmp(postcomand, "del_sms\0"))
             {
                 send(new_tcp_socket, "HTTP/1.1 200 Ok \r\n\r\n", strlen("HTTP/1.1 200 Ok \r\n\r\n"), 0);
                 int i = 0, j = 0;
-                char but_selected[10];
-                char but_num[4];
+                char but_selected[20];
+                char but_num[10];
                 while (postbody[i] != ' ')
                 {
                     but_selected[j] = postbody[i];
@@ -1743,8 +1480,28 @@ static void* tcp_web_thread_main(void* arg)
                     j++;
                 }
                 but_num[j] = '\0';
-                printf("Button: %s\nBut_Num: %s\nInt_But: %d\n", but_selected, but_num, atoi(but_num));
+                d_log("Button: %s\nBut_Num: %s\nInt_But: %d\n", but_selected, but_num, atoi(but_num));
                 del_sms_num(but_selected, atoi(but_num), opts);
+                //Write_smsTo_txt("sms_memory.txt\0", opts);
+            }
+            else if (!strcmp(postcomand, "Mileage_reset\0"))
+            {
+                send(new_tcp_socket, "HTTP/1.1 200 Ok \r\n\r\n", strlen("HTTP/1.1 200 Ok \r\n\r\n"), 0);
+                /*
+                * FLAG UP TO SEND UART COMMAND to STM
+                */
+                pthread_mutex_lock(&opts->mutex);
+                opts->reset_mileage = 1;
+                pthread_mutex_unlock(&opts->mutex);
+                //nwy_uart_write(opts->uart_fd, "$INFO,V,1\r\n", sizeof("$INFO,V,1"));
+                //if (result == NWY_ERROR)
+                //{
+                //    printf("Error uart write");
+                //}
+                //else
+                //{
+                //    printf("UART WRITE OK!");
+                //}
             }
             else
             {
@@ -1752,49 +1509,49 @@ static void* tcp_web_thread_main(void* arg)
             }
             close(new_tcp_socket);
             end = time(NULL);
+            //printf("\033[91mCLOSE:\033[0m OK, %f seconds from start\n", difftime(end, start));
+            //d_log("\033[91mCLOSE:\033[0m OK, %f seconds from start\n", difftime(end, start));
             #ifdef WEBPOSTGETINCONSOLE
-            printf("\033[91mCLOSE:\033[0m OK, %f seconds from start\n", difftime(end, start));
+            d_log("\033[91mCLOSE:\033[0m OK, %f seconds from start\n", difftime(end, start));
             #endif
         }
-
-
 
         if (method[0] == 'G' && method[1] == 'E' && method[2] == 'T')
         {
             switch (user_id)
             {
             case 0:
-                if (!strcmp(fileadrr, "index.html\0") || !strcmp(filetype, "ico\0") || !strcmp(filetype, "png\0") || !strcmp(fileadrr, "blocked.html\0") || !strcmp(fileadrr, "login.js\0") || !strcmp(fileadrr, "picnic.css\0") || !strcmp(fileadrr, "sms_memory.txt"))
+                if (!strcmp(fullfileadrr, "index.html\0") || !strcmp(filetype, "ico\0") || !strcmp(filetype, "png\0") || !strcmp(fullfileadrr, "blocked.html\0") || !strcmp(fullfileadrr, "login.js\0") || !strcmp(fullfileadrr, "picnic.css\0") || !strcmp(fullfileadrr, "sms_memory.txt"))
                 {
-                    printf("Guest Ok\n");
+                    d_log("Guest Ok\n");
                 }
                 else
                 {
-                    sprintf(fileadrr, "404.html");
-                    sprintf(filetype, "html");
+                    snprintf(fullfileadrr, 100, "404.html");
+                    snprintf(filetype, 10, "html");
                     #ifdef WEBPOSTGETINCONSOLE
-                    printf("Guest sheet %s\n", fileadrr);
+                    d_log("Guest sheet %s\n", fullfileadrr);
                     #endif
                 }
                 break;
             case 1:
-                if (!strcmp(fileadrr, "index.html\0"))
+                if (!strcmp(fullfileadrr, "index.html\0"))
                 {
-                    sprintf(fileadrr, "indexWebViewer.html");
-                    sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "User is logged\\n");
+                    snprintf(fullfileadrr, 100, "indexWebViewer.html");
+                    wb_i += snprintf(&web_log[wb_i], 64000, "[%s] %s", opts->up_time_string, "User is logged\\n");
                 }
                 #ifdef WEBPOSTGETINCONSOLE
-                printf("Hallo User :)\n");
+                d_log("Hallo User :)\n");
                 #endif
                 break;
             case 2:
-                if (!strcmp(fileadrr, "index.html\0"))
+                if (!strcmp(fullfileadrr, "index.html\0"))
                 {
-                    sprintf(fileadrr, "indexWeb.html");
-                    sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "Admin is logged\\n");
+                    snprintf(fullfileadrr, 100, "indexWeb.html");
+                    wb_i += snprintf(&web_log[wb_i], 64000, "[%s] %s", opts->up_time_string, "Admin is logged\\n");
                 }
                 #ifdef WEBPOSTGETINCONSOLE
-                printf("Hallo Admin :)\n");
+                d_log("Hallo Admin :)\n");
                 #endif
                 break;
             }
@@ -1840,48 +1597,120 @@ static void* tcp_web_thread_main(void* arg)
                     send(new_tcp_socket, "Content-Type: text/css;charset=utf-8\r\n\r\n", strlen("Content-Type: text/css;charset=utf-8\r\n\r\n"), 0);
                 }
             }
-            if (!strcmp(fileadrr, "data.json\0"))
+            if (!strcmp(fullfileadrr, "data.json\0"))
             {
-                //strcpy(at_com, "AT+CSQ\0");
                 send_at_cmd("AT+CSQ\0", opts);
                 send_at_cmd("AT+CIMI\0", opts);
                 send_at_cmd("AT+CGSN\0", opts);
                 send_at_cmd("AT$MYGPSPOS=1\0", opts);
                 send_at_cmd("AT$MYGPSPOS=3\0", opts);
                 send_at_cmd("AT$MYSYSINFO\0", opts);
-                //strcpy(at_com, "AT+CIMI\0");
-                //send_at_cmd(at_com);
+
                 end = time(NULL);
-                //float time_f = difftime(end, start);
-                //char sss[2], mmm[2], hhh[2];
-                (((int)difftime(end, start) % 60 < 10) ? sprintf(sss, "0%d", (int)difftime(end, start) % 60) : sprintf(sss, "%d", (int)difftime(end, start) % 60));
-                (((int)(difftime(end, start) / 60) % 60 < 10) ? sprintf(mmm, "0%d", (int)(difftime(end, start) / 60) % 60) : sprintf(mmm, "%d", (int)(difftime(end, start) / 60) % 60));
-                (((int)(difftime(end, start) / 3600) % 60 < 10) ? sprintf(hhh, "0%d", (int)(difftime(end, start) / 3600) % 60) : sprintf(hhh, "%d", (int)(difftime(end, start) / 3600) % 60));
-                sprintf(opts->up_time_string, "%s : %s : %s\0", hhh, mmm, sss);
-                char pwrtype[10];
-                if(opts->power_source == POWER_SOURCE_NORMAL)
-                {
-                    sprintf(pwrtype, "От сети\0");
+
+                (((int)difftime(end, start) % 60 < 10) ? snprintf(sss, sizeof(sss), "0%d", (int)difftime(end, start) % 60) : snprintf(sss, sizeof(sss), "%d", (int)difftime(end, start) % 60));
+                (((int)(difftime(end, start) / 60) % 60 < 10) ? snprintf(mmm, sizeof(mmm), "0%d", (int)(difftime(end, start) / 60) % 60) : snprintf(mmm, sizeof(mmm), "%d", (int)(difftime(end, start) / 60) % 60));
+                (((int)(difftime(end, start) / 3600) % 60 < 10) ? snprintf(hhh, sizeof(hhh), "0%d", (int)(difftime(end, start) / 3600) % 60) : snprintf(hhh, sizeof(hhh), "%d", (int)(difftime(end, start) / 3600) % 60));
+                snprintf(opts->up_time_string, sizeof(opts->up_time_string), "%s : %s : %s\0", hhh, mmm, sss);
+
+                char pwrtype[20];
+                if(opts->power_source == POWER_SOURCE_NORMAL){
+                    snprintf(pwrtype, sizeof(pwrtype), "От сети");
+                } else if(opts->power_source == POWER_SOURCE_BATTERY) {
+                    snprintf(pwrtype, sizeof(pwrtype), "От батареи");
+                } else {
+                    snprintf(pwrtype, sizeof(pwrtype), "Error");
                 }
-                else if(opts->power_source == POWER_SOURCE_BATTERY)
-                {
-                    sprintf(pwrtype, "От батареи\0");
+
+                if (!strcmp(opts->threed_fix, "invalid\0")){ //Если не достоверно соединение с , то не выводим ничего с этим связанного
+                    snprintf(opts->sput_time, sizeof(opts->sput_time), "No GPS signal\0");
                 }
-                else
-                {
-                    sprintf(pwrtype, "Error\0");
+
+                if (!strcmp(opts->imsi, "")){ //Если не достоверно соединение с , то не выводим ничего с этим связанного
+                    snprintf(opts->imsi, sizeof(opts->imsi), "No SIM in slot\0");
+                    snprintf(opts->operator_cod, sizeof(opts->operator_cod), "No reg\0");
                 }
-                pthread_mutex_lock(&opts->mutex);      //Мютекс чтобы взять пробег
-                sprintf(buffer, "{\"rssi\" : \"%s дБм\",\n\"threed_fix\" : \"%s\"\n,\"gps_cords\" : \" %c %f\xC2\xB0 %c %f\xC2\xB0\"\n,\"sys_time\" : \" %d:%d:%d (GMT +3)\"\n,\"num_sput\" : \"%d\"\n,\"reg_in_mesh\" : \" %s %s\"\n,\"mobile_data\" : \"%s\"\n,\"imsi\" : \"%s\"\n,\"imei\" : \"%s\"\n,\"uptime\" : \"%s\"\n,\"carrige_mileage\" : \"%f км\"\n,\"last_mileage\" : \"%f км\"\n,\"power_type\" : \"%s\"\n}\0", opts->rssi, opts->threed_fix, lat_sign, lat, lon_sign, lon, hh + 3, mm, ss, num_sput_val, opts->operator_cod, opts->country_cod, opts->mobile_data, opts->imsi, opts->imei, opts->up_time_string, opts->total_mileage, opts->mileage, pwrtype);
+
+                /*
+                * Get info about gsm_ip from /var/run/gsm.connected
+                */
+
+                int _oneChar;
+                FILE* gsmipFile;
+                gsmipFile = fopen("/var/run/gsm.connected", "r");
+                if (gsmipFile == NULL) {
+                    #ifdef WEBPOSTGETINCONSOLE
+                    printf("/var/run/gsm.connected Error open or not found\n");
+                    #endif
+                    snprintf(opts->gsm_ip_state, sizeof(opts->gsm_ip_state), "Соединение не установлено");
+                } else {
+                    #ifdef WEBPOSTGETINCONSOLE
+                    printf("/var/run/gsm.connected open: OK\n");
+                    #endif
+                    fseek(gsmipFile, 0, SEEK_END);                                    //Открываем файл и перемещаем каретку в конечное положение
+                    int gsmipFileLen = ftell(gsmipFile);                                      //Получаем текущее значение указателя
+                    fseek(gsmipFile, 0, SEEK_SET);                                    //Перемещаем каретку в начало, чтобы корректно работать с файлом
+                    for (i = 0; (_oneChar = getc(gsmipFile)) != EOF && i < gsmipFileLen; opts->gsm_ip_state[i++] = rc);    //Посимвольно считываем все биты из файла пока они не закончатся или не переполнится буффер
+                    opts->gsm_ip_state[i] = '\0';
+                    // Закрываем файл
+                    #ifdef WEBPOSTGETINCONSOLE
+                    printf("Закрытие файла /var/run/gsm.connected: ");
+                    #endif
+                    if (fclose(gsmipFile) == EOF)
+                    {
+                        #ifdef WEBPOSTGETINCONSOLE
+                        printf("ошибка\n");
+                        #endif
+                    } else {
+                        #ifdef WEBPOSTGETINCONSOLE
+                        printf("выполнено\n");
+                        #endif
+                    }
+                }
+
+                /*
+                * Mutex for get total_mileage & mileage
+                */
+
+                pthread_mutex_lock(&opts->mutex);
+                snprintf(buffer, 65000, "{\"rssi\" : \"%s\",\n\""
+                                        "threed_fix\" : \"%s\",\n"
+                                        "\"gps_cords\" : \" %c %f\xC2\xB0 %c %f\xC2\xB0\",\n"
+                                        "\"sys_time\" : \" %s\",\n"
+                                        "\"num_sput\" : \"%d\",\n"
+                                        "\"reg_in_mesh\" : \" %s %s\",\n"
+                                        "\"mobile_data\" : \"%s\",\n"
+                                        "\"imsi\" : \"%s\",\n"
+                                        "\"imei\" : \"%s\",\n"
+                                        "\"uptime\" : \"%s\",\n"
+                                        "\"carrige_mileage\" : \"%f км\",\n"
+                                        "\"last_mileage\" : \"%f км\",\n"
+                                        "\"power_type\" : \"%s\",\n"
+                                        "\"gsm_ip_state\" : \"%s\"}\0",
+                                        opts->rssi,
+                                        opts->threed_fix,
+                                        opts->lat_sign, opts->lat, opts->lon_sign, opts->lon,
+                                        opts->sput_time,
+                                        opts->num_sput_val,
+                                        opts->operator_cod, opts->country_cod,
+                                        opts->mobile_data,
+                                        opts->imsi,
+                                        opts->imei,
+                                        opts->up_time_string,
+                                        opts->total_mileage,
+                                        opts->mileage,
+                                        pwrtype,
+                                        opts->gsm_ip_state);
                 pthread_mutex_unlock(&opts->mutex);
+
                 send(new_tcp_socket, buffer, strlen(buffer), 0);
                 at_com = NULL;
             }
-            else if (!strcmp(fileadrr, "log.json\0")) {
-                sprintf(buffer, "{\"log\" : \"%s\"\n}\0", web_log);
+            else if (!strcmp(fullfileadrr, "log.json\0")) {
+                snprintf(buffer, 65000, "{\"log\" : \"%s\"\n}\0", &web_log[0]);
                 send(new_tcp_socket, buffer, strlen(buffer), 0);
             }
-            else if (!strcmp(fileadrr, "sms.json\0")) {
+            else if (!strcmp(fullfileadrr, "sms.json\0")) {
                 /*count_to_save_sms++;
                 if (count_to_save_sms > 30)
                 {
@@ -1891,7 +1720,7 @@ static void* tcp_web_thread_main(void* arg)
                 if (recv_flag == true)                             //если приходило смс, добавить его в список
                 {
                     recv_flag = false;
-                    //printf("FLAG IS %d\nNUM IS %s\nTEXT IS %s\n", recv_flag, recv_phone, recv_text);
+                    //d_log("FLAG IS %d\nNUM IS %s\nTEXT IS %s\n", recv_flag, recv_phone, recv_text);
                     memcpy(opts->recved[3].text[opts->recved[3].j], recv_text, 500);
                     memcpy(opts->recved[3].phone[opts->recved[3].j], recv_phone, 12);
                     if (opts->recved[3].j <= 20) {
@@ -1904,16 +1733,16 @@ static void* tcp_web_thread_main(void* arg)
                             memcpy(opts->recved[3].text[z], opts->recved[3].text[z + 1], 500);
                         }
                     }
-                    // printf("FLAG IS %d\nNUM IS %s\nTEXT IS %s\n", recv_flag, recv_phone, recv_text);
+                    // d_log("FLAG IS %d\nNUM IS %s\nTEXT IS %s\n", recv_flag, recv_phone, recv_text);
                 }
                 int i = 0;
-                sprintf(buffer, "{\"sended\":[\0");
+                snprintf(buffer, 20, "{\"sended\":[\0");
                 for (s_p = 7; s_p >= 0; s_p--)
                 {
                     for (i = opts->sended[s_p].j - 1; i >= 0; i--)
                     {
                         char one_sms[600] = { 0 };
-                        //printf ("i= %d\n", i);
+                        //d_log ("i= %d\n", i);
                         char string_whithout_quotes[500] = { 0 };
                         int ia = 0, ib = 0;
                         for (ib = 0; ib < 500; ib++)                   //Находит все кавычки и заменяет их для корректного отображения браузером
@@ -1946,7 +1775,7 @@ static void* tcp_web_thread_main(void* arg)
                                 ia++;
                             }
                         }
-                        sprintf(one_sms, "\"%d %s %s\"", s_p, opts->sended[s_p].phone[i], string_whithout_quotes);
+                        snprintf(one_sms, 600, "\"%d %s %s\"", s_p, opts->sended[s_p].phone[i], string_whithout_quotes);
                         strcat(buffer, one_sms);
                         strcat(buffer, ", ");
                     }
@@ -1990,8 +1819,8 @@ static void* tcp_web_thread_main(void* arg)
                                 ia++;
                             }
                         }
-                        //printf ("i= %d\n", i);
-                        sprintf(one_sms, "\"%d %s %s\"", s_p, opts->queue[s_p].phone[i], string_whithout_quotes);
+                        //d_log ("i= %d\n", i);
+                        snprintf(one_sms, 600, "\"%d %s %s\"", s_p, opts->queue[s_p].phone[i], string_whithout_quotes);
                         strcat(buffer, one_sms);
                         strcat(buffer, ", ");
                     }
@@ -2035,8 +1864,8 @@ static void* tcp_web_thread_main(void* arg)
                                 ia++;
                             }
                         }
-                        //printf ("i= %d\n", i);
-                        sprintf(one_sms, "\"%d %s %s\"", s_p, opts->deleted[s_p].phone[i], string_whithout_quotes);
+                        //d_log ("i= %d\n", i);
+                        snprintf(one_sms, 600, "\"%d %s %s\"", s_p, opts->deleted[s_p].phone[i], string_whithout_quotes);
                         strcat(buffer, one_sms);
                         strcat(buffer, ", ");
                     }
@@ -2080,8 +1909,8 @@ static void* tcp_web_thread_main(void* arg)
                                 ia++;
                             }
                         }
-                        //printf ("i= %d\n", i);
-                        sprintf(one_sms, "\"%d %s %s\"", s_p, opts->recved[s_p].phone[i], string_whithout_quotes);
+                        //d_log ("i= %d\n", i);
+                        snprintf(one_sms, 600, "\"%d %s %s\"", s_p, opts->recved[s_p].phone[i], string_whithout_quotes);
                         strcat(buffer, one_sms);
                         strcat(buffer, ", ");
                     }
@@ -2090,24 +1919,24 @@ static void* tcp_web_thread_main(void* arg)
                 strcat(buffer, "]} \n");
                 send(new_tcp_socket, buffer, strlen(buffer), 0);
                 #ifdef WEBPOSTGETINCONSOLE
-                printf("SMS to WEB: OK\n");
+                d_log("SMS to WEB: OK\n");
                 #endif
             }
             else {
                 char fullpath[30] = {0};
                 strcat(fullpath, opts->web_dir_i_path);   //собираем адрсс из PATH в neowayhelper.conf
                 strcat(fullpath, "/");                    //слэша
-                strcat(fullpath, fileadrr);               //и имени файла
-                printf("Fopen: %s\n", fullpath);
+                strcat(fullpath, fullfileadrr);               //и имени файла
+                d_log("Fopen: %s\n", fullpath);
                 sFile = fopen(fullpath, "r");
                 if (sFile == NULL) {
-                    printf("File open: Error\n");
-                    sprintf(fileadrr, "/data/www/Server/404.html", fileadrr);  //В случае ошибки или отсутствия файла подсунуть 404
-                    sFile = fopen(fileadrr, "r");
+                    d_log("File open: Error\n");
+                    snprintf(fullfileadrr, 100, "/data/www/Server/404.html");  //В случае ошибки или отсутствия файла подсунуть 404
+                    sFile = fopen(fullfileadrr, "r");
                 }
                 else {
                     #ifdef WEBPOSTGETINCONSOLE
-                    printf("File open: OK\n");
+                    d_log("File open: OK\n");
                     #endif
                 }
                 fseek(sFile, 0, SEEK_END);                                    //Открываем файл и перемещаем каретку в конечное положение
@@ -2123,95 +1952,33 @@ static void* tcp_web_thread_main(void* arg)
                 }                                   //Выдаем буфер браузеру
                 // Закрываем файл
                 #ifdef WEBPOSTGETINCONSOLE
-                printf("Закрытие файла: ");
+                d_log("Закрытие файла: ");
                 #endif
                 if (fclose(sFile) == EOF)
                 {
                     #ifdef WEBPOSTGETINCONSOLE
-                    printf("ошибка\n");
+                    d_log("ошибка\n");
                     #endif
                 } else {
                     #ifdef WEBPOSTGETINCONSOLE
-                    printf("выполнено\n");
+                    d_log("выполнено\n");
                     #endif
                 }
             }
             close(new_tcp_socket);
             end = time(NULL);
             #ifdef WEBPOSTGETINCONSOLE
-            printf("\033[91mCLOSE:\033[0m OK, %f seconds from start\n", difftime(end, start));
+            d_log("\033[91mCLOSE:\033[0m OK, %f seconds from start\n", difftime(end, start));
             #endif
         }
         #ifdef WEBPOSTGETINCONSOLE
-        printf("-------------------------\n");
+        d_log("-------------------------\n");
         #endif
     }
-
     close(server_fd);
-    printf("\033[91mSERVER CLOSED:\033[0m OK \n");
-    printf("-------------------------\n");
+    d_log("\033[91mSERVER CLOSED:\033[0m OK \n");
+    d_log("-------------------------\n");
 }
-
-//void die(char* s)
-//{
-//    perror(s);
-//    exit(1);
-//}
-
-// static void* UDP_server (void *arg)
-// {
-//         struct sockaddr_in si_other;
-//         int udp_fd, i, slen=sizeof(si_other);
-//         //char buf[BUFLEN];
-//         char message[BUFLEN];
-//
-//         if ( (udp_fd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
-//         {
-//                 die("socket");
-//         }
-//
-//         memset((char *) &si_other, 0, sizeof(si_other));
-//         si_other.sin_family = AF_INET;
-//         si_other.sin_port = htons(PORT);
-//
-//         if (inet_aton(SERVER, &si_other.sin_addr) == 0)
-//         {
-//                 fprintf(stderr, "inet_aton() failed\n");
-//                 exit(1);
-//         }
-//
-//         sprintf (message, "**UPD IS WORK\0");
-//
-//         while(1)
-//         {
-//                 printf("Enter message : %s\n", message);
-//                 //send the message
-//                 if (sendto(udp_fd, message, strlen(message), 0, (struct sockaddr *) &si_other, slen)==-1)
-//                 {
-//                         die("sendto()");
-//                 }
-//                 sleep(1);
-//                 //receive a reply and print it
-//                 //clear the buffer byUFLEN, 0, (struct sockaddr *) &si_other, &slen) == -1)
-//                 //{
-//                 //	die("recvfrom()");
-//                 //}
-//         }
-//
-//         close(udp_fd);
-//         return 0;
-// }
-
-// static void* HeartBit (void *arg)
-// {
-//         bool flag = false;
-//         while (1)
-//         {
-//                 nwy_gpio_set_val(NWY_GPIO_76, flag);
-//                 flag = !flag;
-//         }
-// }
-
 
 static int do_send_sms(char* number, int encoding, int length, char* context, int async, void* opts_sms, int sms_priority)
 {
@@ -2249,12 +2016,12 @@ static int do_send_sms(char* number, int encoding, int length, char* context, in
     if (result != 0)
     {
         if (queue_flag == false) {
-            sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "SMS_send failed\\n");
+            wb_i+= snprintf(&web_log[wb_i], sizeof(web_log),"[%s] %s", opts->up_time_string, "SMS_send failed\\n");
             // memcpy(opts->queue[sms_priority].phone[opts->queue[sms_priority].j], sms_data.phone_num, 12);
             // memcpy(opts->queue[sms_priority].text[opts->queue[sms_priority].j], sms_data.msg_context, 500);
         }
         else {
-            printf("Try: Fail\n");
+            d_log("Try to send sms: Fail\n");
         }
         // ТУТ ДОБАВЛЯЕТСЯ В ОЧЕРЕДЬ
         memcpy(opts->queue[sms_priority].phone[opts->queue[sms_priority].j], number, 12);
@@ -2272,10 +2039,10 @@ static int do_send_sms(char* number, int encoding, int length, char* context, in
     }
     else {
         if (queue_flag == false) {
-            sprintf(web_log, "%s[%s] %s", web_log, opts->up_time_string, "SMS_send ok\\n");
+            wb_i += snprintf(&web_log[wb_i], sizeof(web_log), "[%s] %s", opts->up_time_string, "SMS_send ok\\n");
         }
         else {
-            printf("Try: OK\n");
+            d_log("Try to send sms: OK\n");
         }
         //ТУТ ДОБАВЛЯЕТСЯ В ОТПРАВЛЕННЫЕ
         if (opts->sended[sms_priority].j <= 20)
@@ -2289,7 +2056,8 @@ static int do_send_sms(char* number, int encoding, int length, char* context, in
 
         }
     }
-    printf("%d", result);
+    d_log("%d", result);
+    //Write_smsTo_txt("sms_memory.txt\0", opts);
     //}
     return result;
 }
@@ -2298,37 +2066,37 @@ static void test_sms_evt_handler(nwy_mt_sms_event_t ind_type, void* ind_struct)
 {
     static int c = 0;
 
-    printf("Nwy_mt_sms_event %x\n", ind_type);
+    d_log("Nwy_mt_sms_event %x\n", ind_type);
     switch (ind_type) {
     case NWY_SMS_PP_IND:
     {
         nwy_sms_pp_info_type_t* sms_pp;
         sms_pp = ind_struct;
-        printf("recv msg from %s\n", sms_pp->source_phone_num);
+        d_log("recv msg from %s\n", sms_pp->source_phone_num);
         memcpy(recv_phone, sms_pp->source_phone_num, 12);
-        printf("recv msg type %d\n", sms_pp->msg_format);
+        d_log("recv msg type %d\n", sms_pp->msg_format);
         if (sms_pp->concat_sms_total > 0) {
-            printf("this is the part %d of long message has %d message entry\n",
+            d_log("this is the part %d of long message has %d message entry\n",
                 sms_pp->concat_sms_cur, sms_pp->concat_sms_total);
-            printf("concat msg id %d\n", sms_pp->concat_sms_id);
+            d_log("concat msg id %d\n", sms_pp->concat_sms_id);
         }
         if (sms_pp->msg_format == NWY_SMS_MSG_FORMAT_TEXT_ASCII)
-            printf("recv msg text %s\n", sms_pp->msg_content);
+            d_log("recv msg text %s\n", sms_pp->msg_content);
         else {
             int i = 0;
-            printf("recv msg data:\n", sms_pp->msg_content);
+            d_log("recv msg data:\n", sms_pp->msg_content);
             for (i = 0; i < sms_pp->msg_content_len; i++) {
-                printf("%02x", sms_pp->msg_content[i]);
+                d_log("%02x", sms_pp->msg_content[i]);
             }
-            printf("\n");;
+            d_log("\n");;
         }
         memcpy(recv_text, sms_pp->msg_content, 500);
         if (sms_pp->context_decode_type == NWY_SMS_ENCODING_GBK) {
 
-            printf("gbk data is :\n%s\n", sms_pp->msg_decoded_content);
+            d_log("gbk data is :\n%s\n", sms_pp->msg_decoded_content);
         }
         recv_flag = true;
-        printf("FLAG IS %d\nNUM IS %s\nTEXT IS %s\n", recv_flag, recv_phone, recv_text);
+        d_log("FLAG IS %d\nNUM IS %s\nTEXT IS %s\n", recv_flag, recv_phone, recv_text);
         c++;
     }
     break;
@@ -2336,18 +2104,18 @@ static void test_sms_evt_handler(nwy_mt_sms_event_t ind_type, void* ind_struct)
     {
         nwy_sms_send_ind_t* send_result = ind_struct;
         if (send_result->result == 0) {
-            printf("we send msg to %s result ok\n", send_result->phone_num);
+            d_log("we send msg to %s result ok\n", send_result->phone_num);
         }
         else {
-            printf("we send msg to %s result failed\n", send_result->phone_num);
+            d_log("we send msg to %s result failed\n", send_result->phone_num);
         }
     }
     break;
     default:
-        printf("we do not support this event now %x\n", ind_type);
+        d_log("we do not support this event now %x\n", ind_type);
     }
-    //printf("have recv %d sms entry\n");
-    printf("--------------------------------------\n");
+    //d_log("have recv %d sms entry\n");
+    d_log("--------------------------------------\n");
     fflush(stdout);
 }
 static void del_sms_num(char* but_type, int num, void* web_opts)
@@ -2362,28 +2130,28 @@ static void del_sms_num(char* but_type, int num, void* web_opts)
             if (opts->sended[s_p].j != 0)
             {
                 sum = opts->sended[s_p].j;
-                // printf("%d < %d ?", num, sum);
+                // d_log("%d < %d ?", num, sum);
                 if (num < sum)
                 {
-                    // printf("Da!\n");
+                    // d_log("Da!\n");
                     break;
                 }
                 num -= opts->sended[s_p].j;
-                // printf("%d \n", num);
+                // d_log("%d \n", num);
             }
         }
         num = opts->sended[s_p].j - num - 1;
-        // printf("Pr = %d, num: %d\n", s_p, num);
+        // d_log("Pr = %d, num: %d\n", s_p, num);
         for (i = 0; i <= opts->sended[s_p].j - 1; i++)
         {
-            // printf("%d , %s\n", num, opts->sended[s_p].text[i]);
-            // printf("i:%d, j:%d\n", i, opts->sended[s_p].j);
+            // d_log("%d , %s\n", num, opts->sended[s_p].text[i]);
+            // d_log("i:%d, j:%d\n", i, opts->sended[s_p].j);
             num--;
             if (num < 0)
             {
                 if (num == -1)
                 {
-                    // printf ("DEL NOW! \n");
+                    // d_log ("DEL NOW! \n");
                     memcpy(opts->deleted[s_p].text[opts->deleted[s_p].j], opts->sended[s_p].text[i], 500);
                     memcpy(opts->deleted[s_p].phone[opts->deleted[s_p].j], opts->sended[s_p].phone[i], 12);
                     if (opts->deleted[s_p].j <= 20) {
@@ -2397,7 +2165,7 @@ static void del_sms_num(char* but_type, int num, void* web_opts)
                         }
                     }
                 }
-                // printf("%s -> %s\n", opts->sended[s_p].text[i], opts->sended[s_p].text[i+1]);
+                // d_log("%s -> %s\n", opts->sended[s_p].text[i], opts->sended[s_p].text[i+1]);
                 memcpy(opts->sended[s_p].text[i], opts->sended[s_p].text[i + 1], 500);
                 memcpy(opts->sended[s_p].phone[i], opts->sended[s_p].phone[i + 1], 12);
             }
@@ -2411,32 +2179,32 @@ static void del_sms_num(char* but_type, int num, void* web_opts)
             if (opts->queue[s_p].j != 0)
             {
                 sum = opts->queue[s_p].j;
-                // printf("%d < %d ?", num, sum);
+                // d_log("%d < %d ?", num, sum);
                 if (num < sum)
                 {
-                    // printf("Da!\n");
+                    // d_log("Da!\n");
                     break;
                 }
                 num -= opts->queue[s_p].j;
-                // printf("%d \n", num);
+                // d_log("%d \n", num);
             }
         }
         num = opts->queue[s_p].j - num - 1;
-        // printf("Pr = %d, num: %d\n", s_p, num);
+        // d_log("Pr = %d, num: %d\n", s_p, num);
         for (i = 0; i <= opts->queue[s_p].j - 1; i++)
         {
-            // printf("%d , %s\n", num, opts->queue[s_p].text[i]);
-            // printf("i:%d, j:%d\n", i, opts->queue[s_p].j);
+            // d_log("%d , %s\n", num, opts->queue[s_p].text[i]);
+            // d_log("i:%d, j:%d\n", i, opts->queue[s_p].j);
             num--;
             if (num < 0)
             {
                 if (num == -1)
                 {
-                    // printf ("DEL NOW! \n");
+                    // d_log ("DEL NOW! \n");
                     memcpy(opts->deleted[s_p].text[opts->deleted[s_p].j], opts->queue[s_p].text[i], 500);
                     memcpy(opts->deleted[s_p].phone[opts->deleted[s_p].j], opts->queue[s_p].phone[i], 12);
                     if (opts->deleted[s_p].j <= 20) {
-                        printf("%d++\n", opts->deleted[s_p].j); opts->deleted[s_p].j++;
+                        d_log("%d++\n", opts->deleted[s_p].j); opts->deleted[s_p].j++;
                     }
                     else {
                         int z;
@@ -2446,7 +2214,7 @@ static void del_sms_num(char* but_type, int num, void* web_opts)
                         }
                     }
                 }
-                // printf("%s -> %s\n", opts->queue[s_p].text[i], opts->queue[s_p].text[i+1]);
+                // d_log("%s -> %s\n", opts->queue[s_p].text[i], opts->queue[s_p].text[i+1]);
                 memcpy(opts->queue[s_p].text[i], opts->queue[s_p].text[i + 1], 500);
                 memcpy(opts->queue[s_p].phone[i], opts->queue[s_p].phone[i + 1], 12);
             }
@@ -2461,28 +2229,28 @@ static void del_sms_num(char* but_type, int num, void* web_opts)
             if (opts->recved[s_p].j != 0)
             {
                 sum = opts->recved[s_p].j;
-                // printf("%d < %d ?", num, sum);
+                // d_log("%d < %d ?", num, sum);
                 if (num < sum)
                 {
-                    // printf("Da!\n");
+                    // d_log("Da!\n");
                     break;
                 }
                 num -= opts->recved[s_p].j;
-                // printf("%d \n", num);
+                // d_log("%d \n", num);
             }
         }
         num = opts->recved[s_p].j - num - 1;
-        // printf("Pr = %d, num: %d\n", s_p, num);
+        // d_log("Pr = %d, num: %d\n", s_p, num);
         for (i = 0; i <= opts->recved[s_p].j - 1; i++)
         {
-            // printf("%d , %s\n", num, opts->recved[s_p].text[i]);
-            // printf("i:%d, j:%d\n", i, opts->recved[s_p].j);
+            // d_log("%d , %s\n", num, opts->recved[s_p].text[i]);
+            // d_log("i:%d, j:%d\n", i, opts->recved[s_p].j);
             num--;
             if (num < 0)
             {
                 if (num == -1)
                 {
-                    // printf ("DEL NOW! \n");
+                    // d_log ("DEL NOW! \n");
                     memcpy(opts->deleted[s_p].text[opts->deleted[s_p].j], opts->recved[s_p].text[i], 500);
                     memcpy(opts->deleted[s_p].phone[opts->deleted[s_p].j], opts->recved[s_p].phone[i], 12);
                     if (opts->deleted[s_p].j <= 20) {
@@ -2496,7 +2264,7 @@ static void del_sms_num(char* but_type, int num, void* web_opts)
                         }
                     }
                 }
-                // printf("%s -> %s\n", opts->recved[s_p].text[i], opts->recved[s_p].text[i+1]);
+                // d_log("%s -> %s\n", opts->recved[s_p].text[i], opts->recved[s_p].text[i+1]);
                 memcpy(opts->recved[s_p].text[i], opts->recved[s_p].text[i + 1], 500);
                 memcpy(opts->recved[s_p].phone[i], opts->recved[s_p].phone[i + 1], 12);
             }
@@ -2510,30 +2278,30 @@ static void del_sms_num(char* but_type, int num, void* web_opts)
             if (opts->deleted[s_p].j != 0)
             {
                 sum = opts->deleted[s_p].j;
-                // printf("%d < %d ?", num, sum);
+                // d_log("%d < %d ?", num, sum);
                 if (num < sum)
                 {
-                    // printf("Da!\n");
+                    // d_log("Da!\n");
                     break;
                 }
                 num -= opts->deleted[s_p].j;
-                // printf("%d \n", num);
+                // d_log("%d \n", num);
             }
         }
         num = opts->deleted[s_p].j - num - 1;
-        // printf("Pr = %d, num: %d\n", s_p, num);
+        // d_log("Pr = %d, num: %d\n", s_p, num);
         for (i = 0; i <= opts->deleted[s_p].j - 1; i++)
         {
-            // printf("%d , %s\n", num, opts->deleted[s_p].text[i]);
-            // printf("i:%d, j:%d\n", i, opts->deleted[s_p].j);
+            // d_log("%d , %s\n", num, opts->deleted[s_p].text[i]);
+            // d_log("i:%d, j:%d\n", i, opts->deleted[s_p].j);
             num--;
             if (num < 0)
             {
                 if (num == -1)
                 {
-                    // printf ("DEL NOW! \n");
+                    // d_log ("DEL NOW! \n");
                 }
-                // printf("%s -> %s\n", opts->deleted[s_p].text[i], opts->deleted[s_p].text[i+1]);
+                // d_log("%s -> %s\n", opts->deleted[s_p].text[i], opts->deleted[s_p].text[i+1]);
                 memcpy(opts->deleted[s_p].text[i], opts->deleted[s_p].text[i + 1], 500);
                 memcpy(opts->deleted[s_p].phone[i], opts->deleted[s_p].phone[i + 1], 12);
             }
@@ -2547,243 +2315,41 @@ static void* try_send_sms_from_queue(void* web_opts) {
     int s_p, i;
     char phone[13];
     char text[500];
-    printf("TRY TO SEND : OK\n");
+    d_log("TRY TO SEND : OK\n");
     while (1)
     {
         for (s_p = 7; s_p >= 0; s_p--)
         {
             if (opts->queue[s_p].j > 0)
             {
-                printf("-------------------------\n");
+                d_log("-------------------------\n");
                 queue_flag = true;
-                printf("Priority: %d\n", s_p);
-                printf("Try to send:\n%s\n%s\n", opts->queue[s_p].phone[0], opts->queue[s_p].text[0]);
+                d_log("Priority: %d\n", s_p);
+                d_log("Try to send:\n%s\n%s\n", opts->queue[s_p].phone[0], opts->queue[s_p].text[0]);
 
-                sprintf(phone, "%s\0", opts->queue[s_p].phone[0]);
-                sprintf(text, "%s\0", opts->queue[s_p].text[0]);
+                snprintf(phone, 13, "%s\0", opts->queue[s_p].phone[0]);
+                snprintf(text, 500, "%s\0", opts->queue[s_p].text[0]);
                 do_send_sms(phone, 0, strlen(text), text, 0, opts, 3);
                 queue_flag = false;
                 for (i = 0; i <= opts->queue[s_p].j - 1; i++)
                 {
-                    //printf("Num %d: %s --> %s\n", i, opts->queue[s_p].text[i+1], opts->queue[s_p].text[i]);
-                    //printf("Num %d: %s --> %s\n\n", i, opts->queue[s_p].phone[i+1], opts->queue[s_p].phone[i]);
-                    memcpy(opts->queue[s_p].text[i], opts->queue[s_p].text[i + 1], 500);             //удалим элемент под нужным нам номером
+                    //d_log("Num %d: %s --> %s\n", i, opts->queue[s_p].text[i+1], opts->queue[s_p].text[i]);
+                    //d_log("Num %d: %s --> %s\n\n", i, opts->queue[s_p].phone[i+1], opts->queue[s_p].phone[i]);
+                    memcpy(opts->queue[s_p].text[i], opts->queue[s_p].text[i + 1], 500);     //удалим элемент под нужным нам номером
                     memcpy(opts->queue[s_p].phone[i], opts->queue[s_p].phone[i + 1], 12);
-                    //printf("Num %d: %s\n", i, opts->queue[s_p].text[i]);
-                    //printf("Num %d: %s\n\n", i, opts->queue[s_p].phone[i]);
+                    //d_log("Num %d: %s\n", i, opts->queue[s_p].text[i]);
+                    //d_log("Num %d: %s\n\n", i, opts->queue[s_p].phone[i]);
                 }
                 opts->queue[s_p].j--;
                 sleep(2);
-                printf("-------------------------\n");
+                d_log("-------------------------\n");
             }
         }
     }
 }
-
-int Write_smsTo_txt(const char* file, void* web_opts) {
-    FILE* fp;
-    char buff[MAX_SMS_IN_PRIORITY * MAX_SMS_LENGTH * 7 * 4];               //buffer для записи всех смс в файл
-    memset(buff, 0, MAX_SMS_IN_PRIORITY * MAX_SMS_LENGTH * 7 * 4);
-    char sended_sms[MAX_SMS_IN_PRIORITY * MAX_SMS_LENGTH * 7] = { 0 };
-    char recved_sms[MAX_SMS_IN_PRIORITY * MAX_SMS_LENGTH * 7] = { 0 };
-    char queue_sms[MAX_SMS_IN_PRIORITY * MAX_SMS_LENGTH * 7] = { 0 };
-    char deleted_sms[MAX_SMS_IN_PRIORITY * MAX_SMS_LENGTH * 7] = { 0 };
-    int i, j, s_p;
-    options_t* opts = (options_t*)web_opts;
-
-    printf("Saving sms memory to %s\n", file);
-
-    for (s_p = 7; s_p >= 0; s_p--)
-    {
-        for (i = 0; i <= opts->sended[s_p].j - 1; i++) {
-            sprintf(sended_sms, "%s%d %s %s\r\n", sended_sms, s_p, opts->sended[s_p].phone[i], opts->sended[s_p].text[i]);
-        }
-        for (i = 0; i <= opts->recved[s_p].j - 1; i++) {
-            sprintf(recved_sms, "%s%d %s %s\r\n", recved_sms, s_p, opts->recved[s_p].phone[i], opts->recved[s_p].text[i]);
-        }
-        for (i = 0; i <= opts->queue[s_p].j - 1; i++) {
-            sprintf(queue_sms, "%s%d %s %s\r\n", queue_sms, s_p, opts->queue[s_p].phone[i], opts->queue[s_p].text[i]);
-        }
-        for (i = 0; i <= opts->deleted[s_p].j - 1; i++) {
-            sprintf(deleted_sms, "%s%d %s %s\r\n", deleted_sms, s_p, opts->deleted[s_p].phone[i], opts->deleted[s_p].text[i]);
-        }
-    }
-    sprintf(buff, "Sended\r\n%sRecved\r\n%sQueue\r\n%sDeleted\r\n%s\0", sended_sms, recved_sms, queue_sms, deleted_sms);
-    //printf("%s", buff); //отладка
-    char fullpath[30] = {0};
-    strcat(fullpath, opts->web_dir_i_path);   //собираем адрсс из PATH в neowayhelper.conf
-    strcat(fullpath, "/");                    //слэша
-    strcat(fullpath, file);               //и имени файла
-    printf("Fopen: %s\n", fullpath);
-    fp = fopen(fullpath, "wb");
-    if (NULL == fp) {
-        //perror("fopen()");
-        printf("fd = NULL\n");
-        //return -1;
-    }
-    /*Тут запись в файл fwrite*/
-    //sprintf(buff, "%s\0", "Sended\r\n3 +79108441072 Some sms text one\r\n3 +79108441072 Some sms text two\r\n5 +79108441072 Some sms text three\r\n3 +79108441072 Some sms text four\r\n7 +79108441072 Some sms text Five\r\nQueue\r\nRecved\r\nDeleted\r\n6 +79108441072 Some sms text six\r\n3 +79108441072 Some sms text Seven");
-    fwrite(&buff, 1, sizeof(buff), fp);
-    //fflush(fp);
-    fclose(fp);
-
-    /* Copy modified data back */
-    //memcpy(opts, &_opts, sizeof(*opts));
-
-    return 0;
-}
-
-int Read_smsFrom_txt(const char* file, void* web_opts) {
-    FILE* fp;
-    char str[1024];
-    char buff[500];
-    char* s, * e;
-    int i, line, s_p, j;
-    options_t* opts = (options_t*)web_opts;
-    int flag = 0;    //Определяет в какие переменные складываем строку
-    printf("Loading configuration from %s: ", file);
-
-    /* First, copy contents of passed options into the temporary variable */
-    //memcpy(&_opts, opts, sizeof(_opts));
-    /* Now open and parse configuration file */
-    char fullpath[30] = {0};
-    strcat(fullpath, opts->web_dir_i_path);   //собираем адрсс из PATH в neowayhelper.conf
-    strcat(fullpath, "/");                    //слэша
-    strcat(fullpath, file);               //и имени файла
-    fp = fopen(fullpath, "r");
-    if (NULL == fp) {
-        fp = fopen(fullpath, "wb");
-        if(fp != NULL)
-        {
-            fclose(fp);
-            printf("sms_memory.txt was create\n");
-            fp = fopen(fullpath, "r");
-        }
-    }
-        if (fp != NULL)
-        {
-            line = 1;
-            while (!feof(fp)) {
-                memset(str, sizeof(str), 0);
-                fgets(str, sizeof(str) - 1, fp);
-
-                /* Search for comment and cut it off */
-                s = strchr(str, '#');
-                if (NULL != s) {
-                    *s = '\0';
-                }
-
-                if (0 == strlen(str)) {
-                    continue;
-                }
-
-                /* Skip leading spaces */
-                for (s = str; isspace(*s); s++);
-
-                /* Skip trailing spaces */
-                for (i = strlen(s) - 1; i > 0 && isspace(s[i]); i--);
-                s[i + 1] = '\0';
-
-                if (0 != strlen(s)) {
-                    //printf("%d %s\n", line, s);
-                    /*parse this string*/
-                    if (!strcmp("Sended\0", s)) {
-                        flag = 1;
-                    }
-                    else if (!strcmp("Queue\0", s)) {
-                        flag = 2;
-                    }
-                    else if (!strcmp("Recved\0", s)) {
-                        flag = 3;
-                    }
-                    else if (!strcmp("Deleted\0", s)) {
-                        flag = 4;
-                    }
-                    else {
-                        i = 0; j = 0;
-                        while (s[i] != ' ') {
-                            buff[j] = s[i];
-                            i++; j++;
-                        }
-                        buff[j] = '\0';
-                        j = 0; i++;
-                        s_p = atoi(buff);
-                        while (s[i] != ' ') {
-                            buff[j] = s[i];
-                            i++; j++;
-                        }
-                        buff[j] = '\0';
-                        j = 0; i++;
-                        //printf ("flag:%d\r\n", flag);
-                        switch (flag) {
-                        case 1:
-                            sprintf(opts->sended[s_p].phone[opts->sended[s_p].j], buff);
-                            break;
-                        case 2:
-                            sprintf(opts->queue[s_p].phone[opts->queue[s_p].j], buff);
-                            break;
-                        case 3:
-                            sprintf(opts->recved[s_p].phone[opts->recved[s_p].j], buff);
-                            break;
-                        case 4:
-                            sprintf(opts->deleted[s_p].phone[opts->deleted[s_p].j], buff);
-                            break;
-                        }
-                        while (s[i] != '\0') {
-                            buff[j] = s[i];
-                            i++; j++;
-                        }
-                        buff[j] = '\0';
-                        switch (flag) {
-                        case 1:
-                            sprintf(opts->sended[s_p].text[opts->sended[s_p].j], buff);
-                            printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->sended[s_p].phone[opts->sended[s_p].j], opts->sended[s_p].text[opts->sended[s_p].j]);
-                            opts->sended[s_p].j++;
-                            break;
-                        case 2:
-                            sprintf(opts->queue[s_p].text[opts->queue[s_p].j], buff);
-                            printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->queue[s_p].phone[opts->queue[s_p].j], opts->queue[s_p].text[opts->queue[s_p].j]);
-                            opts->queue[s_p].j++;
-                            break;
-                        case 3:
-                            sprintf(opts->recved[s_p].text[opts->recved[s_p].j], buff);
-                            printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->recved[s_p].phone[opts->recved[s_p].j], opts->recved[s_p].text[opts->recved[s_p].j]);
-                            opts->recved[s_p].j++;
-                            break;
-                        case 4:
-                            sprintf(opts->deleted[s_p].text[opts->deleted[s_p].j], buff);
-                            printf("Parse! %d\r\n%s\r\n%s\r\n\r\n", s_p, opts->deleted[s_p].phone[opts->deleted[s_p].j], opts->deleted[s_p].text[opts->deleted[s_p].j]);
-                            opts->deleted[s_p].j++;
-                            break;
-                        }
-                        j = 0; i = 0;
-
-                    }
-                    line++;
-                }
-            }
-            printf("OK\n");
-        }
-        else {
-            printf("ERROR\n");
-        }
-    fclose(fp);
-
-    /* Copy modified data back */
-    //memcpy(opts, &_opts, sizeof(*opts));
-
-    return 0;
-}
-
-
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-// --------------------------Говнокод!-----------------------
-
-
+// --------------------------Alexander_code_end!-----------------------
+// --------------------------Alexander_code_end!-----------------------
+// --------------------------Alexander_code_end!-----------------------
 static char*
 get_config_name(int argc, char* argv[])
 {
@@ -2799,11 +2365,11 @@ get_config_name(int argc, char* argv[])
     return CONFIG_FILE;
 }
 
+static options_t opts;
 
 int
 main(int argc, char* argv[])
 {
-    options_t opts;
     thread_main_fn threads[] = {
         NULL, /* placeholder for agps_thread_main */
         //modem_thread_main,
@@ -2839,12 +2405,12 @@ main(int argc, char* argv[])
     }
 
     if (opts.go_daemon) {
-        printf("Becoming daemon\n");
+        d_log("Becoming daemon\n");
         daemonize(&opts, 0);
     }
 
     if (0 == threads_start(&opts, threads, sizeof(threads) / sizeof(threads[0]))) {
-        printf("Running\n");
+        d_log("Running\n");
         threads_wait_complete();
     }
     else {

@@ -92,10 +92,12 @@ typedef struct _options {
     struct sockaddr_in baddr;
     /* Синхронизация */
     pthread_mutex_t mutex;
+    pthread_mutex_t mutex_modem;
     /* GPS-координаты */
     nmea_msg_t last_nmea_msg;
     float total_mileage;            // Полный пробег, км
     float mileage;                  // Пробег с последнего сброса, км
+    int reset_mileage;              // 1 - нужно сбросить пробег, 0 - ненужно сбрасывать
     power_source_t power_source;    // Источник питания
     /* Фсякая бяка для УПВС */
     int level;                      // Nesting level of the current XML tag
@@ -112,7 +114,7 @@ typedef struct _options {
     int uart_fd;
     /* -web interface- */
     char *web_dir_i_path;
-    char rssi[5];
+    char rssi[15];
     char threed_fix[10];
     char gps_cords[30];
     char reg_in_mesh[10];
@@ -120,8 +122,16 @@ typedef struct _options {
     char imsi[20];
     char imei[20];
     char up_time_string[20];
-    char country_cod[10];
-    char operator_cod[10];
+    char country_cod[20];
+    char operator_cod[20];
+    float lon;
+    float lat;
+    char lat_sign;
+    char lon_sign;
+    char valid_GPRMC;
+    char sput_time[20];
+    char gsm_ip_state[100];
+    int num_sput_val;
     /*-Work whith SMS-*/
     int sms_priority;
     neoway_sms_data_t queue[8],sended[8],deleted[8],recved[8];
