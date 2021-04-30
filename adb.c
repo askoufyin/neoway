@@ -1,3 +1,6 @@
+#ifdef __TESTS__
+
+
 #include <QProcess>
 
 int
@@ -12,3 +15,5 @@ adb_shell(const char* cmd, const char *args)
 {
     return 0;
 }
+
+#endif

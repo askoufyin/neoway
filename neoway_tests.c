@@ -1,5 +1,7 @@
 #include "adb.h"
 
+#ifdef __TESTS__
+
 enum {
     NWY_ERROR = -1,
     NWY_OK = 0,
@@ -55,3 +57,6 @@ nwy_test_device_fw(void)
 {
     return 0;
 }
+
+#endif
+
