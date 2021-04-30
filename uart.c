@@ -219,8 +219,8 @@ uart_write_thread_main(void *arg)
         tms.tv_sec = 3;
         tms.tv_nsec = 0;
         do {
-            printf("******* I'm alive! *******\r\n")
-            res = pthread_cond_wait(&msg_ready, &msg_interlock, &tms);
+            printf("******* I'm alive! *******\r\n");
+            res = pthread_cond_timedwait(&msg_ready, &msg_interlock, &tms);
         } while (ETIMEDOUT == res);
 
         do {
