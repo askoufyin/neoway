@@ -9,11 +9,10 @@
 #include <stdbool.h> //
 
 //#include "nwy_loc.h"
-#include "nwy_uart.h"
+//#include "nwy_uart.h"
 #include "nwy_error.h"
 #include "nwy_common.h"
 #include "nwy_sim.h"
-#include "nwy_sms.h"
 
 
 

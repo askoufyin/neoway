@@ -45,7 +45,7 @@
 
 
 //#include "tcp_web.h"   пока не добавлено
-//#define WEBPOSTGETINCONSOLE  //убрать если отвлекает вывод пост гет запросов в консоли
+//#define WEBPOSTGETINCONSOLE  убрать если отвлекает вывод пост гет запросов в консоли
 inline void d_log(const char *fmt, ...)
 {
     #ifdef WEBPOSTGETINCONSOLE
@@ -459,7 +459,7 @@ process_element_start(void* userdata, const XML_Char* name, const XML_Char** att
                 tag->parent = ctx->last;
             }
         }
-        
+
         if(NULL == ctx->root) {
             ctx->root = tag;
         }
@@ -525,7 +525,7 @@ queryStateVariable(options_t* opts)
     d_log(_sendbuf);
 }
 
-   
+
 static void
 process_get(options_t* opts)
 {
@@ -540,7 +540,7 @@ process_get(options_t* opts)
         default:
             break;
     }
-    
+
     if(NULL != p) {
         ++p;
         if (0 == strcasecmp(p, "SMSG")) {
@@ -847,7 +847,7 @@ network_thread_main(void* arg)
                     opts->xml_action = NULL;
 
                     xml_context_reset(&ctx);
-                    
+
                     XML_SetUserData(parser, opts);
                     XML_SetStartElementHandler(parser, process_element_start_old);
                     XML_SetEndElementHandler(parser, process_element_end_old);
@@ -968,12 +968,14 @@ detect_sim_card(options_t *opts)
 {
     char *res, *reply;
     int rc;
-    
+
     printf("Detecting SIM card.\n");
 
     res = NULL;
     reply = NULL;
+    pthread_mutex_lock(&opts->mutex_modem);
     rc = nwy_at_send_cmd("AT+CCID", &res, &reply);
+    pthread_mutex_unlock(&opts->mutex_modem);
 
     printf("res=\"%s\", reply=\"%s\"\n", res==NULL? "": res, reply==NULL? "": reply);
 
@@ -1051,7 +1053,7 @@ app_init(options_t* opts)
 
     if (opts->gprs_enabled) {
         /* Get SIM status */
-        d_log("Querying SIM (SLOT 1) status\n");
+        /*d_log("Querying SIM (SLOT 1) status\n");
         opts->sim_status = nwy_sim_get_card_status(NWY_SIM_ID_SLOT_1);
 
         if (opts->sim_status < 0) {
@@ -1081,15 +1083,15 @@ app_init(options_t* opts)
                     printf("SIM card installed and ready\n");
                     break;
             }
-        }
-        //detect_sim_card(opts);
+        }*/
+        detect_sim_card(opts);
     }
 
-    opts->modem_fd = modem_init(opts->modem_tty, opts->uart_baud_rate);
+    /*opts->modem_fd = modem_init(opts->modem_tty, opts->uart_baud_rate);
     if (-1 == opts->modem_fd) {
         d_log("MODEM init failed\n");
         exit(EXIT_FAILURE);
-    }
+    }*/
 
 #if 0
     if (opts->gps_enabled) {
@@ -1484,33 +1486,33 @@ static void* tcp_web_thread_main(void* arg)
                 del_sms_num(but_selected, atoi(but_num), opts);
                 //Write_smsTo_txt("sms_memory.txt\0", opts);
             }
+            /*
+            * FLAG UP TO SEND UART COMMAND to STM
+            */
             else if (!strcmp(postcomand, "Mileage_reset\0"))
             {
                 send(new_tcp_socket, "HTTP/1.1 200 Ok \r\n\r\n", strlen("HTTP/1.1 200 Ok \r\n\r\n"), 0);
-                /*
-                * FLAG UP TO SEND UART COMMAND to STM
-                */
                 pthread_mutex_lock(&opts->mutex);
                 opts->reset_mileage = 1;
                 pthread_mutex_unlock(&opts->mutex);
-                //nwy_uart_write(opts->uart_fd, "$INFO,V,1\r\n", sizeof("$INFO,V,1"));
-                //if (result == NWY_ERROR)
-                //{
-                //    printf("Error uart write");
-                //}
-                //else
-                //{
-                //    printf("UART WRITE OK!");
-                //}
             }
+            /*
+            * Reboot Neoway
+            */
+            else if (!strcmp(postcomand, "Reboot\0"))
+            {
+                send(new_tcp_socket, "HTTP/1.1 200 Ok \r\n\r\n", strlen("HTTP/1.1 200 Ok \r\n\r\n"), 0);
+                system("reboot\n");
+            }
+            /*
+            * Unknown command
+            */
             else
             {
                 send(new_tcp_socket, "HTTP/1.1 400 Ok \r\n\r\n", strlen("HTTP/1.1 200 Ok \r\n\r\n"), 0);
             }
             close(new_tcp_socket);
             end = time(NULL);
-            //printf("\033[91mCLOSE:\033[0m OK, %f seconds from start\n", difftime(end, start));
-            //d_log("\033[91mCLOSE:\033[0m OK, %f seconds from start\n", difftime(end, start));
             #ifdef WEBPOSTGETINCONSOLE
             d_log("\033[91mCLOSE:\033[0m OK, %f seconds from start\n", difftime(end, start));
             #endif
@@ -1599,13 +1601,14 @@ static void* tcp_web_thread_main(void* arg)
             }
             if (!strcmp(fullfileadrr, "data.json\0"))
             {
+                //printf("Start sending at\n");
                 send_at_cmd("AT+CSQ\0", opts);
                 send_at_cmd("AT+CIMI\0", opts);
                 send_at_cmd("AT+CGSN\0", opts);
                 send_at_cmd("AT$MYGPSPOS=1\0", opts);
                 send_at_cmd("AT$MYGPSPOS=3\0", opts);
                 send_at_cmd("AT$MYSYSINFO\0", opts);
-
+                //printf("End sending at\n");
                 end = time(NULL);
 
                 (((int)difftime(end, start) % 60 < 10) ? snprintf(sss, sizeof(sss), "0%d", (int)difftime(end, start) % 60) : snprintf(sss, sizeof(sss), "%d", (int)difftime(end, start) % 60));
@@ -1635,7 +1638,7 @@ static void* tcp_web_thread_main(void* arg)
                 * Get info about gsm_ip from /var/run/gsm.connected
                 */
 
-                int _oneChar;
+                char _oneChar;
                 FILE* gsmipFile;
                 gsmipFile = fopen("/var/run/gsm.connected", "r");
                 if (gsmipFile == NULL) {
@@ -1672,7 +1675,11 @@ static void* tcp_web_thread_main(void* arg)
                 * Mutex for get total_mileage & mileage
                 */
 
+                //printf("Start Waiting mutex at\n");
+
                 pthread_mutex_lock(&opts->mutex);
+
+                //printf("End wainting mutex\n");
                 snprintf(buffer, 65000, "{\"rssi\" : \"%s\",\n\""
                                         "threed_fix\" : \"%s\",\n"
                                         "\"gps_cords\" : \" %c %f\xC2\xB0 %c %f\xC2\xB0\",\n"
@@ -1944,8 +1951,8 @@ static void* tcp_web_thread_main(void* arg)
                 fseek(sFile, 0, SEEK_SET);                                    //Перемещаем каретку в начало, чтобы корректно работать с файлом
                 for (i = 0; (rc = getc(sFile)) != EOF && i < nFileLen; buffer[i++] = rc);    //Посимвольно считываем все биты из файла пока они не закончатся или не переполнится буффер
                 buffer[i] = '\0';
-                printf("%d %p %d \n" , new_tcp_socket, buffer, nFileLen);
-                printf("%s\n", buffer);
+                //printf("%d %p %d \n" , new_tcp_socket, buffer, nFileLen);
+                //printf("%s\n", buffer);
                 if(send(new_tcp_socket, buffer, nFileLen, 0)<0)
                 {
                     perror("Send page:");

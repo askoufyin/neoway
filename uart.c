@@ -12,7 +12,7 @@
 #include "nwy_common.h"
 #include "nwy_sim.h"
 
-//#define PRINTF_LOG
+#define PRINTF_LOG
 
 /* TODO: Make this variables static, add functions to manage data in the buffer
  */
@@ -121,13 +121,14 @@ process_command(options_t *opts, char *buffer) {
         #ifdef PRINTF_LOG
         printf("Reply from modem \"%s\" Status \"%s\" res=%d\n", (NULL==reply)? "": reply, status, res);
         #endif
+        pthread_mutex_unlock(&opts->mutex_modem);
         if(NULL != reply && 0 == strncasecmp(_gps_prefix, reply, 11)) {
             pthread_mutex_lock(&opts->mutex);
             nmea_parse(reply+_gps_prefix_len, &opts->last_nmea_msg);
             pthread_mutex_unlock(&opts->mutex);
         }
 
-        if(NULL != status) { 
+        if(NULL != status) {
             _sendbuflen = snprintf(_sendbuf, MAX_MESSAGE_LENGTH, "%s\r\n", (NULL==reply)? status: reply);
             pthread_cond_signal(&msg_ready);
         }

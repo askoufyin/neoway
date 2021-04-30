@@ -32,14 +32,16 @@ void At_init(void* web_opts)
      //}
  }
 
+
  void send_at_cmd(char* at_com, void* web_opts)
  {
      options_t* opts = (options_t*)web_opts;
      char* p_resp = NULL;
      char* p_result = NULL;
      int i = 0, j = 0;
-     //printf("wait mutex Sanya!\n");
+     //printf("wait mutex Lock in AT!\n");
      pthread_mutex_lock(&opts->mutex_modem);
+     //printf("End wait mutex Lock in AT!\n");
      int ret = nwy_at_send_cmd(at_com, &p_resp, &p_result);
      if (ret != 0)
      {
@@ -47,6 +49,7 @@ void At_init(void* web_opts)
          printf("Send at cmd %s: Fail\n", at_com);
          #endif
          pthread_mutex_unlock(&opts->mutex_modem);
+         printf("Mutex UNLock in AT!\n");
          return;
      }
      else
@@ -273,8 +276,8 @@ void At_init(void* web_opts)
              }
          }
          else{
-             printf("\033[92mUnknown command or mistake response!\nLOOOKHERE\nLOOOKBLYAT\nNOW\nLOOK!!!!\033[0m\n");
-             sleep (3);
+             printf("\033[92mUnknown command or mistake response! %s %s\nLOOOKHERE\nLOOOKBLYAT\nNOW\nLOOK!!!!\033[0m\n", at_com, p_resp);
+             //sleep (3);
          }
      }
      else{
@@ -283,6 +286,7 @@ void At_init(void* web_opts)
      #endif
      }
      pthread_mutex_unlock(&opts->mutex_modem);
+     //printf("Mutex UNLock in AT!\n");
      at_free(&p_resp);
      at_free(&p_result);
      return;
