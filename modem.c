@@ -180,8 +180,9 @@ modem_thread_main(void *arg)
         FD_ZERO(&wfds);
         
         FD_SET(fd, &rfds);
-        if(outbuf.len > 0)
+        if (outbuf.len > 0) {
             FD_SET(fd, &wfds); // Do not check write access when there is no data to send
+        }
 
         res = select(fd+1, &rfds, &wfds, NULL, NULL);
         if(res < 0) {
