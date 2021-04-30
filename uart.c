@@ -208,18 +208,32 @@ uart_write_thread_main(void *arg)
     options_t *opts = (options_t *)arg;
     int res, len;
     fd_set wfds;
+    struct timeval tm;
+    struct timespec tms;
 
 #ifdef PRINTF_LOG
     printf("UART_WRITE thread start\n");
 #endif
 
     for(;;) {
-        pthread_cond_wait(&msg_ready, &msg_interlock);
+        tms.tv_sec = 3;
+        tms.tv_nsec = 0;
+        do {
+            printf("******* I'm alive! *******\r\n")
+            res = pthread_cond_wait(&msg_ready, &msg_interlock, &tms);
+        } while (ETIMEDOUT == res);
 
         do {
             FD_ZERO(&wfds);
             FD_SET(opts->uart_fd, &wfds);
-            res = select(opts->uart_fd + 1, NULL, &wfds, NULL, NULL); // Blocking write
+            tm.tv_sec = 3;
+            tm.tv_usec = 3;
+
+            printf("******* Waiting for data ********\r\n");
+            res = select(opts->uart_fd + 1, NULL, &wfds, NULL, &tm); // Blocking write
+            if (0 == res) {
+                continue;
+            }
         } while (EINTR == res);
 
         if (res < 0) {
