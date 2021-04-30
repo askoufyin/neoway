@@ -208,7 +208,7 @@ uart_write_thread_main(void *arg)
     options_t *opts = (options_t *)arg;
     int res, len;
     fd_set wfds;
-//    struct timeval tm;
+
 #ifdef PRINTF_LOG
     printf("UART_WRITE thread start\n");
 #endif
@@ -216,21 +216,20 @@ uart_write_thread_main(void *arg)
     for(;;) {
         pthread_cond_wait(&msg_ready, &msg_interlock);
 
-        FD_ZERO(&wfds);
-        FD_SET(opts->uart_fd, &wfds);
+        do {
+            FD_ZERO(&wfds);
+            FD_SET(opts->uart_fd, &wfds);
+            res = select(opts->uart_fd + 1, NULL, &wfds, NULL, NULL); // Blocking write
+        } while (EINTR == res);
 
-        res = select(opts->uart_fd+1, NULL, &wfds, NULL, NULL); // Blocking write
-        if(res < 0) {
-            if(EINTR == errno)
-                continue;
+        if (res < 0) {
             perror("select() failed");
-            break;
         } else {
-            if(FD_ISSET(opts->uart_fd, &wfds) && _sendbuflen > 0) {
+            if(FD_ISSET(opts->uart_fd, &wfds) && _sendbuflen > 0) { // Always will be set
                 _sendbuf[_sendbuflen] = 0;
-                #ifdef PRINTF_LOG
+#ifdef PRINTF_LOG
                 printf("OUT: \"%s\"", _sendbuf);
-                #endif
+#endif
                 nwy_uart_write(opts->uart_fd, (const unsigned char *)_sendbuf, _sendbuflen);
                 pthread_cond_signal(&msg_sent);
             }
