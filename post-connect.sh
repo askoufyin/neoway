@@ -45,15 +45,18 @@ route add default gw $GW dev $OIFACE
 
 echo "POST-CONNECT: setting nameservers"
 
-echo $DNS1 > /etc/resolv.conf
-echo $DNS2 >> /etc/resolv.conf
+echo "nameserver $DNS1" > /etc/resolv.conf
+echo "nameserver $DNS2" >> /etc/resolv.conf
+echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+echo "nameserver 8.8.4.4" >> /etc/resolv.conf
+
+echo "POST-CONNECT: restarting DNSMASQ daemon"
+/etc/init.d/dnsmasq restart
 
 echo "POST-CONNECT: synchronizing clock with time.nist.gov"
 /sbin/ntpd -n -q -p 132.163.96.4
 
-echo "POST-CONNECT: restarting DNSMASQ daemon"
-killall -HUP dnsmasq 
-
 echo "$IP" > /var/run/gsm.connected
 
 echo "POST-CONNECT: done"
+read -p "Press Enter to continue..."
