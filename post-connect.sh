@@ -50,11 +50,11 @@ echo "nameserver $DNS2" >> /etc/resolv.conf
 echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 echo "nameserver 8.8.4.4" >> /etc/resolv.conf
 
-echo "POST-CONNECT: synchronizing clock with time.nist.gov"
-/sbin/ntpd -n -q -p 132.163.96.4
-
 echo "POST-CONNECT: restarting DNSMASQ daemon"
 /etc/init.d/dnsmasq restart
+
+echo "POST-CONNECT: synchronizing clock with time.nist.gov"
+/sbin/ntpd -n -q -p 132.163.96.4
 
 echo "$IP" > /var/run/gsm.connected
 
