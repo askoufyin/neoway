@@ -4,12 +4,12 @@
 #include "stdio.h"
 #include <strings.h>
 #include <sys/select.h>
+#include <ctype.h>
+#include <stdarg.h>
+#include <time.h>
+#include <stdbool.h>
+#include <string.h>
 
-//#include "nwy_loc.h"
-//#include "nwy_uart.h"
-//#include "nwy_error.h"
-//#include "nwy_common.h"
-//#include "nwy_sim.h"
 //#define NWY_AT_PORT      "/dev/smd9"
 int lat_D, lon_D;
 float lat_M = 0, lon_M = 0;
@@ -172,8 +172,11 @@ void At_init(void* web_opts)
          }
          else if (!strcmp(at_com, "AT$MYGPSPOS=3\0") && p_resp[0] == '$' && p_resp[1] == 'M' && p_resp[2] == 'Y' && p_resp[3] == 'G' && p_resp[4] == 'P')
          {
-             int n = sscanf(p_resp, "$MYGPSPOS: $GPRMC,%2d%2d%2d.%2d,%c,%2d%f,%c,%3d%f,%c",  &hh, &mm, &ss, &ms, &opts->valid_GPRMC, &lat_D, &lat_M, &opts->lat_sign, &lon_D, &lon_M, &opts->lon_sign);
-             if (opts->lat_sign == '\0' || opts->lon_sign == '\0' || n != 11)
+             //$MYGPSPOS: $GPRMC,064259.00,A,5653.540952,N,03549.766775,E,0.0,47.5,210521,8.8,E,A,V*73
+             float _speed = 0;
+             int n = sscanf(p_resp, "$MYGPSPOS: $GPRMC,%2d%2d%2d.%2d,%c,%2d%f,%c,%3d%f,%c,%f,",  &hh, &mm, &ss, &ms, &opts->valid_GPRMC, &lat_D, &lat_M, &opts->lat_sign, &lon_D, &lon_M, &opts->lon_sign, _speed);
+             opts->speed = _speed;
+             if (opts->lat_sign == '\0' || opts->lon_sign == '\0' || n != 12)
              {
                  opts->lat = 0;
                  opts->lon = 0;
@@ -186,6 +189,28 @@ void At_init(void* web_opts)
                  opts->lon = lon_D + lon_M / 60;
              }
              snprintf(opts->sput_time, sizeof(opts->sput_time),"%d:%d:%d (GMT +3)", hh+3, mm, ss);
+              #ifdef WEBPOSTGETINCONSOLE
+             printf(
+             "Time: %s\n"
+             "Valid %c\n"
+             "Lat Sigh %c\n"
+             "LatD %d\n"
+             "LatM %f\n"
+             "Lat %f\n"
+             "Lon Sigh %c\n"
+             "Lon %f\n"
+             "Speed %f\n",
+             opts->sput_time,
+             opts->valid_GPRMC,
+             opts->lat_sign,
+             lat_D,
+             lat_M,
+             opts->lat,
+             opts->lon_sign,
+             opts->lon,
+             opts->speed);
+             #endif
+             //printf("");
          }
          else if (!strcmp(at_com, "AT$MYGPSPOS=1\0") && p_resp[0] == '$' && p_resp[1] == 'M' && p_resp[2] == 'Y' && p_resp[3] == 'G' && p_resp[4] == 'P')
          {

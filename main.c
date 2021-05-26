@@ -17,6 +17,7 @@
 #include <arpa/inet.h>
 #include <stdbool.h> //
 #include <signal.h> //
+#include <locale.h>
 
 #include "nwy_loc.h"
 #include "nwy_uart.h"
@@ -42,7 +43,6 @@
 #include "utils.h"
 #include "watchdog.h"
 #include "upvs.h"
-
 
 //#include "tcp_web.h"   пока не добавлено
 //#define WEBPOSTGETINCONSOLE  убрать если отвлекает вывод пост гет запросов в консоли
@@ -536,7 +536,7 @@ process_get(options_t* opts)
             if (XML_CMD_QUERY_STATE_VARIABLE == opts->xml_cmd) {
                 queryStateVariable(opts);
             }
-            break;
+            return;
         default:
             break;
     }
@@ -1130,7 +1130,7 @@ app_init(options_t* opts)
 
 
 #define BUFLEN 512             //Max length of buffer
-#define SERVER "10.7.254.6"    //Адресс локальной машины пк связанной с железкой сейчас
+//#define SERVER "10.7.254.6"    //Адресс локальной машины пк связанной с железкой сейчас
 
 
 char buffer[128768] = { 0 };    //Буфер для вычитывания файлов и принятия внешних запросов
@@ -1149,9 +1149,7 @@ bool recv_flag = false;
 bool queue_flag = false;
 
 char web_log[256000];
-char inet_web[16];          //ifconfig bridge0 inet 192.168.0.0 netmask 255.255.255.0
-char netmask_web[16];
-char gps_time_web[5];
+
 
 int opt = 1, rc, wb_i = 0;
 int user_id = 0;                   //2 - Admin, 1 - Viewer, 0 - Her kakoi-to
@@ -1276,6 +1274,7 @@ void Header_Parse()
 
 static void* tcp_web_thread_main(void* arg)
 {
+    setlocale (LC_ALL,""); // установить используемую системой локаль
     options_t* opts = (options_t*)arg;
     d_log("WEB DIR: %s\n",opts->web_dir_i_path);
     char* at_com = malloc(sizeof(char) * 100);
@@ -1288,11 +1287,13 @@ static void* tcp_web_thread_main(void* arg)
     At_init(opts);                          //Инициализация для работы с AT
 
     end = time(NULL);
+    int _uptime = (int)difftime(end, start);
+    printf ("%d",_uptime);
 
     char sss[5], mmm[5], hhh[5];            //складываем в строки секунды часы и минуты
-    (((int)difftime(end, start) % 60 < 10) ? snprintf(sss, sizeof(sss), "0%d", (int)difftime(end, start) % 60) : snprintf(sss, sizeof(sss), "%d", (int)difftime(end, start) % 60));
-    (((int)(difftime(end, start) / 60) % 60 < 10) ? snprintf(mmm, sizeof(mmm), "0%d", (int)(difftime(end, start) / 60) % 60) : snprintf(mmm, sizeof(mmm), "%d", (int)(difftime(end, start) / 60) % 60));
-    (((int)(difftime(end, start) / 3600) % 60 < 10) ? snprintf(hhh, sizeof(hhh), "0%d", (int)(difftime(end, start) / 3600) % 60) : snprintf(hhh, sizeof(hhh), "%d", (int)(difftime(end, start) / 3600) % 60));
+    (_uptime % 60 < 10) ? snprintf(sss, sizeof(sss), "0%d", _uptime % 60) : snprintf(sss, sizeof(sss), "%d", _uptime % 60);
+    ((_uptime / 60) % 60 < 10) ? snprintf(mmm, sizeof(mmm), "0%d", (_uptime / 60) % 60) : snprintf(mmm, sizeof(mmm), "%d", (_uptime / 60) % 60);
+    ((_uptime / 3600) % 60 < 10) ? snprintf(hhh, sizeof(hhh), "0%d", (_uptime / 3600) % 60) : snprintf(hhh, sizeof(hhh), "%d", (_uptime / 3600) % 60);
     snprintf(opts->up_time_string, sizeof(opts->up_time_string), "%s : %s : %s\0", hhh, mmm, sss);
 
     int s_p;                           //выставляем нулевое количкстов всех сообщений, пополнится само при чтении файла sms_memory.txt
@@ -1430,6 +1431,10 @@ static void* tcp_web_thread_main(void* arg)
             {
                 send(new_tcp_socket, "HTTP/1.1 200 Ok \r\n\r\n", strlen("HTTP/1.1 200 Ok \r\n\r\n"), 0);
                 int i = 0, j = 0;
+                char inet_web[16];          //ifconfig bridge0 inet 192.168.0.0 netmask 255.255.255.0
+                char netmask_web[16];
+                char gps_time_web[5];
+                char dhcp = 'V';
                 while (postbody[i] != ' ')
                 {
                     inet_web[j] = postbody[i];
@@ -1456,8 +1461,25 @@ static void* tcp_web_thread_main(void* arg)
                 d_log("inet: %s\nnetmask: %s\ngps_time: %s\n", inet_web, netmask_web, gps_time_web);
                 char sys_com[100] = { 0 };
                 snprintf(sys_com, 100, "ifconfig bridge0 inet %s netmask %s\n", inet_web, netmask_web);
+                FILE* fp;
+                char sysconf[500] = { 0 };
+                snprintf(sysconf, sizeof(sysconf), "%s\n%s\n%s\n%c\n", inet_web, netmask_web, gps_time_web, dhcp);
+                char fullpath[30];
+                strcat(fullpath, opts->web_dir_i_path);   //собираем адрсс из PATH в neowayhelper.conf
+                strcat(fullpath, "/");                    //слэша
+                strcat(fullpath, "sysconf.txt");               //и имени файла
+                printf("Fopen: %s\n", fullpath);
+                fp = fopen(fullpath, "wb");
+                if (NULL == fp) {
+                    //perror("fopen()");
+                    printf("fd = NULL\n");
+                    //return -1;
+                }
+                fwrite(&sysconf, 1, sizeof(sysconf), fp);
+                fclose(fp);
+                //Write_sysconfto_txt("sysconf.txt\0", opts);
                 system(sys_com);
-                wb_i += snprintf(&web_log[wb_i], 64000, "[%s] Сетевая конфигурация обновлена!\\nip:%s\\nnetmask:%s\\n", opts->up_time_string, inet_web, netmask_web);
+                wb_i += snprintf(&web_log[wb_i], 64000, "[%s] Конфигурация сохранена!\\nip:%s\\nnetmask:%s\\n", opts->up_time_string, inet_web, netmask_web);
                 //d_log("%s", sys_com);
                 // j = 0; i++;
             }
@@ -1611,10 +1633,22 @@ static void* tcp_web_thread_main(void* arg)
                 //printf("End sending at\n");
                 end = time(NULL);
 
-                (((int)difftime(end, start) % 60 < 10) ? snprintf(sss, sizeof(sss), "0%d", (int)difftime(end, start) % 60) : snprintf(sss, sizeof(sss), "%d", (int)difftime(end, start) % 60));
+                int _uptime = (int)difftime(end, start);
+                printf ("%d\n",_uptime);
+                if(_uptime > 1000000000) //If date 1970 -> 2021
+                {
+                    start = time(NULL);
+                    _uptime = (int)difftime(end, start);
+                }
+                char sss[5], mmm[5], hhh[5];            //складываем в строки секунды часы и минуты
+                (_uptime % 60 < 10) ? snprintf(sss, sizeof(sss), "0%d", _uptime % 60) : snprintf(sss, sizeof(sss), "%d", _uptime % 60);
+                ((_uptime / 60) % 60 < 10) ? snprintf(mmm, sizeof(mmm), "0%d", (_uptime / 60) % 60) : snprintf(mmm, sizeof(mmm), "%d", (_uptime / 60) % 60);
+                ((_uptime / 3600) % 60 < 10) ? snprintf(hhh, sizeof(hhh), "0%d", (_uptime / 3600) % 60) : snprintf(hhh, sizeof(hhh), "%d", (_uptime / 3600) % 60);
+
+                /*(((int)difftime(end, start) % 60 < 10) ? snprintf(sss, sizeof(sss), "0%d", (int)difftime(end, start) % 60) : snprintf(sss, sizeof(sss), "%d", (int)difftime(end, start) % 60));
                 (((int)(difftime(end, start) / 60) % 60 < 10) ? snprintf(mmm, sizeof(mmm), "0%d", (int)(difftime(end, start) / 60) % 60) : snprintf(mmm, sizeof(mmm), "%d", (int)(difftime(end, start) / 60) % 60));
                 (((int)(difftime(end, start) / 3600) % 60 < 10) ? snprintf(hhh, sizeof(hhh), "0%d", (int)(difftime(end, start) / 3600) % 60) : snprintf(hhh, sizeof(hhh), "%d", (int)(difftime(end, start) / 3600) % 60));
-                snprintf(opts->up_time_string, sizeof(opts->up_time_string), "%s : %s : %s\0", hhh, mmm, sss);
+                */snprintf(opts->up_time_string, sizeof(opts->up_time_string), "%s : %s : %s\0", hhh, mmm, sss);
 
                 char pwrtype[20];
                 if(opts->power_source == POWER_SOURCE_NORMAL){
@@ -1650,11 +1684,55 @@ static void* tcp_web_thread_main(void* arg)
                     #ifdef WEBPOSTGETINCONSOLE
                     printf("/var/run/gsm.connected open: OK\n");
                     #endif
-                    fseek(gsmipFile, 0, SEEK_END);                                    //Открываем файл и перемещаем каретку в конечное положение
-                    int gsmipFileLen = ftell(gsmipFile);                                      //Получаем текущее значение указателя
-                    fseek(gsmipFile, 0, SEEK_SET);                                    //Перемещаем каретку в начало, чтобы корректно работать с файлом
-                    for (i = 0; (_oneChar = getc(gsmipFile)) != EOF && i < gsmipFileLen; opts->gsm_ip_state[i++] = rc);    //Посимвольно считываем все биты из файла пока они не закончатся или не переполнится буффер
-                    opts->gsm_ip_state[i] = '\0';
+                    //fseek(gsmipFile, 0, SEEK_END);                                    //Открываем файл и перемещаем каретку в конечное положение
+                    //int gsmipFileLen = ftell(gsmipFile);                                      //Получаем текущее значение указателя
+                    //fseek(gsmipFile, 0, SEEK_SET);                                    //Перемещаем каретку в начало, чтобы корректно работать с файлом
+                    //for (i = 0; (_oneChar = getc(gsmipFile)) != EOF && i < gsmipFileLen; opts->gsm_ip_state[i++] = rc);    //Посимвольно считываем все биты из файла пока они не закончатся или не переполнится буффер
+                    //opts->gsm_ip_state[i] = '\0';
+
+                        fgets(opts->gsm_ip_state, 126, gsmipFile);
+                        int j = 0;
+                        int i = 0;
+                        for (i = 0; i < sizeof(opts->gsm_ip_state);i++, j++)
+                        {
+                            if(opts->gsm_ip_state[i] != '\n')
+                            {
+                                opts->gsm_ip_state[j] = opts->gsm_ip_state[i];
+                            }
+                            else
+                            {
+                                j--;
+                            }
+                        }
+
+                        snprintf(opts->gsm_time, sizeof(opts->gsm_time), "%s", ctime(&end));
+                        j = 0;
+                        i = 0;
+                        for (i = 0; i < sizeof(opts->gsm_time);i++, j++)
+                        {
+                            if(opts->gsm_time[i] != '\n')
+                            {
+                                opts->gsm_time[j] = opts->gsm_time[i];
+                            }
+                            else
+                            {
+                                j--;
+                            }
+                        }
+                    //
+                    //
+                    //
+
+                    //long int ttime;
+
+                    // Считываем текущее время
+                    //ttime = time (NULL);
+
+                    // С помощью функции ctime преобразуем считанное время в
+                    // локальное, а затем в строку и выводим в консоль.
+                    //printf ("Время: %s\n",ctime (&ttime) );
+
+
                     // Закрываем файл
                     #ifdef WEBPOSTGETINCONSOLE
                     printf("Закрытие файла /var/run/gsm.connected: ");
@@ -1680,8 +1758,8 @@ static void* tcp_web_thread_main(void* arg)
                 pthread_mutex_lock(&opts->mutex);
 
                 //printf("End wainting mutex\n");
-                snprintf(buffer, 65000, "{\"rssi\" : \"%s\",\n\""
-                                        "threed_fix\" : \"%s\",\n"
+                snprintf(buffer, 65000, "{\"rssi\" : \"%s\",\n"
+                                        "\"threed_fix\" : \"%s\",\n"
                                         "\"gps_cords\" : \" %c %f\xC2\xB0 %c %f\xC2\xB0\",\n"
                                         "\"sys_time\" : \" %s\",\n"
                                         "\"num_sput\" : \"%d\",\n"
@@ -1693,7 +1771,9 @@ static void* tcp_web_thread_main(void* arg)
                                         "\"carrige_mileage\" : \"%f км\",\n"
                                         "\"last_mileage\" : \"%f км\",\n"
                                         "\"power_type\" : \"%s\",\n"
-                                        "\"gsm_ip_state\" : \"%s\"}\0",
+                                        "\"gsm_ip_state\" : \"%s\",\n"
+                                        "\"speed\" : \"%f\",\n"
+                                        "\"gsm_time\" : \"%s\"}\0",
                                         opts->rssi,
                                         opts->threed_fix,
                                         opts->lat_sign, opts->lat, opts->lon_sign, opts->lon,
@@ -1707,7 +1787,9 @@ static void* tcp_web_thread_main(void* arg)
                                         opts->total_mileage,
                                         opts->mileage,
                                         pwrtype,
-                                        opts->gsm_ip_state);
+                                        opts->gsm_ip_state,
+                                        opts->speed,
+                                        opts->gsm_time);
                 pthread_mutex_unlock(&opts->mutex);
 
                 send(new_tcp_socket, buffer, strlen(buffer), 0);

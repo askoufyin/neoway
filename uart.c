@@ -12,7 +12,7 @@
 #include "nwy_common.h"
 #include "nwy_sim.h"
 
-#define PRINTF_LOG
+//#define PRINTF_LOG
 
 /* TODO: Make this variables static, add functions to manage data in the buffer
  */

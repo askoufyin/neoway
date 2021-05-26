@@ -85,10 +85,12 @@ options_init(options_t *o)
     memset(o->mobile_data, 0, sizeof(o->mobile_data));
     memset(o->up_time_string, 0, sizeof(o->up_time_string));
     memset(o->gsm_ip_state, 0, sizeof(o->gsm_ip_state));
+    memset(o->gsm_time, 0, sizeof(o->gsm_time));
 
     o->web_dir_i_path = strdup("/data/www"); // Значение по умолчанию
     o->lon = 0;
     o->lat = 0;
+    o->speed = 0;
     //memset(o->lat_sign, 0, sizeof(o->lat_sign));
     //memset(o->lon_sign, 0, sizeof(o->lon_sign));
     memset(o->sput_time, 0, sizeof(o->sput_time));

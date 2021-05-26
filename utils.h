@@ -126,11 +126,13 @@ typedef struct _options {
     char operator_cod[20];
     float lon;
     float lat;
+    float speed;
     char lat_sign;
     char lon_sign;
     char valid_GPRMC;
     char sput_time[20];
     char gsm_ip_state[100];
+    char gsm_time[100];
     int num_sput_val;
     /*-Work whith SMS-*/
     int sms_priority;
