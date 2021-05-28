@@ -89,3 +89,6 @@ NeowayTest
 scratchpad.txt
 *.user
 .vscode/
+.vs/
+*.my
+*.orig
