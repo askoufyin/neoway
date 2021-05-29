@@ -55,7 +55,6 @@ echo "POST-CONNECT: restarting DNSMASQ daemon"
 
 echo "POST-CONNECT: synchronizing clock with time.nist.gov"
 /sbin/ntpd -n -q -p 132.163.96.4
-
 echo "$IP" > /var/run/gsm.connected
 
 echo "POST-CONNECT: done"

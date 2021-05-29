@@ -15,11 +15,11 @@ typedef int pid_t;
 
 
 #define SOCKS_MAX               16
-#define XML_VARIABLE_MAX        32
-#define ACTION_NAME_MAX         32
-#define PHONE_NUMBER_MAX        32
-#define SMS_TEXT_MAX            512 // Bytes, not chars!
-#define MAX_MESSAGE_LENGTH      8192
+#define XML_VARIABLE_MAX        64
+#define ACTION_NAME_MAX         64
+#define PHONE_NUMBER_MAX        64
+#define SMS_TEXT_MAX            1024 // Bytes, not chars!
+#define MAX_MESSAGE_LENGTH      16384
 
 #define MAX_PATH_LENGTH 256
 
@@ -134,6 +134,7 @@ typedef struct _options {
     char gsm_ip_state[100];
     char gsm_time[100];
     int num_sput_val;
+    int rssi_val;
     /*-Work whith SMS-*/
     int sms_priority;
     neoway_sms_data_t queue[8],sended[8],deleted[8],recved[8];

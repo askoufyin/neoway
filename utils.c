@@ -91,6 +91,7 @@ options_init(options_t *o)
     o->lon = 0;
     o->lat = 0;
     o->speed = 0;
+    o->rssi_val=0;
     //memset(o->lat_sign, 0, sizeof(o->lat_sign));
     //memset(o->lon_sign, 0, sizeof(o->lon_sign));
     memset(o->sput_time, 0, sizeof(o->sput_time));

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scpd urn="%s">
+  <actionList>
+    <action>
+      <argumentList>
+        <argument>
+          <name>DATETIME</name>
+          <direction>IN</direction>
+        </argument>
+      </argumentList>
+    </action>
+  </actionList>
+  <serviceStateTable>
+    <stateVariable>
+      <name>DATETIME</name>
+      <friendlyName>дата время</friendlyName>
+      <dataType>struct</dataType>
+      <struct>
+        <stateVariable>
+          <name>DT</name>
+          <friendlyName>строка даты и времени</friendlyName>
+          <dataType>string</dataType>
+        </stateVariable>
+        <stateVariable>
+          <name>FORMAT</name>
+          <friendlyName>формат</friendlyName>
+          <dataType>string</dataType>
+        </stateVariable>
+      </struct>
+    </stateVariable>
+  </serviceStateTable>
+</scpd>

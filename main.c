@@ -44,16 +44,18 @@
 #include "watchdog.h"
 #include "upvs.h"
 
+char web_log[256000];
+int wb_i = 0;
 //#include "tcp_web.h"   пока не добавлено
 //#define WEBPOSTGETINCONSOLE  убрать если отвлекает вывод пост гет запросов в консоли
 inline void d_log(const char *fmt, ...)
 {
-    #ifdef WEBPOSTGETINCONSOLE
+    //#ifdef WEBPOSTGETINCONSOLE
         va_list ar;
         va_start(ar, fmt);
         vprintf(fmt, ar);
         va_end(ar);
-    #endif
+    //#endif
 }
 
 static location_rec_t _buffer[CIRCULAR_BUFFER_SIZE];
@@ -242,7 +244,8 @@ network_init(options_t* opts)
         return res;
     }
 
-    sprintf(opts->uuid, "NEOWAY_%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    //sprintf(opts->uuid, "NEOWAY_%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    sprintf(opts->uuid, "NEOWAY_CACAB");
     d_log("UUID %s\n", opts->uuid);
 
     /* Create broadcast socket
@@ -507,19 +510,58 @@ read_xmls()
 {
     xmls[XML_INFO] = get_file_contents("/data/xml/info.xml");
     xmls[XML_SMS] = get_file_contents("/data/xml/sms.xml");
-    xmls[XML_ROUTER] = get_file_contents("/data/xml/routing.xml");
-    xmls[XML_QUERY_STATE_VARIABLE] = get_file_contents("/data/xml/queryvariable.xml");
-    xmls[XML_INFO2] = get_file_contents("/data/xml/info2.xml");
+    xmls[XML_GPRS] = get_file_contents("/data/xml/gprs.xml");
+    xmls[XML_CONFIG] = get_file_contents("/data/xml/config.xml");
+    xmls[XML_GPSGLONASS] = get_file_contents("/data/xml/gpsglonass.xml");
     xmls[XML_WEB] = get_file_contents("/data/xml/web.xml");
+    xmls[XML_QUERY_STATE_VARIABLE] = get_file_contents("/data/xml/queryvariable.xml");
 }
 
 
 static void
 queryStateVariable(options_t* opts)
 {
-    char value[256];
+    char value[256] = {0};
+    if (0 == strcasecmp(opts->xml_variable, "telno")) {
+        sprintf(value, "<value>%s</value>", opts->phone_number);
 
-    sprintf(value, "%s", "Пока нет");
+    } else if (0 == strcasecmp(opts->xml_variable, "connected")) {
+        sprintf(value, "<value>%s</value>", opts->gprs_enabled ? "Да" : "Нет");
+
+    } else if (0 == strcasecmp(opts->xml_variable, "text")) {
+        sprintf(value, "<value>%s</value>", opts->sms_text);
+
+    } else if (0 == strcasecmp(opts->xml_variable, "www")) {
+        sprintf(value, "<value>%s</value>", "http://10.7.6.1");
+
+    } else if (0 == strcasecmp(opts->xml_variable, "ip")) {
+        sprintf(value, "<value>%s</value>", opts->gsm_ip_state);
+
+    } else if (0 == strcasecmp(opts->xml_variable, "pin")) {
+        sprintf(value, "<value>%s</value>", opts->pin);
+
+    } else if (0 == strcasecmp(opts->xml_variable, "router")) {
+        sprintf(value, "<value>%s</value>", opts->gsm_ip_state);
+
+    } else if (0 == strcasecmp(opts->xml_variable, "sigLevel")) {
+        sprintf(value, "<value>%s</value>", "siglevel");
+
+    } else if (0 == strcasecmp(opts->xml_variable, "operator")) {
+        sprintf(value, "<value>Beeline</value>");
+
+    } else if (0 == strcasecmp(opts->xml_variable, "localtime")) {
+        sprintf(value, "<value>LocalTime</value>");
+
+    } else if (0 == strcasecmp(opts->xml_variable, "CURRENT_XYZ")) {
+        sprintf(value, "%s", "<struct>"
+        "<latitude><value>0.0</value></latitude>"
+        "<longitude><value>0.0</value></longitude>"
+        "<altitude><value>0.0</value></altitude>"
+        "</struct>"
+    );
+    } else {
+    sprintf(value, "%s", "Неизвестный параметр");
+    }
     _sendbuflen = sprintf(_sendbuf, xmls[XML_QUERY_STATE_VARIABLE], opts->r_uuid, opts->xml_variable, value, opts->xml_variable);
     _sendbuf[_sendbuflen] = 0;
     d_log(_sendbuf);
@@ -543,17 +585,17 @@ process_get(options_t* opts)
 
     if(NULL != p) {
         ++p;
-        if (0 == strcasecmp(p, "SMSG")) {
+        if (0 == strcasecmp(p, "1")) {
             _sendbuflen = sprintf(_sendbuf, xmls[XML_SMS], opts->r_uuid);
         }
-        else if (0 == strcasecmp(p, "ROUTING")) {
-            _sendbuflen = sprintf(_sendbuf, xmls[XML_ROUTER], opts->r_uuid);
+        else if (0 == strcasecmp(p, "2")) {
+            _sendbuflen = sprintf(_sendbuf, xmls[XML_GPRS], opts->r_uuid);
         }
-        else if (0 == strcasecmp(p, "INFO")) {
-            _sendbuflen = sprintf(_sendbuf, xmls[XML_INFO2], opts->r_uuid);
+        else if (0 == strcasecmp(p, "3")) {
+            _sendbuflen = sprintf(_sendbuf, xmls[XML_CONFIG], opts->r_uuid);
         }
-        else if(0 == strcasecmp(p, "WEB")) {
-            _sendbuflen = sprintf(_sendbuf, xmls[XML_WEB], opts->r_uuid);
+        else if(0 == strcasecmp(p, "4")) {
+            _sendbuflen = sprintf(_sendbuf, xmls[XML_GPSGLONASS], opts->r_uuid);
         }
     } else {
         _sendbuflen = sprintf(_sendbuf, xmls[XML_INFO], opts->r_uuid);
@@ -579,7 +621,7 @@ action_send_sms(options_t* opts)
         "SMS_send\n"
         "%s %s\r\n", opts->phone_number, opts->sms_text
     );
-
+    wb_i += snprintf(&web_log[wb_i], sizeof(web_log), "[%s]%s %s %s", opts->up_time_string, "KDUSV SEND:\\n", opts->phone_number, opts->sms_text);
     hent = gethostbyname("localhost");
     if (NULL == hent) {
         herror("gethostbyname()");
@@ -620,6 +662,15 @@ action_send_sms(options_t* opts)
 
     shutdown(webs, SHUT_RDWR);
     close(webs);
+    _sendbuflen = sprintf(_sendbuf, "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+"<body urn=\"%s\">"
+"    <action>"
+"      <name>\"%s\"</name>"
+"    </action>"
+"    </body>",
+opts->uuid,
+opts->xml_action
+);
 }
 
 
@@ -794,7 +845,7 @@ network_thread_main(void* arg)
     buf_init(&tags, sizeof(xml_tag_t)*100);
     buf_init(&chars, 8192);
     xml_context_init(&ctx, &tags, &chars);
-
+    printf("------------------------");
     d_log("Network thread start\n");
 
     read_xmls();
@@ -833,16 +884,16 @@ network_thread_main(void* arg)
                 socklen_t len = sizeof(in_addr);
 
                 sock = accept(opts->tcp_sock, (struct sockaddr*) & in_addr, &len);
-                #ifdef WEBPOSTGETINCONSOLE
+                //#ifdef WEBPOSTGETINCONSOLE
                 d_log("Accepted connection from %s:%u\n", inet_ntoa(in_addr.sin_addr), ntohs(in_addr.sin_port));
-                #endif
+                //#endif
 
                 res = recv(sock, buf, sizeof(buf), 0);
                 if (res > 0) {
                     memset(_sendbuf, 0, sizeof(_sendbuf));
                     _sendbuflen = 0;
 
-                    //d_log("%s", buf);
+                    d_log("%s", buf);
                     opts->level = 0;
                     opts->xml_action = NULL;
 
@@ -860,7 +911,7 @@ network_thread_main(void* arg)
                         opts->xml_action(opts);
                     }
 
-                    //d_log("%s", _sendbuf);
+                    d_log("%s", _sendbuf);
                     if (0 != _sendbuflen) {
                         res = send(sock, _sendbuf, _sendbuflen, 0);
                     }
@@ -1128,10 +1179,7 @@ app_init(options_t* opts)
 #undef LOG_MSG_MASK
 #define LOG_MSG_MASK     LOG_MASK_STD
 
-
 #define BUFLEN 512             //Max length of buffer
-//#define SERVER "10.7.254.6"    //Адресс локальной машины пк связанной с железкой сейчас
-
 
 char buffer[128768] = { 0 };    //Буфер для вычитывания файлов и принятия внешних запросов
 //Переменные, для вычитывания данных из внешнего запроса
@@ -1148,10 +1196,7 @@ char recv_phone[13], recv_text[500] = { '\0' };
 bool recv_flag = false;
 bool queue_flag = false;
 
-char web_log[256000];
-
-
-int opt = 1, rc, wb_i = 0;
+int opt = 1, rc;
 int user_id = 0;                   //2 - Admin, 1 - Viewer, 0 - Her kakoi-to
 time_t start, end;
 int server_fd, new_tcp_socket, valread;  //
@@ -1159,9 +1204,11 @@ int server_fd, new_tcp_socket, valread;  //
 struct sockaddr_in address;
 int addrlen = sizeof(address);
 
+int GPRS_state_now = 0;           //0 - Не установлено соединение 1 - соединение установлено, получен ip
+
 void Header_Parse();                                //Функция которая разбирает ключевые заголовки из buffer и складывает в предназначенные для этого массивы
 void Start_Socket();                                //Socket+bind+listen
-
+int check_GPRS_state(void* web_opts);
 static void del_sms_num(char* but_type, int num, void* web_opts);
 static void* HeartBit(void* arg);
 static int do_send_sms(char* number, int encoding, int length, char* context, int async, void* opts_sms, int sms_priority);
@@ -1304,6 +1351,8 @@ static void* tcp_web_thread_main(void* arg)
         opts->queue[s_p].j = 0;
         opts->recved[s_p].j = 0;
     }
+
+
     /*opts->sended[3].j = 3;
     //Тестовое заполнение массива сообщений
     for (i = opts->sended[3].j-1; i >= 0; i--)
@@ -1668,10 +1717,6 @@ static void* tcp_web_thread_main(void* arg)
                     snprintf(opts->operator_cod, sizeof(opts->operator_cod), "No reg\0");
                 }
 
-                /*
-                * Get info about gsm_ip from /var/run/gsm.connected
-                */
-
                 char _oneChar;
                 FILE* gsmipFile;
                 gsmipFile = fopen("/var/run/gsm.connected", "r");
@@ -1684,55 +1729,24 @@ static void* tcp_web_thread_main(void* arg)
                     #ifdef WEBPOSTGETINCONSOLE
                     printf("/var/run/gsm.connected open: OK\n");
                     #endif
-                    //fseek(gsmipFile, 0, SEEK_END);                                    //Открываем файл и перемещаем каретку в конечное положение
-                    //int gsmipFileLen = ftell(gsmipFile);                                      //Получаем текущее значение указателя
-                    //fseek(gsmipFile, 0, SEEK_SET);                                    //Перемещаем каретку в начало, чтобы корректно работать с файлом
-                    //for (i = 0; (_oneChar = getc(gsmipFile)) != EOF && i < gsmipFileLen; opts->gsm_ip_state[i++] = rc);    //Посимвольно считываем все биты из файла пока они не закончатся или не переполнится буффер
-                    //opts->gsm_ip_state[i] = '\0';
-
                         fgets(opts->gsm_ip_state, 126, gsmipFile);
-                        int j = 0;
                         int i = 0;
                         for (i = 0; i < sizeof(opts->gsm_ip_state);i++, j++)
                         {
-                            if(opts->gsm_ip_state[i] != '\n')
+                            if(opts->gsm_ip_state[i] == '\n')
                             {
-                                opts->gsm_ip_state[j] = opts->gsm_ip_state[i];
-                            }
-                            else
-                            {
-                                j--;
+                                opts->gsm_ip_state[i] = 0;
                             }
                         }
-
                         snprintf(opts->gsm_time, sizeof(opts->gsm_time), "%s", ctime(&end));
-                        j = 0;
                         i = 0;
-                        for (i = 0; i < sizeof(opts->gsm_time);i++, j++)
+                        for (i = 0; i < sizeof(opts->gsm_time);i++)
                         {
-                            if(opts->gsm_time[i] != '\n')
+                            if(opts->gsm_time[i] == '\n')
                             {
-                                opts->gsm_time[j] = opts->gsm_time[i];
-                            }
-                            else
-                            {
-                                j--;
+                                opts->gsm_time[i] = 0;
                             }
                         }
-                    //
-                    //
-                    //
-
-                    //long int ttime;
-
-                    // Считываем текущее время
-                    //ttime = time (NULL);
-
-                    // С помощью функции ctime преобразуем считанное время в
-                    // локальное, а затем в строку и выводим в консоль.
-                    //printf ("Время: %s\n",ctime (&ttime) );
-
-
                     // Закрываем файл
                     #ifdef WEBPOSTGETINCONSOLE
                     printf("Закрытие файла /var/run/gsm.connected: ");
@@ -1748,7 +1762,7 @@ static void* tcp_web_thread_main(void* arg)
                         #endif
                     }
                 }
-
+                //check_GPRS_state(opts);
                 /*
                 * Mutex for get total_mileage & mileage
                 */
@@ -2435,6 +2449,82 @@ static void* try_send_sms_from_queue(void* web_opts) {
             }
         }
     }
+}
+
+int check_GPRS_state(void* web_opts)
+{
+    /*
+    * Get info about gsm_ip from /var/run/gsm.connected
+    */
+    end = time(NULL);
+    options_t* opts = (options_t*)web_opts;
+    char _oneChar;
+    FILE* gsmipFile;
+    gsmipFile = fopen("/var/run/gsm.connected", "r");
+    if (gsmipFile == NULL) {
+        #ifdef WEBPOSTGETINCONSOLE
+        printf("/var/run/gsm.connected Error open or not found\n");
+        #endif
+        snprintf(opts->gsm_ip_state, sizeof(opts->gsm_ip_state), "Соединение не установлено");
+    } else {
+        #ifdef WEBPOSTGETINCONSOLE
+        printf("/var/run/gsm.connected open: OK\n");
+        #endif
+        //fseek(gsmipFile, 0, SEEK_END);                                    //Открываем файл и перемещаем каретку в конечное положение
+        //int gsmipFileLen = ftell(gsmipFile);                                      //Получаем текущее значение указателя
+        //fseek(gsmipFile, 0, SEEK_SET);                                    //Перемещаем каретку в начало, чтобы корректно работать с файлом
+        //for (i = 0; (_oneChar = getc(gsmipFile)) != EOF && i < gsmipFileLen; opts->gsm_ip_state[i++] = rc);    //Посимвольно считываем все биты из файла пока они не закончатся или не переполнится буффер
+        //opts->gsm_ip_state[i] = '\0';
+
+            fgets(opts->gsm_ip_state, 126, gsmipFile);
+            int j = 0;
+            int i = 0;
+            for (i = 0; i < sizeof(opts->gsm_ip_state);i++, j++)
+            {
+                if(opts->gsm_ip_state[i] == '\n')
+                {
+                    opts->gsm_ip_state[i] = 0;
+                }
+            }
+            snprintf(opts->gsm_time, sizeof(opts->gsm_time), "%s", ctime(&end));
+            i = 0;
+            for (i = 0; i < sizeof(opts->gsm_time);i++)
+            {
+                if(opts->gsm_time[i] == '\n')
+                {
+                    opts->gsm_time[i] = 0;
+                }
+            }
+        //
+        //
+        //
+
+        //long int ttime;
+
+        // Считываем текущее время
+        //ttime = time (NULL);
+
+        // С помощью функции ctime преобразуем считанное время в
+        // локальное, а затем в строку и выводим в консоль.
+        //printf ("Время: %s\n",ctime (&ttime) );
+
+
+        // Закрываем файл
+        #ifdef WEBPOSTGETINCONSOLE
+        printf("Закрытие файла /var/run/gsm.connected: ");
+        #endif
+        if (fclose(gsmipFile) == EOF)
+        {
+            #ifdef WEBPOSTGETINCONSOLE
+            printf("ошибка\n");
+            #endif
+        } else {
+            #ifdef WEBPOSTGETINCONSOLE
+            printf("выполнено\n");
+            #endif
+        }
+    }
+    return 0;
 }
 // --------------------------Alexander_code_end!-----------------------
 // --------------------------Alexander_code_end!-----------------------

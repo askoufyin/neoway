@@ -2,7 +2,7 @@
 <body urn="%s">
     <stateVariable>
         <%s>
-            <value>%s</value>
+            %s
         </%s>
     </stateVariable>
 </body>

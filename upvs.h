@@ -14,10 +14,11 @@
 enum {
     XML_INFO = 0,
     XML_SMS,
-    XML_ROUTER,
-    XML_QUERY_STATE_VARIABLE,
-    XML_INFO2,
+    XML_GPRS,
+    XML_CONFIG,
+    XML_GPSGLONASS,
     XML_WEB,
+    XML_QUERY_STATE_VARIABLE,
     //
     XML_MAX
 };

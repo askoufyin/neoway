@@ -1,39 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<scpd urn="%s">
-        <actionList>
-                <action>
-                        <name>Отослать SMS</name>
-                        <argumentList>
-                                <argument>
-                                        <name>telno</name>
-                                        <direction>IN</direction>
-                                </argument>
-                                <argument>
-                                        <name>text</name>
-                                        <direction>IN</direction>
-                                </argument>
-                                <argument>
-                                        <name>pin</name>
-                                        <direction>IN</direction>
-                                </argument>
-                        </argumentList>
-                </action>
-        </actionList>
-        <serviceStateTable>
-                <stateVariable>
-                        <name>telno</name>
-                        <friendlyName>Номер телефона</friendlyName>
-                        <dataType>string</dataType>
-                </stateVariable>
-                <stateVariable>
-                        <name>text</name>
-                        <friendlyName>Сообщение</friendlyName>
-                        <dataType>string</dataType>
-                </stateVariable>
-                <stateVariable>
-                        <name>pin</name>
-                        <friendlyName>PIN-код</friendlyName>
-                        <dataType>string</dataType>
-                </stateVariable>
-        </serviceStateTable>
-</scpd>
+<scpd urn="%s"><actionList><action><name>putSMS</name><argumentList><argument><name>SMS</name><direction>IN</direction></argument><argument><name>index</name><direction>OUT</direction></argument></argumentList></action><action><name>getSMS</name><argumentList><argument><name>SMS</name><direction>OUT</direction></argument><argument><name>index</name><direction>IN</direction></argument></argumentList></action><action><name>delSMS</name><argumentList><argument><name>index</name><direction>IN</direction></argument></argumentList></action><action><name>removeSMS</name><argumentList><argument><name>index</name><direction>IN</direction></argument></argumentList></action><action><name>clearOutQueue</name></action><action><name>clearInQueue</name></action></actionList><serviceStateTable><stateVariable><name>index</name><friendlyName>идентификатор СМС</friendlyName><dataType>int</dataType></stateVariable><stateVariable><name>SMS</name><friendlyName>SMS сообщение</friendlyName><dataType>struct</dataType><struct><stateVariable><name>data</name><friendlyName>текст SMS сообщения</friendlyName><dataType>string</dataType></stateVariable><stateVariable><name>callNumber</name><friendlyName>номер абонента</friendlyName><dataType>string</dataType></stateVariable><stateVariable><name>priority</name><friendlyName>приоритет</friendlyName><dataType>int</dataType><allowedValueRange><minimum>0</minimum><maximum>7</maximum><step>1</step></allowedValueRange></stateVariable><stateVariable><name>TTL</name><friendlyName>время жизни</friendlyName><dataType>int</dataType><allowedValueRange><minimum>0</minimum><maximum>255</maximum><step>1</step></allowedValueRange></stateVariable></struct></stateVariable>
+<stateVariable sendEvents="YES"><name>inQueue</name><friendlyName>очередь входящих СМС</friendlyName><dataType>list</dataType><list><stateVariable><name>index</name><friendlyName>индекс СМС</friendlyName><dataType>int</dataType></stateVariable></list></stateVariable>
+<stateVariable sendEvents="YES"><name>outQueue</name><friendlyName>очередь исходящих СМС</friendlyName><dataType>list</dataType><list><stateVariable><name>index</name><friendlyName>индекс СМС</friendlyName><dataType>int</dataType></stateVariable></list></stateVariable>
+<stateVariable sendEvents="YES"><name>sended</name><friendlyName>индекс отправленной СМС</friendlyName><dataType>list</dataType><list><stateVariable><name>index</name><friendlyName>индекс СМС</friendlyName><dataType>int</dataType></stateVariable></list></stateVariable>
+<stateVariable sendEvents="YES"><name>recived</name><friendlyName>индекс полученной СМС</friendlyName><dataType>int</dataType></stateVariable>
+<stateVariable sendEvents="YES"><name>deleted</name><friendlyName>индекс CМС с истекшим временем жизни</friendlyName><dataType>list</dataType><list><stateVariable><name>index</name><friendlyName>индекс СМС</friendlyName><dataType>int</dataType></stateVariable></list></stateVariable><stateVariable><name>operator</name><friendlyName>оператор</friendlyName><dataType>string</dataType></stateVariable>
+<stateVariable sendEvents="YES"><name>sigLevel</name><friendlyName>уровень сигнала</friendlyName><dataType>int</dataType><allowedValueRange><minimum>0</minimum><maximum>255</maximum><step>1</step></allowedValueRange></stateVariable>
+<stateVariable sendEvents="YES"><name>localTime</name><friendlyName>местное время</friendlyName><dataType>struct</dataType><struct><stateVariable><name>DT</name><friendlyName>строка даты и времени</friendlyName><dataType>string</dataType></stateVariable><stateVariable><name>FORMAT</name><friendlyName>формат</friendlyName><dataType>string</dataType></stateVariable><stateVariable><name>STATUS</name><friendlyName>состояние</friendlyName><dataType>string</dataType><allowedValueList><allowedValue><value>NORMAL</value><describe>Норма</describe></allowedValue><allowedValue><value>NA</value><describe>Неопределенное</describe></allowedValue></allowedValueList></stateVariable></struct></stateVariable></serviceStateTable></scpd>

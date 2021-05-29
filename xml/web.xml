@@ -1,10 +1,2 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<scpd urn="%s">
-    <serviceStateTable>
-        <stateVariable>
-            <name>www</name>
-            <friendlyName>Сайт</friendlyName>
-            <dataType>string</dataType>
-        </stateVariable>
-    </serviceStateTable>
-</scpd>
+<scpd urn="%s"><serviceStateTable><stateVariable><name>LEVEL_1</name><friendlyName>web-ресурс для проводника</friendlyName><dataType>string</dataType><defaultValue>http://10.7.6.1/</defaultValue></stateVariable><stateVariable><name>LEVEL_2</name><friendlyName>web-ресурс для ПЭМа</friendlyName><dataType>string</dataType><defaultValue>http://10.7.6.11/</defaultValue></stateVariable><stateVariable><name>LEVEL_3</name><friendlyName>web-ресурс для сервисного обслуживания</friendlyName><dataType>string</dataType><defaultValue>http://10.7.6.1/</defaultValue></stateVariable></serviceStateTable></scpd>

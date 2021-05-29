@@ -8,8 +8,6 @@
 #include <termios.h>
 #include <stdbool.h> //
 
-//#include "nwy_loc.h"
-//#include "nwy_uart.h"
 #include "nwy_error.h"
 #include "nwy_common.h"
 #include "nwy_sim.h"
@@ -24,7 +22,6 @@
  /*char phone_num[13], sms_text[500] = { '\0' }; //Переменные для работы с смс
  char recv_phone[13], recv_text[500] = { '\0' };
  bool recv_flag = false;*/
-
 
  int Write_smsTo_txt(const char* file, void* web_opts) {
      FILE* fp;

@@ -28,6 +28,7 @@ void At_init(void* web_opts)
      //else
      //{
          send_at_cmd("AT$MYGPSPWR=1\0", opts);
+         send_at_cmd("AT+CSQ\0", opts);
          printf("AT: OK\n");
      //}
  }
@@ -79,8 +80,8 @@ void At_init(void* web_opts)
              opts->rssi[j] = '\0';
              if(atoi(opts->rssi) != 99)
              {
-             int rssi_val = -113 + atoi(opts->rssi) * 2;
-             snprintf(opts->rssi, sizeof(opts->rssi), "%d дБм", rssi_val);
+             opts->rssi_val = -113 + atoi(opts->rssi) * 2;
+             snprintf(opts->rssi, sizeof(opts->rssi), "%d дБм", opts->rssi_val);
             }
             else
             {
