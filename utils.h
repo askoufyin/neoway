@@ -20,6 +20,8 @@ typedef int pid_t;
 #define PHONE_NUMBER_MAX        32
 #define SMS_TEXT_MAX            512 // Bytes, not chars!
 #define MAX_MESSAGE_LENGTH      8192
+#define MAX_ACTION_ARGS         32
+#define ACTION_STRINGS_MAX      8192
 
 #define MAX_PATH_LENGTH 256
 
@@ -33,12 +35,15 @@ enum xml_element {
     XML_VALUE,
     XML_ELEMENT_MAX
 };
+
+
 typedef struct _neoway_sms_data
 {
     char phone[100][13];   //100 - максимальное количество смс в каждом приоритете
     char text[100][500];   //
     int j;              //Счетчик количества смс каждого приоритета
 } neoway_sms_data_t;
+
 
 enum xml_cmd {
     XML_CMD_NONE = 0,
@@ -57,7 +62,21 @@ enum xml_action {
 
 struct _options;
 
-typedef void (*actionhandler_fn)(struct _options *);
+typedef int (*actionhandler_fn)(struct _options *);
+
+
+typedef struct _actionarg {
+    char* name;
+    char* value;
+    struct _actionarg* child;
+    struct _actionarg* next;
+} actionarg_t;
+
+
+typedef struct _actiondef {
+    char* name;
+    actionhandler_fn handler;
+} actiondef_t;
 
 
 typedef enum {
@@ -107,6 +126,7 @@ typedef struct _options {
     char xml_variable[XML_VARIABLE_MAX];
     char pin[5];                    // With trailing \0
     actionhandler_fn xml_action;
+    actionarg_t* args;
     char phone_number[PHONE_NUMBER_MAX];
     char sms_text[SMS_TEXT_MAX];
     /* -- */
