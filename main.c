@@ -635,7 +635,8 @@ action_send_sms(options_t* opts)
     char req[1024];
     int reqlen;
 
-    d_log("Sending SMS");
+    d_log("Sending SMS to \"%s\"\n", opts->phone_number);
+    d_log("Text: %s\n", opts->sms_text);
 
     reqlen = snprintf(req, sizeof(req),
         "POST / HTTP/1.1\r\n"
@@ -705,7 +706,7 @@ action_send_sms(options_t* opts)
         opts->xml_action
     );
 
-    d_log("Finished sending SMS");
+    d_log("Finished sending SMS\n");
 
     _sendbuf[_sendbuflen] = 0;
     printf("%s\n",_sendbuf);
