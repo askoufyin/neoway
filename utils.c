@@ -70,8 +70,11 @@ options_init(options_t *o)
     o->mileage = 0;
     o->reset_mileage = 0;
     memset(o->nmea_gga, 0, sizeof(o->nmea_gga));
+    strcpy(o->nmea_gga, "No data yet");
     memset(o->nmea_gsa, 0, sizeof(o->nmea_gsa));
+    strcpy(o->nmea_gsa, "No data yet");
     memset(o->nmea_rmc, 0, sizeof(o->nmea_rmc));
+    strcpy(o->nmea_rmc, "No data yet");
     o->power_source = POWER_SOURCE_NORMAL;
     memset(&o->last_nmea_msg, 0, sizeof(o->last_nmea_msg));
 
