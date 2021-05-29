@@ -558,12 +558,12 @@ queryStateVariable(options_t* opts)
         sprintf(value, "<value>LocalTime</value>");
 
     } else if (0 == strcasecmp(opts->xml_variable, "CURRENT_XYZ")) {
-        sprintf(value, "%s", "<struct>"
-        "<latitude><value>%.2f</value></latitude>"
-        "<longitude><value>%.2f</value></longitude>"
-        "<altitude><value>%.2f</value></altitude>"
-        "</struct>",
-                opts->lat, opts->lon, opts->level);
+        sprintf(value,  "<struct>"
+                            "<latitude><value>%.2f</value></latitude>"
+                            "<longitude><value>%.2f</value></longitude>"
+                            "<altitude><value>%.2f</value></altitude>"
+                        "</struct>", opts->lat, opts->lon, opts->level);
+
     } else if (0 == strcasecmp(opts->xml_variable, "GGA")) {
         sprintf(value, "<value>%s</value>", opts->nmea_gga);
     } else if (0 == strcasecmp(opts->xml_variable, "GSA")) {

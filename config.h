@@ -16,6 +16,7 @@
 #define BROADCAST_ADDRESS       "10.7.255.255"
 #define BROADCAST_PERIOD        15
 #define GATEWAY_ADDRESS         "10.7.6.1"
+//#define GATEWAY_ADDRESS         "10.7.254.23"
 #define DEVICE_TYPE             "NEOWAY_"
 
 
