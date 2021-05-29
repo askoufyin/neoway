@@ -69,6 +69,9 @@ options_init(options_t *o)
     o->total_mileage = 0;
     o->mileage = 0;
     o->reset_mileage = 0;
+    memset(o->nmea_gga, 0, sizeof(o->nmea_gga));
+    memset(o->nmea_gsa, 0, sizeof(o->nmea_gsa));
+    memset(o->nmea_rmc, 0, sizeof(o->nmea_rmc));
     o->power_source = POWER_SOURCE_NORMAL;
     memset(&o->last_nmea_msg, 0, sizeof(o->last_nmea_msg));
 

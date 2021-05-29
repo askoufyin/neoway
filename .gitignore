@@ -92,3 +92,4 @@ scratchpad.txt
 .vs/
 *.my
 *.orig
+output.map

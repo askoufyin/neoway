@@ -22,6 +22,7 @@ typedef int pid_t;
 #define MAX_MESSAGE_LENGTH      8192
 #define MAX_ACTION_ARGS         32
 #define ACTION_STRINGS_MAX      8192
+#define NMEA_LENGTH_MAX         128
 
 #define MAX_PATH_LENGTH 256
 
@@ -117,6 +118,10 @@ typedef struct _options {
     float total_mileage;            // Полный пробег, км
     float mileage;                  // Пробег с последнего сброса, км
     int reset_mileage;              // 1 - нужно сбросить пробег, 0 - ненужно сбрасывать
+    char nmea_gga[NMEA_LENGTH_MAX];
+    char nmea_gsa[NMEA_LENGTH_MAX];
+    char nmea_rmc[NMEA_LENGTH_MAX];
+    /* Misc */
     power_source_t power_source;    // Источник питания
     /* Фсякая бяка для УПВС */
     int level;                      // Nesting level of the current XML tag

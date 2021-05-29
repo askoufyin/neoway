@@ -111,6 +111,8 @@ process_msg_location(nwy_gps_location_t* loc)
     pthread_cond_signal(&msg_ready); // wake up UART_WRITE thread
 }
 
+options_t *_opts = NULL;
+
 
 static void
 nwy_loc_event_handler(nwy_loc_ind_t* msg)
@@ -151,10 +153,13 @@ nwy_loc_event_handler(nwy_loc_ind_t* msg)
                 }
             }
             else if (NMEA_GGA == nmsg.type) {
-
+                strcpy(_opts->nmea_gga, msg->ind_msg.nmea_msg.nmea);
             }
-            else {
-                //d_log("NWY_LOC_NMEA_INFO_IND_MSG: %s", msg->ind_msg.nmea_msg.nmea);
+            else if (NMEA_GSA == nmsg.type) {
+                strcpy(_opts->nmea_gsa, msg->ind_msg.nmea_msg.nmea);
+            }
+            else if (NMEA_RMC == nmsg.type) {
+                strcpy(_opts->nmea_rmc, msg->ind_msg.nmea_msg.nmea);
             }
         }
         else {
@@ -554,13 +559,24 @@ queryStateVariable(options_t* opts)
 
     } else if (0 == strcasecmp(opts->xml_variable, "CURRENT_XYZ")) {
         sprintf(value, "%s", "<struct>"
-        "<latitude><value>0.0</value></latitude>"
-        "<longitude><value>0.0</value></longitude>"
-        "<altitude><value>0.0</value></altitude>"
-        "</struct>"
-    );
-    } else {
-    sprintf(value, "%s", "Неизвестный параметр");
+        "<latitude><value>%.2f</value></latitude>"
+        "<longitude><value>%.2f</value></longitude>"
+        "<altitude><value>%.2f</value></altitude>"
+        "</struct>",
+                opts->lat, opts->lon, opts->level);
+    } else if (0 == strcasecmp(opts->xml_variable, "GGA")) {
+        sprintf(value, "<value>%s</value>", opts->nmea_gga);
+    } else if (0 == strcasecmp(opts->xml_variable, "GSA")) {
+        sprintf(value, "<value>%s</value>", opts->nmea_gsa);
+    } else if (0 == strcasecmp(opts->xml_variable, "RMC")) {
+        sprintf(value, "<value>%s</value>", opts->nmea_rmc);
+    } else if (0 == strcasecmp(opts->xml_variable, "TotalOdometer")) {
+        sprintf(value, "<value>%.1f</value>", opts->total_mileage);
+    } else if (0 == strcasecmp(opts->xml_variable, "CurrentOdometer")) {
+        sprintf(value, "<value>%.1f</value>", opts->mileage);
+    }
+    else {
+        sprintf(value, "%s", "Неизвестный параметр");
     }
     _sendbuflen = sprintf(_sendbuf, xmls[XML_QUERY_STATE_VARIABLE], opts->r_uuid, opts->xml_variable, value, opts->xml_variable);
     _sendbuf[_sendbuflen] = 0;
@@ -2564,6 +2580,7 @@ main(int argc, char* argv[])
     };
 
     options_init(&opts);
+    _opts = &opts; // HACK
 
     /* Scan command line to find -c file or --config=file option
      */
