@@ -812,6 +812,7 @@ process_element_start_old(void* userdata, const XML_Char* name, const XML_Char**
             memset(opts->xml_variable, 0, sizeof(opts->xml_variable));
             strcpy(opts->xml_variable, name);
             d_log("Arg: %s\n", name);
+            opts->elem = XML_VALUE;
         }
     }
     //}
@@ -889,6 +890,9 @@ network_thread_main(void* arg)
 
     last_ts = time(NULL);
     for (;;) {
+        memset(_sendbuf, 0, sizeof(_sendbuf));
+        _sendbuflen = 0;
+
         FD_ZERO(&rfds);
         FD_ZERO(&wfds);
 
