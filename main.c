@@ -806,21 +806,21 @@ process_element_start_old(void* userdata, const XML_Char* name, const XML_Char**
         }
     }
 
-    if (3 == opts->level) {
-        if (XML_CMD_ACTION_ARGS == opts->xml_cmd) {
+    //if (3 == opts->level) {
+    if (XML_CMD_ACTION_ARGS == opts->xml_cmd) {
+        if(0 != strcasecmp(name, "struct")) {
             memset(opts->xml_variable, 0, sizeof(opts->xml_variable));
             strcpy(opts->xml_variable, name);
             d_log("Arg: %s\n", name);
         }
     }
+    //}
 
-    if (4 == opts->level) {
-        if (XML_CMD_ACTION_ARGS == opts->xml_cmd && 0 == strcasecmp("value", name)) {
-            opts->elem = XML_VALUE;
-        }
-        else {
-            opts->elem = XML_NONE;
-        }
+    if (XML_CMD_ACTION_ARGS == opts->xml_cmd && 0 == strcasecmp("value", name)) {
+        opts->elem = XML_VALUE;
+    }
+    else {
+        opts->elem = XML_NONE;
     }
 
     d_log("%d %s\n", opts->level, name);
