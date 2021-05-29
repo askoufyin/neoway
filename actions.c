@@ -1,8 +1,11 @@
 #include "utils.h"
+#include <stdio.h>
+#include <string.h>
+#include <netdb.h>
 
 
 extern int wb_i;
-extern char web_log[];
+extern char web_log[256000];
 
 
 extern int _sendbuflen;
@@ -180,7 +183,7 @@ arg_new(const char *name)
         return NULL;
     }
 
-    arg = &_args[_narg++];
+    arg = &_args[_nargs++];
 
     arg->name = arg_strdup(name);
     arg->value = NULL;
@@ -206,18 +209,18 @@ argval(options_t* opts, const char* name)
 }
 
 
-actionarg_t *
-arg_find(options_t* opts, const char* name, int deep)
+static actionarg_t *
+_a_find(actionarg_t *arglist, const char *name, int deep)
 {
-    actionarg_t* arg, res;
+    actionarg_t* arg, *res;
 
-    for (arg = opts->args; NULL != arg; arg = arg->next) {
-        if (0 == strcasecmp(name, arg->name) {
+    for (arg = arglist; NULL != arg; arg = arg->next) {
+        if (0 == strcasecmp(name, arg->name)) {
             return arg;
         }
-        
+
         if (deep && NULL != arg->child) {
-            res = arg_find(arg->child, name, deep);
+            res = _a_find(arg->child, name, deep);
             if (NULL != res) {
                 return res;
             }
@@ -225,6 +228,12 @@ arg_find(options_t* opts, const char* name, int deep)
     }
 
     return NULL;
+}
+
+actionarg_t *
+arg_find(options_t* opts, const char* name, int deep)
+{
+    return _a_find(opts->args, name, deep);
 }
 
 

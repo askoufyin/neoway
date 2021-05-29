@@ -603,7 +603,7 @@ process_get(options_t* opts)
 }
 
 
-static void
+static int
 action_send_sms(options_t* opts)
 {
     int webs;
@@ -639,21 +639,23 @@ action_send_sms(options_t* opts)
     webs = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (webs < 0) {
         perror("socket()");
-        return;
+        return -1;
     }
 
     if (connect(webs, (struct sockaddr*) & addr, sizeof(addr)) < 0) {
         perror("connect()");
-        return;
+        return -1;
     }
 
     if (send(webs, req, reqlen, 0) < 0) {
         perror("send()");
+        return -1;
     }
 
     int len = recv(webs, req, sizeof(req), 0);
     if (len < 0) {
         perror("recv()");
+        return -1;
     }
     else {
         req[len] = 0;
@@ -671,6 +673,7 @@ action_send_sms(options_t* opts)
 opts->uuid,
 opts->xml_action
 );
+    return 0;
 }
 
 

@@ -135,6 +135,7 @@ typedef struct _options {
     /* -web interface- */
     char *web_dir_i_path;
     char rssi[15];
+    int rssi_val;
     char threed_fix[10];
     char gps_cords[30];
     char reg_in_mesh[10];
