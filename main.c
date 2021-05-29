@@ -564,12 +564,13 @@ queryStateVariable(options_t* opts)
                             "<altitude><value>%.2f</value></altitude>"
                         "</struct>", opts->lat, opts->lon, opts->level);
 
-    } else if (0 == strcasecmp(opts->xml_variable, "GGA")) {
-        sprintf(value, "<value>%s</value>", opts->nmea_gga);
-    } else if (0 == strcasecmp(opts->xml_variable, "GSA")) {
-        sprintf(value, "<value>%s</value>", opts->nmea_gsa);
-    } else if (0 == strcasecmp(opts->xml_variable, "RMC")) {
-        sprintf(value, "<value>%s</value>", opts->nmea_rmc);
+    } else if (0 == strcasecmp(opts->xml_variable, "NMEA_DATA")) {
+        sprintf(value, "<struct>"
+                            "<GGA><value>%s</value></GGA>",
+                            "<GSA><value>%s</value></GSA>",
+                            "<RMC><value>%s</value></RMC>",
+                        "</struct>", opts->nmea_gga, opts->nmea_gsa, opts->nmea_rmc);
+
     } else if (0 == strcasecmp(opts->xml_variable, "TotalOdometer")) {
         sprintf(value, "<value>%.1f</value>", opts->total_mileage);
     } else if (0 == strcasecmp(opts->xml_variable, "CurrentOdometer")) {
