@@ -43,6 +43,7 @@
 #include "utils.h"
 #include "watchdog.h"
 #include "upvs.h"
+#include "actions.h"
 
 char web_log[256000];
 int wb_i = 0;
@@ -634,6 +635,8 @@ action_send_sms(options_t* opts)
     char req[1024];
     int reqlen;
 
+    d_log("Sending SMS");
+
     reqlen = snprintf(req, sizeof(req),
         "POST / HTTP/1.1\r\n"
         "Connection: close\r\n"
@@ -688,20 +691,24 @@ action_send_sms(options_t* opts)
     }
 #endif
 
+    d_log("Closing socket...\n");
+
     shutdown(webs, SHUT_RDWR);
     close(webs);
     _sendbuflen = sprintf(_sendbuf, "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
-"<body urn=\"%s\">"
-"    <action>"
-"      <name>\"%s\"</name>"
-"    </action>"
-"    </body>",
-opts->uuid,
-opts->xml_action
-);
+        "<body urn=\"%s\">"
+            "<action>"
+                "<name>%s</name>"
+            "</action>"
+        "</body>",
+        opts->uuid,
+        opts->xml_action
+    );
+
+    d_log("Finished sending SMS");
+
     _sendbuf[_sendbuflen] = 0;
     printf("%s\n",_sendbuf);
-
     return 0;
 }
 
@@ -721,8 +728,9 @@ process_character_data_old(void* userdata, const XML_Char* text, int len)
         #endif
         break;
     case XML_NAME:
-        strncpy(temp, text, len);
-        temp[len] = 0;
+        strncpy(opts->xml_action_name, text, len);
+        opts->xml_action_name[len] = 0;
+        //which_action(opts, opts->xml_action_name);
         #ifdef WEBPOSTGETINCONSOLE
         d_log("Action name = %s\n", temp);
         #endif
@@ -736,13 +744,13 @@ process_character_data_old(void* userdata, const XML_Char* text, int len)
         #ifdef WEBPOSTGETINCONSOLE
         d_log("SET %s = %s\n", opts->xml_variable, temp);
         #endif
-        if (0 == strcasecmp("telno", opts->xml_variable)) {
+        if (0 == strcasecmp("callNumber", opts->xml_variable)) {
             strcpy(opts->phone_number, temp);
             #ifdef WEBPOSTGETINCONSOLE
             d_log("telno %s\n", opts->phone_number);
             #endif
         }
-        else if (0 == strcasecmp("text", opts->xml_variable)) {
+        else if (0 == strcasecmp("data", opts->xml_variable)) {
             strcpy(opts->sms_text, temp);
             #ifdef WEBPOSTGETINCONSOLE
             d_log("text %s\n", opts->sms_text);
@@ -772,11 +780,9 @@ process_element_start_old(void* userdata, const XML_Char* name, const XML_Char**
     if (1 == opts->level) {
         if (0 == strcasecmp(name, "queryStateVariable")) {
             opts->xml_cmd = XML_CMD_QUERY_STATE_VARIABLE;
-            d_log("Mode = %d\n", opts->xml_cmd);
         }
         else if (0 == strcasecmp(name, "action")) {
             opts->xml_cmd = XML_CMD_ACTION;
-            d_log("ACTION\n");
         }
     }
 
@@ -790,11 +796,10 @@ process_element_start_old(void* userdata, const XML_Char* name, const XML_Char**
         case XML_CMD_ACTION:
             if (0 == strcasecmp(name, "name")) {
                 opts->elem = XML_NAME;
-                //opts->xml_cmd = XML_CMD_ACTION_NAME;
             }
             else if (0 == strcasecmp(name, "argumentList")) {
                 opts->xml_cmd = XML_CMD_ACTION_ARGS;
-                d_log("Expecting action argument list\n");
+                d_log("argumentList\n");
             }
             break;
         }
@@ -807,7 +812,6 @@ process_element_start_old(void* userdata, const XML_Char* name, const XML_Char**
             d_log("Arg: %s\n", name);
         }
     }
-
 
     if (4 == opts->level) {
         if (XML_CMD_ACTION_ARGS == opts->xml_cmd && 0 == strcasecmp("value", name)) {

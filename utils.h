@@ -128,6 +128,7 @@ typedef struct _options {
     enum xml_element elem;
     enum xml_cmd xml_cmd;
     enum xml_action action;
+    char xml_action_name[XML_VARIABLE_MAX];
     char xml_variable[XML_VARIABLE_MAX];
     char pin[5];                    // With trailing \0
     actionhandler_fn xml_action;
