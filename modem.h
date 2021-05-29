@@ -24,7 +24,7 @@ typedef void *(*stage_fn)(options_t *, iobuf_t *, iobuf_t *);
 extern "C" {
 #endif
 extern int modem_init(char *, u_int32_t);
-extern void *modem_thread_main(void *);
+extern void *modem_thread_main(void *); //
 #ifdef __cplusplus
 }
 #endif

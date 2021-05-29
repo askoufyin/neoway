@@ -12,6 +12,7 @@
 #include "nwy_at.h"
 
 
+// Initialize modem
 int
 modem_init(char *device, u_int32_t baudrate)
 {
@@ -154,6 +155,8 @@ hexdump(iobuf_t *buf)
 }
 
 
+/*! /brief Main entry point for the modem I/O thread
+ */
 void *
 modem_thread_main(void *arg)
 {
