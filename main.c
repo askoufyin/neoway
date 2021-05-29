@@ -145,6 +145,7 @@ nwy_loc_event_handler(nwy_loc_ind_t* msg)
         break;
 
     case NWY_LOC_NMEA_INFO_IND_MSG:
+        printf("%s\n", msg->ind_msg.nmea_msg.nmea);
         err = nmea_parse(msg->ind_msg.nmea_msg.nmea, &nmsg);
         if (NMEA_ERR_OK == err) {
             if (NMEA_GSV == nmsg.type) {

@@ -19,6 +19,7 @@
 extern char _sendbuf[MAX_MESSAGE_LENGTH+1];
 extern size_t _sendbuflen;
 
+//#define PRINTF_LOG
 
 int
 uart_init(char *devname, uint32_t baudrate)
@@ -123,6 +124,14 @@ process_command(options_t *opts, char *buffer) {
         #endif
         pthread_mutex_unlock(&opts->mutex_modem);
         if(NULL != reply && 0 == strncasecmp(_gps_prefix, reply, 11)) {
+            char *nm = reply+_gps_prefix_len;
+            if(0 == strcasecmp(nm, "$GPGGA")) {
+                strcpy(opts->nmea_gga, nm);
+            } else if(0 == strcasecmp(nm, "$GPGSA")) {
+                strcpy(opts->nmea_gsa, nm);
+            } else if(0 == strcasecmp(nm, "$GPRMC")) {
+                strcpy(opts->nmea_rmc, nm);
+            }
             pthread_mutex_lock(&opts->mutex);
             nmea_parse(reply+_gps_prefix_len, &opts->last_nmea_msg);
             pthread_mutex_unlock(&opts->mutex);
