@@ -59,6 +59,7 @@ stage_set_credentials(options_t *opts, iobuf_t *answ, iobuf_t *reply)
                          "beeline", // login
                          "beeline"  // password
     );
+
     return stage_set_credentials;
 }
 
