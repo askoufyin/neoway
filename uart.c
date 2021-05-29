@@ -58,7 +58,7 @@ crc8(const char *data, size_t len)
 
 
 static const char _gps_prefix[] = "$MYGPSPOS: ";
-#define _gps_prefix_len sizeof(_gps_prefix)
+#define _gps_prefix_len (sizeof(_gps_prefix)-1)
 
 
 static int
@@ -123,18 +123,19 @@ process_command(options_t *opts, char *buffer) {
         pthread_mutex_unlock(&opts->mutex_modem);
         if(NULL != reply && 0 == strncasecmp(_gps_prefix, reply, 11)) {
             char *nm = reply+_gps_prefix_len;
-            if(0 == strncasecmp(nm, "GPGGA", 5)) {
+            if(0 == strncasecmp(nm, "$GPGGA", 6)) {
                 printf("1. %s\n", opts->nmea_gga);
                 strcpy(opts->nmea_gga, nm);
-            } else if(0 == strncasecmp(nm, "GPGSA", 5)) {
+            } else if(0 == strncasecmp(nm, "$GPGSA", 6)) {
                 strcpy(opts->nmea_gsa, nm);
                 printf("2. %s\n", opts->nmea_gsa);
-            } else if(0 == strncasecmp(nm, "GPRMC", 5)) {
+            } else if(0 == strncasecmp(nm, "$GPRMC", 6)) {
                 strcpy(opts->nmea_rmc, nm);
                 printf("3. %s\n", opts->nmea_rmc);
             }
             pthread_mutex_lock(&opts->mutex);
             nmea_parse(reply+_gps_prefix_len, &opts->last_nmea_msg);
+            printf("%.2f, %.2f alt %.2f\n", opts->last_nmea_msg.gga.latitude, opts->last_nmea_msg.gga.longitude, opts->last_nmea_msg.gga.altitude);
             pthread_mutex_unlock(&opts->mutex);
         }
 

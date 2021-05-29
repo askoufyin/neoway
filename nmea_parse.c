@@ -143,14 +143,14 @@ _parse_gga(nmea_msg_t *out, char *fields[], int count)
     }
 
     out->gga.valid = 1;
-    out->gga.latitude = atof(fields[1]);
-    out->gga.lat_flag = fields[2][0];
-    out->gga.longitude = atof(fields[3]);
-    out->gga.long_flag = fields[4][0];
-    out->gga.fix_type = (nmea_fix_type_t)atoi(fields[5]);
-    out->gga.sat_count = atoi(fields[6]);
-    out->gga.dilution = atof(fields[7]);
-    out->gga.altitude = atoi(fields[8]);
+    out->gga.latitude = atof(fields[2]);
+    out->gga.lat_flag = fields[3][0];
+    out->gga.longitude = atof(fields[4]);
+    out->gga.long_flag = fields[5][0];
+    out->gga.fix_type = (nmea_fix_type_t)atoi(fields[6]);
+    out->gga.sat_count = atoi(fields[7]);
+    out->gga.dilution = atof(fields[8]);
+    out->gga.altitude = atoi(fields[9]);
     out->gga.g_separation = 0;
 
     return NMEA_ERR_OK;
