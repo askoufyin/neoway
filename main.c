@@ -675,6 +675,7 @@ action_send_sms(options_t* opts)
         return -1;
     }
 
+#if 0
     d_log("Receiving...\n");
     int len = recv(webs, req, sizeof(req), 0);
     if (len < 0) {
@@ -685,6 +686,7 @@ action_send_sms(options_t* opts)
         req[len] = 0;
         d_log("RECV: %s\n", req);
     }
+#endif
 
     shutdown(webs, SHUT_RDWR);
     close(webs);
