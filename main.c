@@ -563,7 +563,10 @@ queryStateVariable(options_t* opts)
                             "<latitude><value>%.2f</value></latitude>"
                             "<longitude><value>%.2f</value></longitude>"
                             "<altitude><value>%.2f</value></altitude>"
-                        "</struct>", opts->lat, opts->lon, opts->level);
+                        "</struct>",
+                            opts->last_nmea_msg.rmc.latitude,
+                            opts->last_nmea_msg.rmc.longitude,
+                            opts->level);
 
     } else if (0 == strcasecmp(opts->xml_variable, "NMEA_DATA")) {
         sprintf(value, "<struct>"
@@ -660,16 +663,19 @@ action_send_sms(options_t* opts)
         return -1;
     }
 
+    d_log("Connecting...\n");
     if (connect(webs, (struct sockaddr*) & addr, sizeof(addr)) < 0) {
         perror("connect()");
         return -1;
     }
 
+    d_log("Sending...\n");
     if (send(webs, req, reqlen, 0) < 0) {
         perror("send()");
         return -1;
     }
 
+    d_log("Receiving...\n");
     int len = recv(webs, req, sizeof(req), 0);
     if (len < 0) {
         perror("recv()");
@@ -691,6 +697,9 @@ action_send_sms(options_t* opts)
 opts->uuid,
 opts->xml_action
 );
+    _sendbuf[_sendbuflen] = 0;
+    printf("%s\n",_sendbuf);
+
     return 0;
 }
 
