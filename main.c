@@ -529,6 +529,7 @@ static void
 queryStateVariable(options_t* opts)
 {
     char value[256] = {0};
+    printf("Start queryStateVariable: %s\n", opts->xml_variable);
     if (0 == strcasecmp(opts->xml_variable, "telno")) {
         sprintf(value, "<value>%s</value>", opts->phone_number);
 
@@ -551,13 +552,44 @@ queryStateVariable(options_t* opts)
         sprintf(value, "<value>%s</value>", opts->gsm_ip_state);
 
     } else if (0 == strcasecmp(opts->xml_variable, "sigLevel")) {
-        sprintf(value, "<value>%s</value>", "siglevel");
+        send_at_cmd("AT+CSQ\0", opts);
+        sprintf(value, "<value>%d</value>", opts->rssi_val);
 
     } else if (0 == strcasecmp(opts->xml_variable, "operator")) {
         sprintf(value, "<value>Beeline</value>");
 
-    } else if (0 == strcasecmp(opts->xml_variable, "localtime")) {
+    } else if (0 == strcasecmp(opts->xml_variable, "777")) {
         sprintf(value, "<value>LocalTime</value>");
+
+    } else if (0 == strcasecmp(opts->xml_variable, "outQueue")) {
+        sprintf(value,  "<list>"
+                            "<index>"
+                                "<value>77</value>"
+                            "</index>"
+                        "</list>");
+
+    } else if (0 == strcasecmp(opts->xml_variable, "inQueue")) {
+        sprintf(value,  "<list>"
+                            "<index>"
+                                "<value>23</value>"
+                            "</index>"
+                        "</list>");
+
+    } else if (0 == strcasecmp(opts->xml_variable, "localtime")) {
+        time_t _moment_time = time(NULL);
+        sprintf(value, "<localTime>"
+        "<struct>"
+            "<DT>"
+                "<value>%s</value>"
+            "</DT>"
+            "<FORMAT>"
+                "<value>DD:MM:YY HH:MM:SS</value>"
+            "</FORMAT>"
+            "<STATUS>"
+                "<value>NORMAL</value>"
+            "</STATUS>"
+        "</struct>"
+        "</localTime>", ctime(&_moment_time));
 
     } else if (0 == strcasecmp(opts->xml_variable, "CURRENT_XYZ")) {
         sprintf(value,  "<struct>"
@@ -586,7 +618,8 @@ queryStateVariable(options_t* opts)
     }
     _sendbuflen = sprintf(_sendbuf, xmls[XML_QUERY_STATE_VARIABLE], opts->r_uuid, opts->xml_variable, value, opts->xml_variable);
     _sendbuf[_sendbuflen] = 0;
-    d_log(_sendbuf);
+    //printf("SendBuff in end of queryStateVariable: %s\n", _sendbuf);
+    //d_log(_sendbuf);
 }
 
 
@@ -594,7 +627,7 @@ static void
 process_get(options_t* opts)
 {
     char* p = strchr(opts->r_uuid, ':');
-
+    //printf ("In Process get:\nelem: %d\nxml_cmd:%d\n%d\n", (int)opts->elem, (int)opts->xml_cmd, opts->level);
     switch (opts->elem) {
         case XML_BODY:
             if (XML_CMD_QUERY_STATE_VARIABLE == opts->xml_cmd) {
@@ -765,6 +798,7 @@ process_character_data_old(void* userdata, const XML_Char* text, int len)
         }
         break;
     }
+    //printf("Data Elem:%d\n%d\n", (int)opts->elem, opts->level);
 }
 
 
@@ -806,22 +840,24 @@ process_element_start_old(void* userdata, const XML_Char* name, const XML_Char**
         }
     }
 
-    //if (3 == opts->level) {
-    if (XML_CMD_ACTION_ARGS == opts->xml_cmd) {
-        if(0 != strcasecmp(name, "struct")) {
-            memset(opts->xml_variable, 0, sizeof(opts->xml_variable));
-            strcpy(opts->xml_variable, name);
-            d_log("Arg: %s\n", name);
-            opts->elem = XML_VALUE;
+    if (3 == opts->level) {
+        if (XML_CMD_ACTION_ARGS == opts->xml_cmd) {
+            if(0 != strcasecmp(name, "struct")) {
+                memset(opts->xml_variable, 0, sizeof(opts->xml_variable));
+                strcpy(opts->xml_variable, name);
+                d_log("Arg: %s\n", name);
+                opts->elem = XML_VALUE;
+            }
         }
     }
-    //}
 
-    if (XML_CMD_ACTION_ARGS == opts->xml_cmd && 0 == strcasecmp("value", name)) {
-        opts->elem = XML_VALUE;
-    }
-    else {
-        opts->elem = XML_NONE;
+    if (4 == opts->level) {
+        if (XML_CMD_ACTION_ARGS == opts->xml_cmd && 0 == strcasecmp("value", name)) {
+            opts->elem = XML_VALUE;
+        }
+        else {
+            opts->elem = XML_NONE;
+        }
     }
 
     d_log("%d %s\n", opts->level, name);
@@ -847,7 +883,8 @@ process_element_start_old(void* userdata, const XML_Char* name, const XML_Char**
             }
         }
     }
-
+    //process_get(opts);
+    //printf("Start Elem:%d\n%d\n", (int)opts->elem, opts->level);
     ++opts->level;
 }
 
@@ -858,9 +895,9 @@ process_element_end_old(void* userdata, const XML_Char* name)
     options_t* opts = (options_t*)userdata;
 
     (void)name;
-
+    //printf("End Elem:%d\n%d\n", (int)opts->elem, opts->level);
     if (--opts->level == 0) {
-        process_get(opts);
+        //process_get(opts);
     }
 }
 
@@ -928,13 +965,13 @@ network_thread_main(void* arg)
                 //#ifdef WEBPOSTGETINCONSOLE
                 d_log("Accepted connection from %s:%u\n", inet_ntoa(in_addr.sin_addr), ntohs(in_addr.sin_port));
                 //#endif
-
+                memset(buf, 0, sizeof(buf));
                 res = recv(sock, buf, sizeof(buf), 0);
                 if (res > 0) {
                     memset(_sendbuf, 0, sizeof(_sendbuf));
                     _sendbuflen = 0;
 
-                    d_log("%s", buf);
+                    d_log("recv: %s\n", buf);
                     opts->level = 0;
                     opts->xml_action = NULL;
 
@@ -946,13 +983,14 @@ network_thread_main(void* arg)
                     XML_SetCharacterDataHandler(parser, process_character_data_old);
                     XML_Parse(parser, buf, res, TRUE);
 
+
                     process_get(opts);
 
                     if (NULL != opts->xml_action) {
                         opts->xml_action(opts);
                     }
 
-                    d_log("%s", _sendbuf);
+                    d_log("Finaly buffer:\n%s", _sendbuf);
                     if (0 != _sendbuflen) {
                         res = send(sock, _sendbuf, _sendbuflen, 0);
                     }
