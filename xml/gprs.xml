@@ -1,4 +1,56 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<scpd urn="%s"><actionList><action><name>connect</name></action><action><name>disconnect</name></action></actionList><serviceStateTable>
-<stateVariable sendEvents="YES"><name>STATE</name><friendlyName>состояние подключения</friendlyName><dataType>string</dataType><allowedValueList><allowedValue><value>CONNECT</value><describe>подключен</describe></allowedValue><allowedValue><value>CONNECTING</value><describe>подключение</describe></allowedValue><allowedValue><value>DISCONNECT</value><describe>отключен</describe></allowedValue><allowedValue><value>DISCONNECTING</value><describe>отключен</describe></allowedValue><allowedValue><value>NOT_AVAILABLE</value><describe>отключен</describe></allowedValue></allowedValueList></stateVariable>
-<stateVariable sendEvents="YES"><name>ADDRESS</name><friendlyName>ip-адрес</friendlyName><dataType>string</dataType></stateVariable><stateVariable><name>SENDED</name><friendlyName>отправлено байт в сессии</friendlyName><dataType>int</dataType></stateVariable><stateVariable><name>RECIEVED</name><friendlyName>получено байт в сессии</friendlyName><dataType>int</dataType></stateVariable></serviceStateTable></scpd>
+<scpd urn="%s">
+   <actionList>
+      <action>
+         <name>connect</name>
+      </action>
+      <action>
+         <name>disconnect</name>
+      </action>
+   </actionList>
+   <serviceStateTable>
+      <stateVariable sendEvents="YES">
+         <name>STATE</name>
+         <friendlyName>состояние подключения</friendlyName>
+         <dataType>string</dataType>
+         <allowedValueList>
+            <allowedValue>
+               <value>CONNECT</value>
+               <describe>подключен</describe>
+            </allowedValue>
+            <allowedValue>
+               <value>CONNECTING</value>
+               <describe>подключение</describe>
+            </allowedValue>
+            <allowedValue>
+               <value>DISCONNECT</value>
+               <describe>отключен</describe>
+            </allowedValue>
+            <allowedValue>
+               <value>DISCONNECTING</value>
+               <describe>отключен</describe>
+            </allowedValue>
+            <allowedValue>
+               <value>NOT_AVAILABLE</value>
+               <describe>отключен</describe>
+            </allowedValue>
+         </allowedValueList>
+      </stateVariable>
+      <stateVariable sendEvents="YES">
+         <name>ADDRESS</name>
+         <friendlyName>ip-адрес</friendlyName>
+         <dataType>string</dataType>
+      </stateVariable>
+      <stateVariable>
+         <name>SENDED</name>
+         <friendlyName>отправлено байт в сессии</friendlyName>
+         <dataType>int</dataType>
+      </stateVariable>
+      <stateVariable>
+         <name>RECIEVED</name>
+         <friendlyName>получено байт в сессии</friendlyName>
+         <dataType>int</dataType>
+      </stateVariable>
+   </serviceStateTable>
+</scpd>
+

@@ -1,4 +1,4 @@
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
@@ -252,7 +252,7 @@ network_init(options_t* opts)
     }
 
     //sprintf(opts->uuid, "NEOWAY_%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    sprintf(opts->uuid, "NEOWAY_CACAB");
+    sprintf(opts->uuid, "NEOWAY_CACABC");
     d_log("UUID %s\n", opts->uuid);
 
     /* Create broadcast socket
@@ -372,6 +372,7 @@ broadcast(options_t* opts)
 }
 
 
+#if 0
 static void
 receive_command(options_t* opts, fd_set* fds)
 {
@@ -408,6 +409,7 @@ receive_command(options_t* opts, fd_set* fds)
         d_log("%s\n", buf);
     }
 }
+#endif
 
 
 char*
@@ -450,33 +452,57 @@ get_file_contents(const char* fn)
 char* xmls[XML_MAX];
 
 
+static void
+print_buf_info(buf_t *buf)
+{
+    printf("Buffer @ %p\n", buf);
+    printf("size=%d, alloc=%d\n", buf->size, buf->alloc);
+    printf("data @ 0x%p\n", buf->data);
+}
+
+
+
 static void XMLCALL
 process_element_start(void* userdata, const XML_Char* name, const XML_Char** attrs)
 {
     xml_context_t *ctx = (xml_context_t *)userdata;
     xml_tag_t *tag;
+    xml_tag_attr_t *atr;
+    int i;
 
     tag = xml_tag(ctx, name, NULL);
     if(NULL != tag) {
-        if(NULL == ctx->last) {
-            ctx->last = tag;
-        } else {
-            if(ctx->tag_closed) {
-                ctx->last->next = tag;
-                tag->parent = ctx->last->parent;
-            } else {
+        *ctx->stkptr = tag;
+        ++ctx->stkptr;
+
+        if(NULL != ctx->last) {
+            if(!ctx->tag_closed) {
                 ctx->last->child = tag;
-                tag->parent = ctx->last;
+                ctx->last = NULL;
             }
         }
+
+        if(NULL != ctx->last) {
+            ctx->last->next = tag;
+        }
+
+        ctx->last = tag;
+        ctx->tag_closed = 0;
 
         if(NULL == ctx->root) {
             ctx->root = tag;
         }
     }
 
+    for(i=0; NULL != attrs[i]; i+=2) {
+        atr = (xml_tag_attr_t *)buf_alloc(ctx->tags, sizeof(xml_tag_attr_t));
+        atr->name = buf_strdup(ctx->strings, attrs[i]);
+        atr->value = buf_strdup(ctx->strings, attrs[i+1]);
+        atr->next = tag->attrs;
+        tag->attrs = atr;
+    }
+
     ++ctx->level;
-    ctx->tag_closed = FALSE;
 }
 
 
@@ -487,28 +513,66 @@ process_element_end(void *userdata, const XML_Char *name)
 
     (void)name;
 
-    if (--ctx->level == 0) {
-        //process_get(opts);
-    }
-
-    ctx->tag_closed = TRUE;
+    --ctx->stkptr;
+    --ctx->level;
+    ctx->tag_closed = 1;
+    ctx->last = (ctx->stkptr == ctx->stk)? NULL: *ctx->stkptr;
 }
 
 
-static void
-process_uvps_request(xml_tag_t *root)
+static int
+iswhite(char c)
 {
-    if(xml_is(root, "body")) {
-
-    }
+    return c <= ' ';
 }
 
 
 static void XMLCALL
 process_character_data(void *userdata, const XML_Char *text, int len)
 {
-    xml_context_t *ctx = (xml_context_t *)userdata;
-    //ctx->last->content = buf_strncpy(ctx->strings, text, len);
+    xml_context_t *ctx = (xml_context_t*)userdata;
+    char tmp[1024];
+
+    if(NULL != ctx->last && NULL == ctx->last->content) {
+        if(len > 0) {
+            strncpy(tmp, text, len);
+            tmp[len] = 0;
+            ctx->last->content = buf_strdup(ctx->strings, tmp);
+        }
+    }
+}
+
+
+static void
+_prettyprint_xml(xml_tag_t *tag, int level)
+{
+    int i = level*2;
+
+    while(tag) {
+        if(NULL == tag->child && NULL == tag->content) {
+            printf("%*s%s %p %p\n", i, "", tag->name, tag->child, tag->next);
+        } else {
+            if(NULL != tag->content) {
+                printf("%*s%s='%s' %p %p\n", i, "", tag->name, tag->content, tag->child, tag->next);
+            } else {
+                printf("%*s%s %p %p\n", i, "", tag->name, tag->child, tag->next);
+            }
+
+            if(NULL != tag->child) {
+                _prettyprint_xml(tag->child, level+1);
+            }
+        }
+        tag = tag->next;
+    }
+}
+
+
+void
+prettyprint_xml(xml_context_t *ctx)
+{
+    printf("-----------\n");
+    _prettyprint_xml(ctx->root, 0);
+    printf("-----------\n");
 }
 
 
@@ -526,118 +590,214 @@ read_xmls()
 
 
 static void
-queryStateVariable(options_t* opts)
+queryStateVariable(options_t* opts, xml_tag_t *tag, char *serv)
 {
-    char value[256] = {0};
-    printf("Start queryStateVariable: %s\n", opts->xml_variable);
-    if (0 == strcasecmp(opts->xml_variable, "telno")) {
+    char value[4096];
+
+    if (0 == strcasecmp(tag->name, "telno")) {
         sprintf(value, "<value>%s</value>", opts->phone_number);
 
-    } else if (0 == strcasecmp(opts->xml_variable, "connected")) {
+    } else if (0 == strcasecmp(tag->name, "connected")) {
         sprintf(value, "<value>%s</value>", opts->gprs_enabled ? "Да" : "Нет");
 
-    } else if (0 == strcasecmp(opts->xml_variable, "text")) {
+    } else if (0 == strcasecmp(tag->name, "text")) {
         sprintf(value, "<value>%s</value>", opts->sms_text);
 
-    } else if (0 == strcasecmp(opts->xml_variable, "www")) {
+    } else if (0 == strcasecmp(tag->name, "www")) {
         sprintf(value, "<value>%s</value>", "http://10.7.6.1");
 
-    } else if (0 == strcasecmp(opts->xml_variable, "ip")) {
+    } else if (0 == strcasecmp(tag->name, "ip")) {
         sprintf(value, "<value>%s</value>", opts->gsm_ip_state);
 
-    } else if (0 == strcasecmp(opts->xml_variable, "pin")) {
+    } else if (0 == strcasecmp(tag->name, "pin")) {
         sprintf(value, "<value>%s</value>", opts->pin);
 
-    } else if (0 == strcasecmp(opts->xml_variable, "router")) {
+    } else if (0 == strcasecmp(tag->name, "router")) {
         sprintf(value, "<value>%s</value>", opts->gsm_ip_state);
 
-    } else if (0 == strcasecmp(opts->xml_variable, "sigLevel")) {
+    } else if (0 == strcasecmp(tag->name, "sigLevel")) {
         send_at_cmd("AT+CSQ\0", opts);
         sprintf(value, "<value>%d</value>", opts->rssi_val);
 
-    } else if (0 == strcasecmp(opts->xml_variable, "operator")) {
+    } else if (0 == strcasecmp(tag->name, "operator")) {
         sprintf(value, "<value>Beeline</value>");
 
-    } else if (0 == strcasecmp(opts->xml_variable, "777")) {
+    } else if (0 == strcasecmp(tag->name, "777")) {
         sprintf(value, "<value>LocalTime</value>");
 
-    } else if (0 == strcasecmp(opts->xml_variable, "outQueue")) {
+    } else if (0 == strcasecmp(tag->name, "outQueue")) {
         sprintf(value,  "<list>"
                             "<index>"
                                 "<value>77</value>"
                             "</index>"
-                        "</list>");
+                        "</list>" );
 
-    } else if (0 == strcasecmp(opts->xml_variable, "inQueue")) {
+    } else if (0 == strcasecmp(tag->name, "DATETIME")) {
+        time_t _moment_time = time(NULL);
+        sprintf(value,
+            "<struct>\n"
+                "<DT>\n"
+                    "<value>%s</value>\n"
+                "</DT>\n"
+                "<FORMAT>\n"
+                    "<value>DD:MM:YY HH:MM:SS</value>\n"
+                "</FORMAT>\n"
+            "</struct>", ctime(&_moment_time));
+
+    } else if (0 == strcasecmp(tag->name, "SMS")) {
+        sprintf(value,  "<struct>"
+                            "<data><value></value></data>"
+                            "<callNumber><value>+X(XXX)XXX-XX-XX</value></callNumber>"
+                            "<priority><value>0</value></priority>"
+                            "<TTL><value>255</value></TTL>"
+                        "</struct>" );
+
+    } else if (0 == strcasecmp(tag->name, "SENDED")) {
+        if(0 == strcmp(serv, "2")) {
+            sprintf(value, "<value>%d</value>", 10);
+        } else { // "1"
+            sprintf(value, "<list><index><value>%d</value></index></list>", 1);
+        }
+
+    } else if (0 == strcasecmp(tag->name, "RECIEVED")) {
+        sprintf(value, "<value>%d</value>", 10);
+
+    } else if (0 == strcasecmp(tag->name, "DELETED")) {
+        sprintf(value, "<list><index><value>%d</value></index></list>", 10);
+
+    } else if (0 == strcasecmp(tag->name, "SPEED")) {
+        sprintf(value, "<value>%.2f</value>", 0);
+
+    } else if (0 == strcasecmp(tag->name, "inQueue")) {
         sprintf(value,  "<list>"
                             "<index>"
                                 "<value>23</value>"
                             "</index>"
                         "</list>");
 
-    } else if (0 == strcasecmp(opts->xml_variable, "localtime")) {
+    } else if (0 == strcasecmp(tag->name, "localtime")) {
         time_t _moment_time = time(NULL);
-        sprintf(value, "<localTime>"
-        "<struct>"
-            "<DT>"
-                "<value>%s</value>"
-            "</DT>"
-            "<FORMAT>"
-                "<value>DD:MM:YY HH:MM:SS</value>"
-            "</FORMAT>"
-            "<STATUS>"
-                "<value>NORMAL</value>"
-            "</STATUS>"
-        "</struct>"
-        "</localTime>", ctime(&_moment_time));
+        sprintf(value,
+            "<struct>"
+                "<DT>"
+                    "<value>%s</value>"
+                "</DT>"
+                "<FORMAT>"
+                    "<value>DD:MM:YY HH:MM:SS</value>"
+                "</FORMAT>"
+                "<STATUS>"
+                    "<value>NORMAL</value>"
+                "</STATUS>"
+            "</struct>", ctime(&_moment_time));
 
-    } else if (0 == strcasecmp(opts->xml_variable, "CURRENT_XYZ")) {
-        sprintf(value,  "<struct>"
+    } else if (0 == strcasecmp(tag->name, "CURRENT_XYZ")) {
+        sprintf(value, "<struct>"
                             "<latitude><value>%.2f</value></latitude>"
                             "<longitude><value>%.2f</value></longitude>"
                             "<altitude><value>%.2f</value></altitude>"
                         "</struct>",
-                            opts->last_nmea_msg.rmc.latitude,
-                            opts->last_nmea_msg.rmc.longitude,
-                            opts->level);
+                        opts->last_nmea_msg.gga.latitude,
+                        opts->last_nmea_msg.gga.longitude,
+                        opts->last_nmea_msg.gga.altitude);
 
-    } else if (0 == strcasecmp(opts->xml_variable, "NMEA_DATA")) {
-        sprintf(value, "<struct>"
-                            "<GGA><value>%s</value></GGA>",
-                            "<GSA><value>%s</value></GSA>",
-                            "<RMC><value>%s</value></RMC>",
-                        "</struct>", opts->nmea_gga, opts->nmea_gsa, opts->nmea_rmc);
+    } else if (0 == strcasecmp(tag->name, "NMEA_DATA")) {
+        sprintf(value,  "<struct>"
+                            "<GGA><value>n/a</value></GGA>"
+                            "<GSA><value>n/a</value></GSA>"
+                            "<RMC><value>n/a</value></RMC>"
+                        "</struct>",
+                        opts->nmea_gga, opts->nmea_gsa, opts->nmea_rmc);
 
-    } else if (0 == strcasecmp(opts->xml_variable, "TotalOdometer")) {
+    } else if (0 == strcasecmp(tag->name, "TotalOdometer")) {
         sprintf(value, "<value>%.1f</value>", opts->total_mileage);
-    } else if (0 == strcasecmp(opts->xml_variable, "CurrentOdometer")) {
+    } else if (0 == strcasecmp(tag->name, "CurrentOdometer")) {
         sprintf(value, "<value>%.1f</value>", opts->mileage);
+    } else if (0 == strcasecmp(tag->name, "GPS_STATE")) {
+        sprintf(value, "<value>%s</value>", "A"); // A, V or N
+
     }
     else {
-        sprintf(value, "%s", "Неизвестный параметр");
+        sprintf(value, "%s", "<value>Неизвестный параметр</value>");
     }
-    _sendbuflen = sprintf(_sendbuf, xmls[XML_QUERY_STATE_VARIABLE], opts->r_uuid, opts->xml_variable, value, opts->xml_variable);
+    _sendbuflen += sprintf(_sendbuf+_sendbuflen, "%s", value);
     _sendbuf[_sendbuflen] = 0;
     //printf("SendBuff in end of queryStateVariable: %s\n", _sendbuf);
     //d_log(_sendbuf);
+
+    if(strcasecmp(tag->name, "CURRENT_XYZ") != 0) {
+        d_log("%s=%s\n", tag->name, value);
+    }
+}
+
+
+static int
+queryStateVariables(options_t* opts, xml_tag_t *tag)
+{
+    xml_tag_t *body, *orig;
+    char *urn, *serv;
+
+    body = xml_find_tag(tag, "body", 1);
+    if(NULL == body) {
+        d_log("Malformed request (NO BODY)\n");
+        return;
+    }
+
+    //d_log("-----\n");
+
+    urn = xml_tag_attr(body, "urn");
+    serv = strchr(urn, ':');
+    if(NULL != serv) {
+        ++serv;
+    }
+
+    _sendbuflen = sprintf(_sendbuf,
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            "<body urn=\"%s\">\n"
+            "<stateVariable>\n",
+            urn);
+
+    orig = tag = xml_find_tag(tag, "queryStateVariable", 1);
+    tag = tag->child;
+    while(NULL != tag) {
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen, "<%s>\n", tag->name);
+        queryStateVariable(opts, tag, urn);
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen, "\n</%s>\n", tag->name);
+        tag = tag->next;
+    }
+
+    _sendbuflen  += sprintf(_sendbuf+_sendbuflen, "</stateVariable>\n</body>\r\n\r\n");
+
+    _sendbuf[_sendbuflen] = 0;
+    if(strstr(_sendbuf, "CURRENT_XYZ") == NULL) {
+        d_log("\n%s\n", _sendbuf);
+    }
+
+    if(NULL == orig) {
+        d_log("No queryStateVariable?\n");
+        return -1;
+    //prettyprint_xml();
+    }
+    return 0;
 }
 
 
 static void
-process_get(options_t* opts)
+process_get(options_t* opts, xml_tag_t *tag)
 {
-    char* p = strchr(opts->r_uuid, ':');
-    //printf ("In Process get:\nelem: %d\nxml_cmd:%d\n%d\n", (int)opts->elem, (int)opts->xml_cmd, opts->level);
-    switch (opts->elem) {
-        case XML_BODY:
-            if (XML_CMD_QUERY_STATE_VARIABLE == opts->xml_cmd) {
-                queryStateVariable(opts);
-            }
-            return;
-        default:
-            break;
+    char* p;
+    xml_tag_t *uuid = xml_find_tag(tag, "UUID", TRUE);
+
+    if(NULL == uuid) {
+        d_log("Erroneous request (no UUID)\n");
+        return;
     }
 
+    //static int rqn = 0;
+
+    strcpy(opts->r_uuid, uuid->content);
+    //d_log("%d GET %s\n\n", rqn++, opts->r_uuid);
+
+    p = strchr(opts->r_uuid, ':');
     if(NULL != p) {
         ++p;
         if (0 == strcasecmp(p, "1")) {
@@ -652,6 +812,9 @@ process_get(options_t* opts)
         else if(0 == strcasecmp(p, "4")) {
             _sendbuflen = sprintf(_sendbuf, xmls[XML_GPSGLONASS], opts->r_uuid);
         }
+//        else if(0 == strcasecmp(p, "WEB")) {
+//            _sendbuflen = sprintf(_sendbuf, xmls[XML_WEB], opts->r_uuid);
+//        }
     } else {
         _sendbuflen = sprintf(_sendbuf, xmls[XML_INFO], opts->r_uuid);
     }
@@ -747,160 +910,70 @@ action_send_sms(options_t* opts)
 }
 
 
-static void XMLCALL
-process_character_data_old(void* userdata, const XML_Char* text, int len)
-{
-    options_t* opts = (options_t*)userdata;
-    char temp[1024];
 
-    switch (opts->elem) {
-    case XML_UUID:
-        strncpy(opts->r_uuid, text, len);
-        opts->r_uuid[len] = 0;
-        #ifdef WEBPOSTGETINCONSOLE
-        d_log("UUID = %s\n", opts->r_uuid);
-        #endif
-        break;
-    case XML_NAME:
-        strncpy(opts->xml_action_name, text, len);
-        opts->xml_action_name[len] = 0;
-        //which_action(opts, opts->xml_action_name);
-        #ifdef WEBPOSTGETINCONSOLE
-        d_log("Action name = %s\n", temp);
-        #endif
-        memset(opts->phone_number, 0, sizeof(opts->phone_number));
-        memset(opts->sms_text, 0, sizeof(opts->sms_text));
-        opts->xml_action = action_send_sms;
-        break;
-    case XML_VALUE:
-        strncpy(temp, text, len);
-        temp[len] = 0;
-        #ifdef WEBPOSTGETINCONSOLE
-        d_log("SET %s = %s\n", opts->xml_variable, temp);
-        #endif
-        if (0 == strcasecmp("callNumber", opts->xml_variable)) {
-            strcpy(opts->phone_number, temp);
-            #ifdef WEBPOSTGETINCONSOLE
-            d_log("telno %s\n", opts->phone_number);
-            #endif
-        }
-        else if (0 == strcasecmp("data", opts->xml_variable)) {
-            strcpy(opts->sms_text, temp);
-            #ifdef WEBPOSTGETINCONSOLE
-            d_log("text %s\n", opts->sms_text);
-            #endif
-        }
-        else if (0 == strcasecmp("pin", opts->xml_variable) && 4 == len) {
-            opts->pin[0] = text[0];
-            opts->pin[1] = text[1];
-            opts->pin[2] = text[2];
-            opts->pin[3] = text[3];
-        }
-        break;
+static void
+do_action(options_t *opts, xml_tag_t *params)
+{
+    xml_tag_t *name;
+    xml_tag_t *phone, *body;
+    name = xml_find_tag(params, "name", 0);
+    char *urn;
+
+    if(NULL == name) {
+        d_log("Malformed action packet (NO NAME)\n");
+        return;
     }
-    //printf("Data Elem:%d\n%d\n", (int)opts->elem, opts->level);
+
+    body = xml_find_tag(params, "body", 1);
+    urn = xml_tag_attr(body, "urn");
+
+    if(0 == strcasecmp(name->name, "putSMS")) {
+        phone = xml_find_tag(params, "callingNUmber", 1);
+    }
+    else if(0 == strcasecmp(name->name, "setodometervalue")) {
+    }
+
+    _sendbuflen = sprintf(_sendbuf,
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        "<body urn=\"%s\">\n"
+            "<action>\n"
+                "<name>%s</name>\n"
+                "<argumentList>\n"
+                    "<ret>\n"
+                        "<value>OK</value>\n"
+                    "</ret>\n"
+                "</argumentList>\n"
+            "</action>\n"
+        "</body>\n", urn
+    );
 }
 
 
-static void XMLCALL
-process_element_start_old(void* userdata, const XML_Char* name, const XML_Char** attrs)
+static void
+process_upvs_request(options_t *opts, xml_context_t *ctx)
 {
-    options_t *opts = (options_t *)userdata;
-    int i;
+    xml_tag_t *tag;
 
-    if (0 == opts->level) {
-        opts->xml_cmd = XML_CMD_NONE;
+    tag = xml_find_tag(ctx->root, "get", TRUE);
+    if(NULL != tag) {
+        process_get(opts, tag);
+        return;
     }
 
-    if (1 == opts->level) {
-        if (0 == strcasecmp(name, "queryStateVariable")) {
-            opts->xml_cmd = XML_CMD_QUERY_STATE_VARIABLE;
+    tag = xml_find_tag(ctx->root, "queryStateVariable", TRUE);
+    if(NULL != tag) {
+        if(queryStateVariables(opts, ctx->root) < 0) {
+            prettyprint_xml(ctx);
         }
-        else if (0 == strcasecmp(name, "action")) {
-            opts->xml_cmd = XML_CMD_ACTION;
-        }
+        return;
     }
 
-    if (2 == opts->level) {
-        switch (opts->xml_cmd) {
-        case XML_CMD_QUERY_STATE_VARIABLE:
-            memset(opts->xml_variable, 0, sizeof(opts->xml_variable));
-            strcpy(opts->xml_variable, name);
-            break;
-
-        case XML_CMD_ACTION:
-            if (0 == strcasecmp(name, "name")) {
-                opts->elem = XML_NAME;
-            }
-            else if (0 == strcasecmp(name, "argumentList")) {
-                opts->xml_cmd = XML_CMD_ACTION_ARGS;
-                d_log("argumentList\n");
-            }
-            break;
-        }
-    }
-
-    if (3 == opts->level) {
-        if (XML_CMD_ACTION_ARGS == opts->xml_cmd) {
-            if(0 != strcasecmp(name, "struct")) {
-                memset(opts->xml_variable, 0, sizeof(opts->xml_variable));
-                strcpy(opts->xml_variable, name);
-                d_log("Arg: %s\n", name);
-                opts->elem = XML_VALUE;
-            }
-        }
-    }
-
-    if (4 == opts->level) {
-        if (XML_CMD_ACTION_ARGS == opts->xml_cmd && 0 == strcasecmp("value", name)) {
-            opts->elem = XML_VALUE;
-        }
-        else {
-            opts->elem = XML_NONE;
-        }
-    }
-
-    d_log("%d %s\n", opts->level, name);
-
-    if (0 == strcasecmp(name, "get")) {
-        d_log("XML_GET\n");
-        opts->elem = XML_GET;
-    }
-    else if (0 == strcasecmp(name, "UUID")) {
-        opts->elem = XML_UUID;
-        d_log("XML_UUID\n");
-    }
-    else if (0 == strcasecmp(name, "body")) {
-        opts->elem = XML_BODY;
-        d_log("XML_BODY\n");
-        if (NULL != attrs) {
-            for (i = 0; NULL != attrs[i]; i += 2) {
-                if (0 == strcasecmp("urn", attrs[i])) {
-                    memset(opts->r_uuid, 0, sizeof(opts->r_uuid));
-                    strcpy(opts->r_uuid, attrs[i + 1]);
-                    d_log("R_UUID = %s\n", attrs[i + 1]);
-                }
-            }
-        }
-    }
-    //process_get(opts);
-    //printf("Start Elem:%d\n%d\n", (int)opts->elem, opts->level);
-    ++opts->level;
-}
-
-
-static void XMLCALL
-process_element_end_old(void* userdata, const XML_Char* name)
-{
-    options_t* opts = (options_t*)userdata;
-
-    (void)name;
-    //printf("End Elem:%d\n%d\n", (int)opts->elem, opts->level);
-    if (--opts->level == 0) {
-        //process_get(opts);
+    tag = xml_find_tag(ctx->root, "action", TRUE);
+    if(NULL != tag) {
+        do_action(opts, ctx->root);
+        return;
     }
 }
-
 
 static void *
 network_thread_main(void* arg)
@@ -917,19 +990,20 @@ network_thread_main(void* arg)
     xml_context_t ctx;
 
     parser = XML_ParserCreate(NULL);
+
     buf_init(&tags, sizeof(xml_tag_t)*100);
-    buf_init(&chars, 8192);
+    buf_init(&chars, 16384);
     xml_context_init(&ctx, &tags, &chars);
-    printf("------------------------");
+
+    print_buf_info(ctx.tags);
+    print_buf_info(ctx.strings);
+
     d_log("Network thread start\n");
 
     read_xmls();
 
     last_ts = time(NULL);
     for (;;) {
-        memset(_sendbuf, 0, sizeof(_sendbuf));
-        _sendbuflen = 0;
-
         FD_ZERO(&rfds);
         FD_ZERO(&wfds);
 
@@ -962,50 +1036,42 @@ network_thread_main(void* arg)
                 socklen_t len = sizeof(in_addr);
 
                 sock = accept(opts->tcp_sock, (struct sockaddr*) & in_addr, &len);
-                //#ifdef WEBPOSTGETINCONSOLE
+                #ifdef WEBPOSTGETINCONSOLE
                 d_log("Accepted connection from %s:%u\n", inet_ntoa(in_addr.sin_addr), ntohs(in_addr.sin_port));
-                //#endif
+                #endif
                 memset(buf, 0, sizeof(buf));
                 res = recv(sock, buf, sizeof(buf), 0);
                 if (res > 0) {
                     memset(_sendbuf, 0, sizeof(_sendbuf));
                     _sendbuflen = 0;
 
-                    d_log("recv: %s\n", buf);
-                    opts->level = 0;
-                    opts->xml_action = NULL;
+                    if(NULL == strstr(buf, "CURRENT_XYZ")) { // filter out unwanted spam messages
+                        //d_log("recv: %s\n", buf);
+                    }
 
                     xml_context_reset(&ctx);
 
-                    XML_SetUserData(parser, opts);
-                    XML_SetStartElementHandler(parser, process_element_start_old);
-                    XML_SetEndElementHandler(parser, process_element_end_old);
-                    XML_SetCharacterDataHandler(parser, process_character_data_old);
+                    XML_SetUserData(parser, &ctx);
+                    XML_SetStartElementHandler(parser, process_element_start);
+                    XML_SetEndElementHandler(parser, process_element_end);
+                    XML_SetCharacterDataHandler(parser, process_character_data);
                     XML_Parse(parser, buf, res, TRUE);
-
-
-                    process_get(opts);
-
-                    if (NULL != opts->xml_action) {
-                        opts->xml_action(opts);
-                    }
-
-                    d_log("Finaly buffer:\n%s", _sendbuf);
-                    if (0 != _sendbuflen) {
-                        res = send(sock, _sendbuf, _sendbuflen, 0);
-                    }
-
                     XML_ParserReset(parser, NULL);
+
+                    process_upvs_request(opts, &ctx);
+
+                    //_sendbuf[_sendbuflen]=0;
+                    //d_log("%s\n", _sendbuf);
+
+                    res = send(sock, _sendbuf, _sendbuflen, 0);
+                    if(res < 0) {
+                        perror("send()");
+                    }
                 }
 
                 shutdown(sock, SHUT_RDWR);
                 close(sock);
             }
-#if 0
-            if (FD_ISSET(opts->udp_broadcast, &rfds)) {
-                receive_command(opts, &rfds);
-            }
-#endif
         }
     }
 

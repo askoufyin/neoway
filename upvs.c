@@ -54,7 +54,13 @@ char
 *buf_strdup(buf_t *buf, const char *str)
 {
     char *res;
-    int len = strlen(str);
+    int len;
+
+    if(NULL == str) {
+        return NULL;
+    }
+
+    len = strlen(str) + 1;
     res = buf_alloc(buf, len);
     if(NULL != res) {
         strncpy(res, str, len);
@@ -72,7 +78,6 @@ char
     res = buf_alloc(buf, len);
     if(NULL != res) {
         strncpy(res, str, len);
-        res[len] = 0;
     }
 
     return res;
@@ -88,6 +93,7 @@ xml_context_init(xml_context_t *ctx, buf_t *tags, buf_t *strings)
     ctx->root = NULL;
     ctx->last = NULL;
     ctx->level = 0;
+    ctx->stkptr = ctx->stk;
 }
 
 
@@ -100,6 +106,7 @@ xml_context_reset(xml_context_t *ctx)
     ctx->root = NULL;
     ctx->last = NULL;
     ctx->level = 0;
+    ctx->stkptr = ctx->stk;
 }
 
 
@@ -112,7 +119,7 @@ xml_tag(xml_context_t *ctx, const char *name, const char *content)
     if(NULL != tag) {
         tag->name = buf_strdup(ctx->strings, name);
         tag->content = buf_strdup(ctx->strings, content);
-        tag->parent = NULL;
+        tag->attrs = NULL;
         tag->next = NULL;
         tag->child = NULL;
     }
@@ -164,3 +171,14 @@ xml_find_tag(xml_tag_t *tag, const char *name, int recursive)
     }
 }
 
+char *
+xml_tag_attr(xml_tag_t *tag, const char *attrname)
+{
+    xml_tag_attr_t *attr;
+    for(attr=tag->attrs; NULL != attr; attr=attr->next) {
+        if(0 == strcmp(attr->name, attrname)) {
+            return attr->value;
+        }
+    }
+    return NULL;
+}

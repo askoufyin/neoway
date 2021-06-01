@@ -9,6 +9,7 @@
 
 
 #define MAX_XML_NESTING_DEPTH   10
+#define MAX_XML_DEPTH           25
 
 
 enum {
@@ -35,7 +36,6 @@ typedef struct _xml_tag {
     char *name;
     char *content;
     xml_tag_attr_t *attrs;
-    struct _xml_tag *parent;
     struct _xml_tag *next;
     struct _xml_tag *child;
 } xml_tag_t;
@@ -50,11 +50,13 @@ typedef struct _buf {
 
 typedef struct _xml_context {
     int level;
-    int tag_closed;
+    char tag_closed;
     buf_t *tags;
     buf_t *strings;
     xml_tag_t *root;
     xml_tag_t *last;
+    xml_tag_t *stk[MAX_XML_DEPTH];
+    xml_tag_t **stkptr;
 } xml_context_t;
 
 
@@ -63,6 +65,7 @@ extern "C" {
 #endif
 extern int buf_init(buf_t *, size_t);
 extern void buf_reset(buf_t *);
+extern char *buf_alloc(buf_t *, size_t);
 extern char *buf_strdup(buf_t *, const char *);
 extern char *buf_strndup(buf_t *, const char *, size_t);
 extern char *buf_strncpy(buf_t *, const char *, size_t);
@@ -72,6 +75,7 @@ extern xml_tag_t *xml_find_tag(xml_tag_t *, const char *, int);
 extern int xml_is(xml_tag_t *, const char *);
 extern void xml_context_init(xml_context_t *, buf_t *, buf_t *);
 extern void xml_context_reset(xml_context_t *);
+extern char *xml_tag_attr(xml_tag_t *, const char *);
 #ifdef __cplusplus
 }
 #endif

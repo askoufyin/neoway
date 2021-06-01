@@ -23,6 +23,8 @@ typedef int pid_t;
 #define MAX_ACTION_ARGS         32
 #define ACTION_STRINGS_MAX      8192
 #define NMEA_LENGTH_MAX         128
+#define MAX_RQ_VARS             32
+
 
 #define MAX_PATH_LENGTH 256
 
@@ -51,7 +53,8 @@ enum xml_cmd {
     XML_CMD_QUERY_STATE_VARIABLE,
     XML_CMD_ACTION,
     XML_CMD_ACTION_NAME,
-    XML_CMD_ACTION_ARGS
+    XML_CMD_ACTION_ARGS,
+    XML_CMD_GET
 };
 
 
@@ -84,6 +87,12 @@ typedef enum {
     POWER_SOURCE_BATTERY,           // Питание от батареи
     POWER_SOURCE_NORMAL             // Питание от сети
 } power_source_t;
+
+
+typedef struct _upvs_var_rq {
+    char *name;
+    struct _upvs_var_rq *next;
+} upvs_var_rq_t;
 
 
 typedef struct _options {
@@ -124,17 +133,11 @@ typedef struct _options {
     /* Misc */
     power_source_t power_source;    // Источник питания
     /* Фсякая бяка для УПВС */
-    int level;                      // Nesting level of the current XML tag
-    enum xml_element elem;
-    enum xml_cmd xml_cmd;
-    enum xml_action action;
-    char xml_action_name[XML_VARIABLE_MAX];
-    char xml_variable[XML_VARIABLE_MAX];
-    char pin[5];                    // With trailing \0
     actionhandler_fn xml_action;
     actionarg_t* args;
     char phone_number[PHONE_NUMBER_MAX];
     char sms_text[SMS_TEXT_MAX];
+    char pin[5];
     /* -- */
     int modem_fd;
     int uart_fd;
