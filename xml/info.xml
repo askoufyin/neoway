@@ -13,23 +13,18 @@
 		<serviceType>SMS</serviceType>
 		<serviceID>1</serviceID>
 	    </service>
-	    <service>
-		<serviceType>GPRS</serviceType>
-		<serviceID>2</serviceID>
-	    </service>
-	    <service>
-		<serviceType>CONFIG</serviceType>
-		<serviceID>3</serviceID>
-	    </service>
-	    <service>
-		<serviceType>GPS/ГЛОНАСС</serviceType>
-		<serviceID>4</serviceID>
-	    </service>
             <service>
-                <serviceType>WEB</serviceType>
-                <serviceID>WEB</serviceID>
+                <serviceType>GPRS</serviceType>
+                <serviceID>2</serviceID>
+            </service>
+            <service>
+                <serviceType>CONFIG</serviceType>
+                <serviceID>3</serviceID>
+            </service>
+            <service>
+                <serviceType>GPS/ГЛОНАСС</serviceType>
+                <serviceID>4</serviceID>
             </service>
         </serviceList>
     </device>
 </root>
-

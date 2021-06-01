@@ -267,3 +267,18 @@ get_UUID(unsigned char *uuid)
     close(sock);
     return (it == end)? -4: 0;
 }
+
+
+int
+string_index(const char *string, const char **strs, int count)
+{
+    int i;
+
+    for(i=0; i<count; ++i) {
+        if(0==strcasecmp(strs[i], string)) {
+            return i;
+        }
+    }
+
+    return -1;
+}

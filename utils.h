@@ -174,6 +174,7 @@ typedef struct _options {
 
 
 #define MAX(x,y)    ((x)>=(y)? (x): (y))
+#define COUNTOF(x)  (sizeof(x)/sizeof((x)[0]))
 
 
 #ifdef __cplusplus
@@ -186,6 +187,7 @@ extern int daemonize(options_t *, int);
 //extern int write_pid(options_t *, pid_t);
 extern void help(options_t *);
 extern int get_UUID(unsigned char *);
+extern int string_index(const char *, const char **, int);
 #ifdef __cplusplus
 }
 #endif

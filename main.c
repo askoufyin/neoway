@@ -272,6 +272,7 @@ network_init(options_t* opts)
         return -1;
     }
 
+    d_log("Broadcast address: %s\n", opts->broadcast_addr);
     hent = gethostbyname(opts->broadcast_addr);
     if (NULL == hent) {
         d_log("Cannot resolve host name %s\n", opts->broadcast_addr);
@@ -346,13 +347,12 @@ broadcast(options_t* opts)
 {
     int len, res;
     char buf[512];
-    time_t tm = time(NULL);
-    char strtime[64];
-
-    strftime(strtime, sizeof(strtime), "%d-%m-%Y %H:%M:%S", localtime(&tm));
 
     //d_log("\0x1B[33mBroadcasting announce\0x1B[37m\n");
     #ifdef WEBPOSTGETINCONSOLE
+    time_t tm = time(NULL);
+    char strtime[64];
+    strftime(strtime, sizeof(strtime), "%d-%m-%Y %H:%M:%S", localtime(&tm));
     d_log("%s ----------- Broadcasting announce --------------\n", strtime);
     #endif
 
@@ -362,54 +362,14 @@ broadcast(options_t* opts)
         "<URL>%s:%d</URL>\n"
         "<UUID>%s</UUID>\n"
         "<TTL>%d</TTL>\n"
-        "</info>\r\n", GATEWAY_ADDRESS, 19001, opts->uuid, opts->broadcast_period * 2
+        "</info>\r\n\r\n", GATEWAY_ADDRESS, 19001, opts->uuid, opts->broadcast_period * 2
     );
 
-    res = sendto(opts->udp_broadcast, buf, len, 0, (const struct sockaddr*) & opts->baddr, sizeof(opts->baddr));
+    res = sendto(opts->udp_broadcast, buf, len, 0, (struct sockaddr *)&opts->baddr, sizeof(opts->baddr));
     if (res < 0) {
         perror("sendto()");
     }
 }
-
-
-#if 0
-static void
-receive_command(options_t* opts, fd_set* fds)
-{
-    char buf[8192];
-    int res;
-    struct sockaddr_in sin;
-    socklen_t sinsize = sizeof(sin);
-
-#if 0
-    if (FD_ISSET(opts->tcp_sock, fds)) {
-        res = recv(opts->tcp_sock, buf, sizeof(buf), 0);
-        if (res < 0)
-            perror("recv()");
-        else if (0 == res) {
-            d_log("Other side closed connection\n");
-        }
-        d_log("Received %d bytes\n", res);
-    }
-#endif
-
-    if (FD_ISSET(opts->udp_broadcast, fds)) {
-        sin.sin_family = AF_INET;
-        sin.sin_addr.s_addr = opts->baddr.sin_addr.s_addr;
-        sin.sin_port = htons(19001);
-        res = recvfrom(opts->udp_broadcast, buf, sizeof(buf), 0, (struct sockaddr*) & sin, &sinsize);
-        if (res < 0)
-            perror("recvfrom()");
-
-        d_log("Datagram received (%d bytes) from %s\n", res, inet_ntoa(sin.sin_addr));
-    }
-
-    if (res >= 0) {
-        buf[res] = 0;
-        d_log("%s\n", buf);
-    }
-}
-#endif
 
 
 char*
@@ -459,7 +419,6 @@ print_buf_info(buf_t *buf)
     printf("size=%d, alloc=%d\n", buf->size, buf->alloc);
     printf("data @ 0x%p\n", buf->data);
 }
-
 
 
 static void XMLCALL
@@ -570,9 +529,7 @@ _prettyprint_xml(xml_tag_t *tag, int level)
 void
 prettyprint_xml(xml_context_t *ctx)
 {
-    printf("-----------\n");
     _prettyprint_xml(ctx->root, 0);
-    printf("-----------\n");
 }
 
 
@@ -589,95 +546,90 @@ read_xmls()
 }
 
 
-static void
-queryStateVariable(options_t* opts, xml_tag_t *tag, char *serv)
+void
+arg_strval(const char *data)
 {
-    char value[4096];
+    _sendbuflen += sprintf(_sendbuf+_sendbuflen, "<value>%s</value>", data);
+}
 
-    if (0 == strcasecmp(tag->name, "telno")) {
-        sprintf(value, "<value>%s</value>", opts->phone_number);
 
-    } else if (0 == strcasecmp(tag->name, "connected")) {
-        sprintf(value, "<value>%s</value>", opts->gprs_enabled ? "Да" : "Нет");
+void
+arg_intval(int data)
+{
+    _sendbuflen += sprintf(_sendbuf+_sendbuflen, "<value>%d</value>", data);
+}
 
-    } else if (0 == strcasecmp(tag->name, "text")) {
-        sprintf(value, "<value>%s</value>", opts->sms_text);
 
-    } else if (0 == strcasecmp(tag->name, "www")) {
-        sprintf(value, "<value>%s</value>", "http://10.7.6.1");
+static const char *_sms_vars[] = {
+    "index",
+    "SMS",
+    "inQueue",
+    "outQueue",
+    "sended",
+    "recived",
+    "deleted",
+    "operator",
+    "sigLevel",
+    "localTime"
+};
 
-    } else if (0 == strcasecmp(tag->name, "ip")) {
-        sprintf(value, "<value>%s</value>", opts->gsm_ip_state);
 
-    } else if (0 == strcasecmp(tag->name, "pin")) {
-        sprintf(value, "<value>%s</value>", opts->pin);
+static void
+querySMSvar(options_t* opts, xml_tag_t *tag)
+{
+    time_t _moment_time;
 
-    } else if (0 == strcasecmp(tag->name, "router")) {
-        sprintf(value, "<value>%s</value>", opts->gsm_ip_state);
-
-    } else if (0 == strcasecmp(tag->name, "sigLevel")) {
+    switch(string_index(tag->name, _sms_vars, COUNTOF(_sms_vars))) {
+    case 0: // index
+        arg_intval(0);
+        break;
+    case 1: // SMS
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+           "<struct>"
+                "<data><value>%s</value></data>"
+                "<callNumber><value>%s</value></callNumber>"
+                "<priority><value>%d</value></priority>"
+                "<TTL><value>%d</value></TTL>"
+            "</struct>", "", "+X(XXX)XXX-XX-XX", 0, 255
+        );
+        break;
+    case 2: // inQueue
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+            "<list>"
+                "<index>"
+                    "<value>%d</value>"
+                "</index>"
+            "</list>", 77
+        );
+        break;
+    case 3: // outQueue
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+            "<list>"
+                "<index>"
+                    "<value>%d</value>"
+                "</index>"
+            "</list>", 12
+        );
+        break;
+    case 4: // sended
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen, "<list><index><value>%d</value></index></list>", 1);
+        break;
+    case 5: //recived
+        arg_intval(0);
+        break;
+    case 6: // deleted
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen, "<list><index><value>%d</value></index></list>", 1);
+        break;
+    case 7: // operator
+        arg_strval("Beeline");
+        break;
+    case 8: // sigLevel
         send_at_cmd("AT+CSQ\0", opts);
-        sprintf(value, "<value>%d</value>", opts->rssi_val);
-
-    } else if (0 == strcasecmp(tag->name, "operator")) {
-        sprintf(value, "<value>Beeline</value>");
-
-    } else if (0 == strcasecmp(tag->name, "777")) {
-        sprintf(value, "<value>LocalTime</value>");
-
-    } else if (0 == strcasecmp(tag->name, "outQueue")) {
-        sprintf(value,  "<list>"
-                            "<index>"
-                                "<value>77</value>"
-                            "</index>"
-                        "</list>" );
-
-    } else if (0 == strcasecmp(tag->name, "DATETIME")) {
-        time_t _moment_time = time(NULL);
-        sprintf(value,
-            "<struct>\n"
-                "<DT>\n"
-                    "<value>%s</value>\n"
-                "</DT>\n"
-                "<FORMAT>\n"
-                    "<value>DD:MM:YY HH:MM:SS</value>\n"
-                "</FORMAT>\n"
-            "</struct>", ctime(&_moment_time));
-
-    } else if (0 == strcasecmp(tag->name, "SMS")) {
-        sprintf(value,  "<struct>"
-                            "<data><value></value></data>"
-                            "<callNumber><value>+X(XXX)XXX-XX-XX</value></callNumber>"
-                            "<priority><value>0</value></priority>"
-                            "<TTL><value>255</value></TTL>"
-                        "</struct>" );
-
-    } else if (0 == strcasecmp(tag->name, "SENDED")) {
-        if(0 == strcmp(serv, "2")) {
-            sprintf(value, "<value>%d</value>", 10);
-        } else { // "1"
-            sprintf(value, "<list><index><value>%d</value></index></list>", 1);
-        }
-
-    } else if (0 == strcasecmp(tag->name, "RECIEVED")) {
-        sprintf(value, "<value>%d</value>", 10);
-
-    } else if (0 == strcasecmp(tag->name, "DELETED")) {
-        sprintf(value, "<list><index><value>%d</value></index></list>", 10);
-
-    } else if (0 == strcasecmp(tag->name, "SPEED")) {
-        sprintf(value, "<value>%.2f</value>", 0);
-
-    } else if (0 == strcasecmp(tag->name, "inQueue")) {
-        sprintf(value,  "<list>"
-                            "<index>"
-                                "<value>23</value>"
-                            "</index>"
-                        "</list>");
-
-    } else if (0 == strcasecmp(tag->name, "localtime")) {
-        time_t _moment_time = time(NULL);
-        sprintf(value,
+        arg_intval(opts->rssi_val);
+        break;
+    case 9: // localTime
+        _moment_time = time(NULL);
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen,
             "<struct>"
                 "<DT>"
                     "<value>%s</value>"
@@ -688,44 +640,163 @@ queryStateVariable(options_t* opts, xml_tag_t *tag, char *serv)
                 "<STATUS>"
                     "<value>NORMAL</value>"
                 "</STATUS>"
+            "</struct>", ctime(&_moment_time)
+        );
+        break;
+    }
+}
+
+
+static const char *_gprs_vars[] = {
+    "STATE",
+    "ADDRESS",
+    "SENDED",
+    "RECIEVED"
+};
+
+
+static void
+queryGPRSvar(options_t* opts, xml_tag_t *tag)
+{
+    switch(string_index(tag->name, _gprs_vars, COUNTOF(_gprs_vars))) {
+    case 0: // STATE
+        arg_strval("DISCONNECTED");
+        break;
+    case 1: // ADDRESS
+        arg_strval("N/A");
+        break;
+    case 2: // SENDED
+        arg_intval(0);
+        break;
+    case 3: // RECEIVED
+        arg_intval(0);
+        break;
+    }
+}
+
+
+static void
+queryCONFIGvar(options_t* opts, xml_tag_t *tag)
+{
+    time_t _moment_time;
+
+    if (0 == strcasecmp(tag->name, "DATETIME")) {
+        _moment_time = time(NULL);
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+            "<struct>\n"
+                "<DT>\n"
+                    "<value>%s</value>\n"
+                "</DT>\n"
+                "<FORMAT>\n"
+                    "<value>DD:MM:YY HH:MM:SS</value>\n"
+                "</FORMAT>\n"
             "</struct>", ctime(&_moment_time));
 
-    } else if (0 == strcasecmp(tag->name, "CURRENT_XYZ")) {
-        sprintf(value, "<struct>"
-                            "<latitude><value>%.2f</value></latitude>"
-                            "<longitude><value>%.2f</value></longitude>"
-                            "<altitude><value>%.2f</value></altitude>"
-                        "</struct>",
-                        opts->last_nmea_msg.gga.latitude,
-                        opts->last_nmea_msg.gga.longitude,
-                        opts->last_nmea_msg.gga.altitude);
-
-    } else if (0 == strcasecmp(tag->name, "NMEA_DATA")) {
-        sprintf(value,  "<struct>"
-                            "<GGA><value>n/a</value></GGA>"
-                            "<GSA><value>n/a</value></GSA>"
-                            "<RMC><value>n/a</value></RMC>"
-                        "</struct>",
-                        opts->nmea_gga, opts->nmea_gsa, opts->nmea_rmc);
-
-    } else if (0 == strcasecmp(tag->name, "TotalOdometer")) {
-        sprintf(value, "<value>%.1f</value>", opts->total_mileage);
-    } else if (0 == strcasecmp(tag->name, "CurrentOdometer")) {
-        sprintf(value, "<value>%.1f</value>", opts->mileage);
-    } else if (0 == strcasecmp(tag->name, "GPS_STATE")) {
-        sprintf(value, "<value>%s</value>", "A"); // A, V or N
-
     }
-    else {
-        sprintf(value, "%s", "<value>Неизвестный параметр</value>");
-    }
-    _sendbuflen += sprintf(_sendbuf+_sendbuflen, "%s", value);
-    _sendbuf[_sendbuflen] = 0;
-    //printf("SendBuff in end of queryStateVariable: %s\n", _sendbuf);
-    //d_log(_sendbuf);
+}
 
-    if(strcasecmp(tag->name, "CURRENT_XYZ") != 0) {
-        d_log("%s=%s\n", tag->name, value);
+
+static const char *_gps_vars[] = {
+    "TotalOdometer",
+    "CurrentOdometer",
+    "password",
+    "old_password",
+    "GPS_STATE",
+    "NMEA_DATA",
+    "SPEED",
+    "CURRENT_XYZ",
+    "DATETIME"
+};
+
+
+static void
+queryGPSvar(options_t* opts, xml_tag_t *tag)
+{
+    time_t _moment_time;
+
+    switch(string_index(tag->name, _gps_vars, COUNTOF(_gps_vars))) {
+    case 0: //  TotalOdometer
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen, "<value>%.2f</value>", opts->total_mileage);
+        break;
+    case 1: //  CurrentOdometer
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen, "<value>%.2f</value>", opts->mileage);
+        break;
+    case 2: // password
+        arg_strval("********");
+        break;
+    case 3: // old_password
+        arg_strval("********");
+        break;
+    case 4: // GPS_STATE
+        arg_strval("A");
+        break;
+    case 5: // NMEA_DATA
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+            "<struct>"
+                "<GGA><value>%s</value></GGA>"
+                "<GSA><value>%s</value></GSA>"
+                "<RMC><value>%s</value></RMC>"
+            "</struct>",
+            opts->nmea_gga, opts->nmea_gsa, opts->nmea_rmc
+        );
+        break;
+    case 6: // SPEED
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen, "<value>%.2f</value>", opts->speed);
+        break;
+    case 7: // CURRENT_XYZ
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+            "<struct>"
+                "<latitude><value>%.2f</value></latitude>"
+                "<longitude><value>%.2f</value></longitude>"
+                "<altitude><value>%.2f</value></altitude>"
+            "</struct>",
+            opts->last_nmea_msg.gga.latitude,
+            opts->last_nmea_msg.gga.longitude,
+            opts->last_nmea_msg.gga.altitude
+        );
+        break;
+    case 8: // DATETIME
+        _moment_time = time(NULL);
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+            "<struct>\n"
+                "<DT>\n"
+                    "<value>%s</value>\n"
+                "</DT>\n"
+                "<FORMAT>\n"
+                    "<value>DD:MM:YY HH:MM:SS</value>\n"
+                "</FORMAT>\n"
+            "</struct>",
+            ctime(&_moment_time)
+        );
+        break;
+    }
+}
+
+
+static void
+queryStateVariable(options_t* opts, xml_tag_t *tag, char *serv)
+{
+    char value[4096];
+    char *id = strchr(serv, ':');
+
+    if(NULL == id) {
+        return;
+    }
+
+    ++id; // skip ':'
+
+    if(0 == strcmp(id, "1")) {
+        querySMSvar(opts, tag);
+        return;
+    } else if(0 == strcmp(id, "2")) {
+        queryGPRSvar(opts, tag);
+        return;
+    } else if(0 == strcmp(id, "3")) {
+        queryCONFIGvar(opts, tag);
+        return;
+    } else if(0 == strcmp(id, "4")) {
+        queryGPSvar(opts, tag);
+        return;
     }
 }
 
@@ -1042,11 +1113,13 @@ network_thread_main(void* arg)
                 memset(buf, 0, sizeof(buf));
                 res = recv(sock, buf, sizeof(buf), 0);
                 if (res > 0) {
+                    d_log("%d bytes recv\n", res);
+
                     memset(_sendbuf, 0, sizeof(_sendbuf));
                     _sendbuflen = 0;
 
                     if(NULL == strstr(buf, "CURRENT_XYZ")) { // filter out unwanted spam messages
-                        //d_log("recv: %s\n", buf);
+                        d_log("recv: %s\n", buf);
                     }
 
                     xml_context_reset(&ctx);
@@ -1060,15 +1133,17 @@ network_thread_main(void* arg)
 
                     process_upvs_request(opts, &ctx);
 
-                    //_sendbuf[_sendbuflen]=0;
-                    //d_log("%s\n", _sendbuf);
+                    _sendbuf[_sendbuflen]=0;
+                    d_log("%s\n", _sendbuf);
 
                     res = send(sock, _sendbuf, _sendbuflen, 0);
                     if(res < 0) {
                         perror("send()");
                     }
                 }
-
+#if 0
+                d_log("Closing TCP connection\n");
+#endif
                 shutdown(sock, SHUT_RDWR);
                 close(sock);
             }
