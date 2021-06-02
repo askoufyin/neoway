@@ -93,11 +93,17 @@ options_init(options_t *o)
     memset(o->gsm_ip_state, 0, sizeof(o->gsm_ip_state));
     memset(o->gsm_time, 0, sizeof(o->gsm_time));
 
+    memset(o->one_sms.phone, 0, sizeof(o->one_sms.phone));
+    memset(o->one_sms.text, 0, sizeof(o->one_sms.text));
+    memset(o->one_sms.ttl, 0, sizeof(o->one_sms.ttl));
+    memset(o->one_sms.priority, 0, sizeof(o->one_sms.priority));
+
     o->web_dir_i_path = strdup("/data/www"); // Значение по умолчанию
     o->lon = 0;
     o->lat = 0;
     o->speed = 0;
     o->rssi_val=0;
+    o->one_sms.index = -1;
     //memset(o->lat_sign, 0, sizeof(o->lat_sign));
     //memset(o->lon_sign, 0, sizeof(o->lon_sign));
     memset(o->sput_time, 0, sizeof(o->sput_time));

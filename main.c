@@ -578,19 +578,24 @@ static void
 querySMSvar(options_t* opts, xml_tag_t *tag)
 {
     time_t _moment_time;
-
+    char queue_index_list[1024];
+    char sended_index_list[1024];
+    char deleted_index_list[1024];
     switch(string_index(tag->name, _sms_vars, COUNTOF(_sms_vars))) {
     case 0: // index
-        arg_intval(0);
+        //arg_intval(0);
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+           "<value>%d</value>", opts->one_sms.index
+        );
         break;
     case 1: // SMS
         _sendbuflen += sprintf(_sendbuf+_sendbuflen,
            "<struct>"
                 "<data><value>%s</value></data>"
                 "<callNumber><value>%s</value></callNumber>"
-                "<priority><value>%d</value></priority>"
-                "<TTL><value>%d</value></TTL>"
-            "</struct>", "", "+X(XXX)XXX-XX-XX", 0, 255
+                "<priority><value>%s</value></priority>"
+                "<TTL><value>%s</value></TTL>"
+            "</struct>", opts->one_sms.text, opts->one_sms.phone, opts->one_sms.priority, opts->one_sms.ttl
         );
         break;
     case 2: // inQueue
@@ -603,22 +608,26 @@ querySMSvar(options_t* opts, xml_tag_t *tag)
         );
         break;
     case 3: // outQueue
+        //printf("\n");
+
+        get_variable_queue(queue_index_list, sizeof(queue_index_list), opts);
+        //printf ("Queue: %s\n\n", queue_index_list);
         _sendbuflen += sprintf(_sendbuf+_sendbuflen,
-            "<list>"
-                "<index>"
-                    "<value>%d</value>"
-                "</index>"
-            "</list>", 12
+            "<list>%s</list>", queue_index_list
         );
         break;
     case 4: // sended
-        _sendbuflen += sprintf(_sendbuf+_sendbuflen, "<list><index><value>%d</value></index></list>", 1);
+        get_variable_sended(sended_index_list, sizeof(sended_index_list), opts);
+        //printf ("Sended: %s\n\n", sended_index_list);
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen, "<list>%s</list>", sended_index_list);
         break;
     case 5: //recived
         arg_intval(0);
         break;
     case 6: // deleted
-        _sendbuflen += sprintf(_sendbuf+_sendbuflen, "<list><index><value>%d</value></index></list>", 1);
+        get_variable_deleted(deleted_index_list, sizeof(deleted_index_list), opts);
+        //printf ("Deleted: %s\n\n", deleted_index_list);
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen, "<list>%s</list>", deleted_index_list);
         break;
     case 7: // operator
         arg_strval("Beeline");
@@ -994,7 +1003,7 @@ static void
 do_action(options_t *opts, xml_tag_t *params)
 {
     xml_tag_t *body, *action, *name, *arglist;
-    xml_tag_t *phone, *sms_text, *sms_priority;
+    xml_tag_t *phone, *sms_text, *sms_priority, *sms_ttl, *get_sms_index;
     char *urn;
 
     body = xml_find_tag(params, "body", 1);
@@ -1025,6 +1034,8 @@ do_action(options_t *opts, xml_tag_t *params)
     if(0 == strcasecmp(name->content, "putSMS")) {
         char phone_num[13];
         char sms_data[500];
+        char priority[5], ttl[5];
+        int sms_index;
         phone = xml_find_tag(arglist, "callNumber", 1);
         if(NULL == phone)
         {
@@ -1039,21 +1050,61 @@ do_action(options_t *opts, xml_tag_t *params)
         } else {
             snprintf(sms_data, sizeof(sms_data), arg_param(sms_text));
         }
-        phone = xml_find_tag(arglist, "priority", 1);
+        sms_priority = xml_find_tag(arglist, "priority", 1);
         if(NULL == sms_priority)
         {
-
+            d_log("No \"priority\" in \"putSMS\"\n");
+        } else {
+            snprintf(priority, sizeof(priority), arg_param(sms_priority));
         }
-        phone = xml_find_tag(arglist, "TTL", 1);
-        if(NULL == phone)
+        sms_ttl = xml_find_tag(arglist, "TTL", 1);
+        if(NULL == sms_ttl)
         {
-
+            d_log("No \"ttl\" in \"putSMS\"\n");
+        } else {
+            snprintf(ttl, sizeof(ttl), arg_param(sms_ttl));
         }
-    }
-    else if(0 == strcasecmp(name->name, "setodometervalue")) {
+        printf("Phone: %s\nText: %s\nPriority: %s\nTTL: %s\n\n", phone_num, sms_data, priority, ttl);
+        int res = send_upvs_sms(phone_num, sms_data, strlen(sms_data), 0);
+        int sms_ind;
+        SingleSMS_status status;
+        if (res == 0){
+            status = SSMS_SENDED;
+            sms_ind = sms_add(phone_num, sms_data, ttl, priority, opts, SSMS_SENDED);
+        } else {
+            status = SSMS_QUEUE;
+            sms_ind = sms_add(phone_num, sms_data, ttl, priority, opts, SSMS_QUEUE);
+        }
+        //int sms_ind = sms_add(phone_num, sms_data, ttl, priority, opts, SSMS_SENDED);
+        if(sms_ind != -1){
+            _sendbuflen = sprintf(_sendbuf,
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                "<body urn=\"%s\">\n"
+                    "<action>\n"
+                        "<name>putSMS</name>\n"
+                        "<argumentList>\n"
+                            "<index>\n"
+                                "<value>%d</value>\n"
+                            "</index>\n"
+                        "</argumentList>\n"
+                    "</action>\n"
+                "</body>\r\n\r\n", urn, sms_ind
+            );
+        }
+    } else if(0 == strcasecmp(name->content, "getSMS")) {
+        char sms_index[20];
+        //char phone[13];
+        //char text[500];
+        //char priority[5];
+        //char ttl[5];
+        get_sms_index = xml_find_tag(arglist, "index", 1);
+        snprintf(sms_index, sizeof(sms_index), arg_param(get_sms_index));
+        int res = get_sms_by_xml(atoi(sms_index), opts, opts->one_sms.phone, opts->one_sms.text, opts->one_sms.ttl, opts->one_sms.priority);
+
+    } else if(0 == strcasecmp(name->name, "setodometervalue")) {
     }
 
-    _sendbuflen = sprintf(_sendbuf,
+    /*_sendbuflen = sprintf(_sendbuf,
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
         "<body urn=\"%s\">\n"
             "<action>\n"
@@ -1065,7 +1116,7 @@ do_action(options_t *opts, xml_tag_t *params)
                 "</argumentList>\n"
             "</action>\n"
         "</body>\n", urn
-    );
+    );*/
 }
 
 

@@ -3,7 +3,6 @@
 #include "thread_funcs.h"
 #include "sms.h"
 
-#include <strings.h>
 #include <sys/select.h>
 #include <termios.h>
 #include <stdbool.h> //
@@ -22,6 +21,160 @@
  /*char phone_num[13], sms_text[500] = { '\0' }; //Переменные для работы с смс
  char recv_phone[13], recv_text[500] = { '\0' };
  bool recv_flag = false;*/
+
+ static int _sms_last_index = 0;
+
+int is_sms_empty(SingleSMStoGet_t *sms)
+ {
+     if(sms->phone[0] == 0) {
+         return 1;
+     } else {
+         return 0;
+     }
+ }
+
+ static SingleSMStoGet_t *sms_get_by_index(int index, options_t *opts)
+ {
+     int i;
+     for(i = 0; i < UPVS_SMS_LEN; i++)
+     {
+         if (index == opts->get_single_sms[i].index) {
+             return &opts->get_single_sms[i];
+         }
+     }
+     return NULL;
+ }
+int send_upvs_sms(char *phone, char *text, int length, int encoding)
+{
+    //options_t* opts = (options_t*)opts_sms;
+    int result = 0;
+    //int length;
+    nwy_sms_info_type_t sms_data = { 0 };
+    strcpy(sms_data.phone_num, phone);
+    sms_data.msg_context_len = length;
+
+    if (encoding == 1) {
+        sms_data.msg_format = NWY_SMS_MSG_FORMAT_TEXT_UTF8;
+    }
+    else if (encoding == 2) {
+        sms_data.msg_format = NWY_SMS_MSG_FORMAT_TEXT_GBK;
+        //length = strlen(text);
+    }
+    else if (encoding == 0)
+        sms_data.msg_format = NWY_SMS_MSG_FORMAT_TEXT_ASCII;
+    else if (encoding == 3)
+        sms_data.msg_format = NWY_SMS_MSG_FORMAT_BIN;
+
+
+    memcpy(sms_data.msg_context, text, length + 1);
+
+    result = nwy_sms_send_message(&sms_data);
+    return result;
+}
+
+
+int sms_add(char* phone, char* text, char* ttl, char* priority, options_t *opts, SingleSMS_status status)
+ {
+     int i = 0;
+     for (i = 0; i < UPVS_SMS_LEN; i++)
+     {
+         if(is_sms_empty(&opts->get_single_sms[i]) == 1)
+         {
+             opts->get_single_sms[i].index = _sms_last_index++;
+             snprintf(opts->get_single_sms[i].phone, sizeof(opts->get_single_sms[i].phone), phone);
+             snprintf(opts->get_single_sms[i].text, sizeof(opts->get_single_sms[i].text), text);
+             snprintf(opts->get_single_sms[i].priority, sizeof(opts->get_single_sms[i].priority), priority);
+             snprintf(opts->get_single_sms[i].ttl, sizeof(opts->get_single_sms[i].ttl), ttl);
+             opts->get_single_sms[i].status = status;
+             return opts->get_single_sms[i].index;
+         }
+     }
+     return -1;
+ }
+
+void get_variable_queue(char *out, int len, options_t *opts)
+ {
+     int i = 0;
+     int buflen = 0;
+     for (i = 0; i < UPVS_SMS_LEN; i++)
+     {
+         if(opts->get_single_sms[i].status == SSMS_QUEUE)
+         {
+             buflen += snprintf(&out[buflen], len-buflen, "<index><value>%d</value></index>", opts->get_single_sms[i].index);
+         }
+     }
+     if (buflen == 0)
+     {
+         buflen = snprintf(&out[buflen], len-buflen, "<index><value>-1</value></index>");
+     } else {
+         //return buflen;
+    }
+ }
+
+ void get_variable_deleted(char *out, int len, options_t *opts)
+  {
+      int i = 0;
+      int buflen = 0;
+      for (i = 0; i < UPVS_SMS_LEN; i++)
+      {
+          if(opts->get_single_sms[i].status == SSMS_DELETED)
+          {
+              buflen += snprintf(&out[buflen], len-buflen, "<index><value>%d</value></index>", opts->get_single_sms[i].index);
+          }
+      }
+      if (buflen == 0)
+      {
+          buflen = snprintf(&out[buflen], len-buflen, "<index><value>-1</value></index>");
+      } else {
+          //return buflen;
+     }
+  }
+
+ void get_variable_sended(char *out, int len, options_t *opts)
+ {
+     int i = 0;
+     int buflen = 0;
+     for (i = 0; i < UPVS_SMS_LEN; i++)
+     {
+         if(opts->get_single_sms[i].status == SSMS_SENDED)
+         {
+             buflen += snprintf(&out[buflen], len-buflen, "<index><value>%d</value></index>", opts->get_single_sms[i].index);
+         }
+     }
+     if (buflen == 0)
+     {
+         buflen = snprintf(&out[buflen], len-buflen, "<index><value>-1</value></index>");
+     } else {
+         //return buflen;
+    }
+ }
+
+ int get_sms_by_xml(int index_xml, void* web_opts, char *phone, char *text, char *ttl, char *priority)
+ {
+     options_t* opts = (options_t*)web_opts;
+     if (index_xml >= UPVS_SMS_LEN || index_xml < 0)
+     {
+         return -1;
+     }
+     int res = is_sms_empty(&opts->get_single_sms[index_xml]);
+     if (res == 1)
+     {
+         snprintf(phone, sizeof("+X(XXX)XXX-XX-XX"), "%s", "+X(XXX)XXX-XX-XX");
+         snprintf(text, sizeof(text), "%s", "");
+         snprintf(priority, sizeof(priority), "%s", "0");
+         snprintf(ttl, sizeof(ttl), "%s", "255");
+     }
+     else
+     {
+         snprintf(phone, sizeof(opts->get_single_sms[index_xml].phone), "%s", opts->get_single_sms[index_xml].phone);
+         snprintf(text, sizeof(opts->get_single_sms[index_xml].text), "%s", opts->get_single_sms[index_xml].text);
+         snprintf(priority, sizeof(opts->get_single_sms[index_xml].priority), "%s", opts->get_single_sms[index_xml].priority);
+         snprintf(ttl, sizeof(opts->get_single_sms[index_xml].priority), "%s", opts->get_single_sms[index_xml].priority);
+     }
+     opts->one_sms.index = index_xml;
+     printf("Phone: %s\nText: %s\nPriority: %s\nTTL: %s\n\n", phone, text, priority, ttl);
+     return 0;
+ }
 
  int Write_smsTo_txt(const char* file, void* web_opts) {
      FILE* fp;

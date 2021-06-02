@@ -24,6 +24,7 @@ typedef int pid_t;
 #define ACTION_STRINGS_MAX      8192
 #define NMEA_LENGTH_MAX         128
 #define MAX_RQ_VARS             32
+#define UPVS_SMS_LEN            20
 
 
 #define MAX_PATH_LENGTH 256
@@ -46,6 +47,24 @@ typedef struct _neoway_sms_data
     char text[100][500];   //
     int j;              //Счетчик количества смс каждого приоритета
 } neoway_sms_data_t;
+
+typedef enum {
+    SSMS_NAN = 0,
+    SSMS_SENDED,
+    SSMS_RECIEVED,
+    SSMS_QUEUE,
+    SSMS_DELETED
+}SingleSMS_status;
+
+
+typedef struct {
+    SingleSMS_status status;
+    char phone[13];
+    char text[500];
+    char priority[5];
+    char ttl[5];
+    int index;
+} SingleSMStoGet_t;
 
 
 enum xml_cmd {
@@ -167,7 +186,8 @@ typedef struct _options {
     /*-Work whith SMS-*/
     int sms_priority;
     neoway_sms_data_t queue[8],sended[8],deleted[8],recved[8];
-
+    SingleSMStoGet_t get_single_sms[UPVS_SMS_LEN];
+    SingleSMStoGet_t one_sms;
 
 
 } options_t;
