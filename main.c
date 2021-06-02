@@ -986,7 +986,7 @@ static void
 do_action(options_t *opts, xml_tag_t *params)
 {
     xml_tag_t *name;
-    xml_tag_t *phone, *body;
+    xml_tag_t *phone, *sms_text, *body;
     name = xml_find_tag(params, "name", 0);
     char *urn;
 
@@ -999,7 +999,36 @@ do_action(options_t *opts, xml_tag_t *params)
     urn = xml_tag_attr(body, "urn");
 
     if(0 == strcasecmp(name->name, "putSMS")) {
-        phone = xml_find_tag(params, "callingNUmber", 1);
+        char phone_num[13];
+        char sms_data[500];
+        phone = xml_find_tag(params, "callNumber", 1);
+        if(NULL == phone)
+        {
+            dlog("No \"callNumber\" in \"putSMS\"\n");
+        } else {
+            xml_tag_t *callNumber = xml_find_tag(phone, "value", 1);
+            if(NULL == callNumber)
+            {
+                dlog("No \"value\" in \"callNumber\"\n");
+            } else {
+                snprintf(phone_num, sizeof(phone_num), callNumber->content);
+            }
+        }
+        sms_text = xml_find_tag(params, "data", 1);
+        if(NULL == sms_text)
+        {
+
+        }
+        phone = xml_find_tag(params, "priority", 1);
+        if(NULL == sms_priority)
+        {
+
+        }
+        phone = xml_find_tag(params, "TTL", 1);
+        if(NULL == phone)
+        {
+
+        }
     }
     else if(0 == strcasecmp(name->name, "setodometervalue")) {
     }
