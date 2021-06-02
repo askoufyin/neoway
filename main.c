@@ -755,12 +755,12 @@ queryGPSvar(options_t* opts, xml_tag_t *tag)
     case 7: // CURRENT_XYZ
         _sendbuflen += sprintf(_sendbuf+_sendbuflen,
             "<struct>"
-                "<latitude><value>%.2f</value></latitude>"
-                "<longitude><value>%.2f</value></longitude>"
+                "<latitude><value>%.6f</value></latitude>"
+                "<longitude><value>%.6f</value></longitude>"
                 "<altitude><value>%.2f</value></altitude>"
             "</struct>",
-            opts->last_nmea_msg.gga.latitude,
-            opts->last_nmea_msg.gga.longitude,
+            opts->last_nmea_msg.gga.latitude/100.0,
+            opts->last_nmea_msg.gga.longitude/100.0,
             opts->last_nmea_msg.gga.altitude
         );
         break;
