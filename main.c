@@ -981,50 +981,70 @@ action_send_sms(options_t* opts)
 }
 
 
+static char *
+arg_param(xml_tag_t *arg)
+{
+    if(NULL != arg->child && xml_is(arg->child, "value")) {
+        return arg->child->content;
+    }
+    return NULL;
+}
 
 static void
 do_action(options_t *opts, xml_tag_t *params)
 {
-    xml_tag_t *name;
-    xml_tag_t *phone, *sms_text, *body;
-    name = xml_find_tag(params, "name", 0);
+    xml_tag_t *body, *action, *name, *arglist;
+    xml_tag_t *phone, *sms_text, *sms_priority;
     char *urn;
 
+    body = xml_find_tag(params, "body", 1);
+    urn = xml_tag_attr(body, "urn");
+
+    d_log("URN %s\n", urn);
+
+    action = xml_find_tag(body, "action", 1);
+    if(NULL == action) {
+        d_log("Malformed action packet (NO ACTION)\n");
+        return;
+    }
+
+    name = xml_find_tag(action, "name", 1);
     if(NULL == name) {
         d_log("Malformed action packet (NO NAME)\n");
         return;
     }
 
-    body = xml_find_tag(params, "body", 1);
-    urn = xml_tag_attr(body, "urn");
+    arglist = xml_find_tag(action, "argumentList", 1);
+    if(NULL == arglist) {
+        d_log("Malformed action packet (NO ARGLIST)\n");
+        return;
+    }
 
-    if(0 == strcasecmp(name->name, "putSMS")) {
+    d_log("ACTION: %s\n", name->content);
+
+    if(0 == strcasecmp(name->content, "putSMS")) {
         char phone_num[13];
         char sms_data[500];
-        phone = xml_find_tag(params, "callNumber", 1);
+        phone = xml_find_tag(arglist, "callNumber", 1);
         if(NULL == phone)
         {
-            dlog("No \"callNumber\" in \"putSMS\"\n");
+            d_log("No \"callNumber\" in \"putSMS\"\n");
         } else {
-            xml_tag_t *callNumber = xml_find_tag(phone, "value", 1);
-            if(NULL == callNumber)
-            {
-                dlog("No \"value\" in \"callNumber\"\n");
-            } else {
-                snprintf(phone_num, sizeof(phone_num), callNumber->content);
-            }
+            snprintf(phone_num, sizeof(phone_num), arg_param(phone));
         }
-        sms_text = xml_find_tag(params, "data", 1);
+        sms_text = xml_find_tag(arglist, "data", 1);
         if(NULL == sms_text)
         {
-
+            d_log("No \"data\" in \"putSMS\"\n");
+        } else {
+            snprintf(sms_data, sizeof(sms_data), arg_param(sms_text));
         }
-        phone = xml_find_tag(params, "priority", 1);
+        phone = xml_find_tag(arglist, "priority", 1);
         if(NULL == sms_priority)
         {
 
         }
-        phone = xml_find_tag(params, "TTL", 1);
+        phone = xml_find_tag(arglist, "TTL", 1);
         if(NULL == phone)
         {
 
