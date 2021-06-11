@@ -21,6 +21,63 @@
  /*char phone_num[13], sms_text[500] = { '\0' }; //Переменные для работы с смс
  char recv_phone[13], recv_text[500] = { '\0' };
  bool recv_flag = false;*/
+ // Stops at any null characters.
+ static int decode_code_point( char **s )
+ {
+     // Count # of leading 1 bits.
+     int k = **s ? __builtin_clz( ~( **s << 24) ) : 0;
+     // All 1's with k leading 0's.
+     int mask = ( 1 << ( 8 - k ) ) - 1;
+     int value = **s & mask;
+     // Note that k = #total bytes, or 0.
+     for ( ++( *s ), --k; k > 0 && **s; --k, ++( *s ) ) {
+         value <<= 6;
+         value += ( **s & 0x3F );
+     }
+     return value;
+ }
+
+ /*  */
+ void transliterate( char *in, uint32_t len,
+                     char *out, uint32_t out_sizeof )
+ {
+     char *s = in;
+     uint32_t l = strlen( in );
+
+     char *table[] = {
+         "A", "B", "V", "G", "D", "E", "ZH", "Z", "I", "Y", "K", "L", "M", "N", "O", "P", "R", "S", "T", "U", "F", "KH", "C", "CH", "SH", "JSH", "HH", "IH", "JH", "EH", "JU", "JA",
+         "a", "b", "v", "g", "d", "e", "zh", "z", "i", "y", "k", "l", "m", "n", "o", "p", "r", "s", "t", "u", "f", "kh", "c", "ch", "sh", "jsh", "hh", "ih", "jh", "eh", "ju", "ja"};
+
+     uint32_t i = 0;
+
+     while( s < in + len ) {
+         if( out_sizeof - 4 < i ) {
+             return;
+         }
+
+         int d = decode_code_point( &s );
+         if( d >= 1040 && d <= 1103 ) {
+             /* А-Я а-я */
+             out[ i++ ] = table[ d - 1040 ][ 0 ];
+             if( table[ d - 1040 ][ 1 ] != '\0' ) {
+                 out[ i++ ] = table[ d - 1040 ][ 1 ];
+                 if(table[ d - 1040 ][ 2 ] != '\0')
+                     out[ i++ ] = table[ d - 1040 ][ 2 ];
+             }
+         } else if( d == 1105 ) {
+             /* ё */
+             out[ i++ ] = 'e';
+         } else if( d == 1025 ) {
+             /* Ё */
+             out[ i++ ] = 'E';
+         } else {
+             /* Остальное */
+             out[ i++ ] = d;
+         }
+         out[ i ] = '\0';
+     }
+ }
+
 
  static int _sms_last_index = 0;
 
@@ -44,6 +101,7 @@ int is_sms_empty(SingleSMStoGet_t *sms)
      }
      return NULL;
  }
+
 int send_upvs_sms(char *phone, char *text, int length, int encoding)
 {
     //options_t* opts = (options_t*)opts_sms;
@@ -65,8 +123,11 @@ int send_upvs_sms(char *phone, char *text, int length, int encoding)
     else if (encoding == 3)
         sms_data.msg_format = NWY_SMS_MSG_FORMAT_BIN;
 
-
-    memcpy(sms_data.msg_context, text, length + 1);
+    uint32_t len = strlen(text);
+    char oo[512] = "";
+    transliterate( text, len, oo, 320 );
+    printf( "out: %s\n", oo );
+    memcpy(sms_data.msg_context, oo, strlen(oo) + 1);
 
     result = nwy_sms_send_message(&sms_data);
     return result;
@@ -76,6 +137,16 @@ int send_upvs_sms(char *phone, char *text, int length, int encoding)
 int sms_add(char* phone, char* text, char* ttl, char* priority, options_t *opts, SingleSMS_status status)
  {
      int i = 0;
+     if(_sms_last_index > 19)
+     {
+         int circle_index = _sms_last_index%UPVS_SMS_LEN;
+         snprintf(opts->get_single_sms[circle_index].phone, sizeof(opts->get_single_sms[circle_index].phone), 0);
+         snprintf(opts->get_single_sms[circle_index].text, sizeof(opts->get_single_sms[circle_index].text), 0);
+         snprintf(opts->get_single_sms[circle_index].priority, sizeof(opts->get_single_sms[circle_index].priority), 0);
+         snprintf(opts->get_single_sms[circle_index].ttl, sizeof(opts->get_single_sms[circle_index].ttl), 0);
+         opts->get_single_sms[circle_index].status = SSMS_NAN;
+         //return opts->get_single_sms[i].index;
+     }
      for (i = 0; i < UPVS_SMS_LEN; i++)
      {
          if(is_sms_empty(&opts->get_single_sms[i]) == 1)
@@ -86,10 +157,17 @@ int sms_add(char* phone, char* text, char* ttl, char* priority, options_t *opts,
              snprintf(opts->get_single_sms[i].priority, sizeof(opts->get_single_sms[i].priority), priority);
              snprintf(opts->get_single_sms[i].ttl, sizeof(opts->get_single_sms[i].ttl), ttl);
              opts->get_single_sms[i].status = status;
+             save_sms_struct("/data/smsstruct.dat", opts->get_single_sms, UPVS_SMS_LEN);
              return opts->get_single_sms[i].index;
          }
      }
      return -1;
+ }
+
+ void clear_out_queue(SingleSMStoGet_t *sms)
+ {
+     memset(&sms[0], 0, sizeof(SingleSMStoGet_t)*UPVS_SMS_LEN);
+     _sms_last_index = 0;
  }
 
 void get_variable_queue(char *out, int len, options_t *opts)
@@ -105,7 +183,7 @@ void get_variable_queue(char *out, int len, options_t *opts)
      }
      if (buflen == 0)
      {
-         buflen = snprintf(&out[buflen], len-buflen, "<index><value>-1</value></index>");
+         buflen = snprintf(&out[buflen], len-buflen, "<index><value></value></index>");
      } else {
          //return buflen;
     }
@@ -124,7 +202,7 @@ void get_variable_queue(char *out, int len, options_t *opts)
       }
       if (buflen == 0)
       {
-          buflen = snprintf(&out[buflen], len-buflen, "<index><value>-1</value></index>");
+          buflen = snprintf(&out[buflen], len-buflen, "<index><value></value></index>");
       } else {
           //return buflen;
      }
@@ -143,38 +221,145 @@ void get_variable_queue(char *out, int len, options_t *opts)
      }
      if (buflen == 0)
      {
-         buflen = snprintf(&out[buflen], len-buflen, "<index><value>-1</value></index>");
+         buflen = snprintf(&out[buflen], len, "<index><value></value></index>");
      } else {
          //return buflen;
     }
  }
 
+void *out_from_queue(void* web_opts)
+{
+    int i;
+    options_t* opts = (options_t*)web_opts;
+    SingleSMStoGet_t *sms = opts->get_single_sms;
+    while (1)
+    {
+        printf("Out_from_queue: \n");
+        pthread_mutex_lock(&opts->mutex_sms);
+        for(i = 0; i < UPVS_SMS_LEN; i++)
+        {
+            int res = 0;
+            if(sms[i].status == SSMS_QUEUE)
+            {
+                //pthread_mutex_lock(&opts->mutex_modem);
+                send_at_cmd("AT+CSQ\0", opts);
+                //pthread_mutex_unlock(&opts->mutex_modem);
+                printf("%d\n",opts->rssi_val);
+                if (opts->rssi_val < 0 && opts->rssi_val > -85)
+                {
+                    printf("Try to send index: %d\nphone: %s\n text: %s\n\n", sms[i].index, sms[i].phone, sms[i].text);
+                    res = send_upvs_sms(sms[i].phone, sms[i].text, strlen(sms[i].text), 0);
+                    int sms_ind = -1;
+                    SingleSMS_status status;
+                    if (res == 0){
+                        status = SSMS_SENDED;
+                        sms[i].status = status;
+                        printf("Sended!\n\n");
+                    } else {
+                        status = SSMS_QUEUE;
+                        sms[i].status = status;
+                        printf("Queue!\n\n");
+                    }
+                } else {
+                    printf("Bad signal\n");
+                }
+            }
+
+        }
+        pthread_mutex_unlock(&opts->mutex_sms);
+        sleep(10);
+    }
+}
+
+void count_sms(SingleSMStoGet_t *sms)
+{
+    int i;
+    for (i = 0; i < UPVS_SMS_LEN; i++)
+    {
+        printf("%s\n%d\n\n", sms[i].phone, sms[i].index);
+        if (sms[i].phone[0] == 0)
+        {
+
+        } else {
+            if(sms[i].index > _sms_last_index)
+            _sms_last_index = sms[i].index;
+        }
+    }
+    _sms_last_index++;
+    printf("Count: %d\n", _sms_last_index);
+}
+
+
+
  int get_sms_by_xml(int index_xml, void* web_opts, char *phone, char *text, char *ttl, char *priority)
  {
      options_t* opts = (options_t*)web_opts;
-     if (index_xml >= UPVS_SMS_LEN || index_xml < 0)
+     if (index_xml >= _sms_last_index || index_xml < 0)
      {
          return -1;
      }
-     int res = is_sms_empty(&opts->get_single_sms[index_xml]);
-     if (res == 1)
-     {
-         snprintf(phone, sizeof("+X(XXX)XXX-XX-XX"), "%s", "+X(XXX)XXX-XX-XX");
-         snprintf(text, sizeof(text), "%s", "");
-         snprintf(priority, sizeof(priority), "%s", "0");
-         snprintf(ttl, sizeof(ttl), "%s", "255");
-     }
-     else
-     {
-         snprintf(phone, sizeof(opts->get_single_sms[index_xml].phone), "%s", opts->get_single_sms[index_xml].phone);
-         snprintf(text, sizeof(opts->get_single_sms[index_xml].text), "%s", opts->get_single_sms[index_xml].text);
-         snprintf(priority, sizeof(opts->get_single_sms[index_xml].priority), "%s", opts->get_single_sms[index_xml].priority);
-         snprintf(ttl, sizeof(opts->get_single_sms[index_xml].priority), "%s", opts->get_single_sms[index_xml].priority);
-     }
+     int i = 0;
      opts->one_sms.index = index_xml;
+     for (i = 0; i < UPVS_SMS_LEN; i++)
+     {
+          if(opts->get_single_sms[i].index == index_xml)
+          {
+              int res = is_sms_empty(&opts->get_single_sms[i]);
+              if (res == 1) {
+                  snprintf(phone, sizeof("+X(XXX)XXX-XX-XX"), "%s", "+X(XXX)XXX-XX-XX");
+                  snprintf(text, sizeof(text), "%s", "");
+                  snprintf(priority, sizeof(priority), "%s", "0");
+                  snprintf(ttl, sizeof(ttl), "%s", "255");
+              } else {
+                  snprintf(phone, sizeof(opts->get_single_sms[i].phone), "%s", opts->get_single_sms[i].phone);
+                  snprintf(text, sizeof(opts->get_single_sms[i].text), "%s", opts->get_single_sms[i].text);
+                  snprintf(priority, sizeof(opts->get_single_sms[i].priority), "%s", opts->get_single_sms[i].priority);
+                  snprintf(ttl, sizeof(opts->get_single_sms[i].ttl), "%s", opts->get_single_sms[i].ttl);
+              }
+              break;
+          }
+     }
      printf("Phone: %s\nText: %s\nPriority: %s\nTTL: %s\n\n", phone, text, priority, ttl);
      return 0;
  }
+
+int save_sms_struct(char * filename, SingleSMStoGet_t * sms, int n)
+{
+    FILE * fp;
+    char *c;
+    if ((fp = fopen(filename, "wb+")) == NULL)
+    {
+        perror("Error occured while opening file");
+        printf("SMS_WRITE_ERROR_wb+");
+        fclose(fp);
+        if ((fp = fopen(filename, "wb")) == NULL)
+        {
+            perror("Error occured while opening file");
+            printf("SMS_WRITE_ERROR_wb");
+            return 1;
+        }
+        //return 1;
+    }
+    fwrite(&sms[0], sizeof(SingleSMStoGet_t), n, fp);
+    fclose(fp);
+    printf("SMS_WRITE_OK");
+    return 0;
+}
+
+int load_sms_struct(char * filename, SingleSMStoGet_t * sms, int n)
+{
+    FILE * fp;
+    if ((fp = fopen(filename, "rb")) == NULL)
+    {
+        perror("Error occured while opening file");
+        printf("SMS_READ_ERROR");
+        return 1;
+    }
+    fread(&sms[0], sizeof(SingleSMStoGet_t), n, fp);
+    fclose(fp);
+    printf("SMS_READ_OK");
+    return 0;
+}
 
  int Write_smsTo_txt(const char* file, void* web_opts) {
      FILE* fp;

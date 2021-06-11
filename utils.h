@@ -141,6 +141,7 @@ typedef struct _options {
     /* Синхронизация */
     pthread_mutex_t mutex;
     pthread_mutex_t mutex_modem;
+    pthread_mutex_t mutex_sms;
     /* GPS-координаты */
     nmea_msg_t last_nmea_msg;
     float total_mileage;            // Полный пробег, км

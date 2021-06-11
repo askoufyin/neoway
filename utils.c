@@ -66,6 +66,7 @@ options_init(options_t *o)
 
     pthread_mutex_init(&o->mutex, NULL);
     pthread_mutex_init(&o->mutex_modem, NULL);
+    pthread_mutex_init(&o->mutex_sms, NULL);
     o->total_mileage = 0;
     o->mileage = 0;
     o->reset_mileage = 0;

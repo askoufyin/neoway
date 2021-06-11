@@ -602,9 +602,9 @@ querySMSvar(options_t* opts, xml_tag_t *tag)
         _sendbuflen += sprintf(_sendbuf+_sendbuflen,
             "<list>"
                 "<index>"
-                    "<value>%d</value>"
+                    "<value></value>"
                 "</index>"
-            "</list>", 77
+            "</list>"
         );
         break;
     case 3: // outQueue
@@ -622,7 +622,9 @@ querySMSvar(options_t* opts, xml_tag_t *tag)
         _sendbuflen += sprintf(_sendbuf+_sendbuflen, "<list>%s</list>", sended_index_list);
         break;
     case 5: //recived
-        arg_intval(0);
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+                "<value></value>"
+    );
         break;
     case 6: // deleted
         get_variable_deleted(deleted_index_list, sizeof(deleted_index_list), opts);
@@ -630,11 +632,29 @@ querySMSvar(options_t* opts, xml_tag_t *tag)
         _sendbuflen += sprintf(_sendbuf+_sendbuflen, "<list>%s</list>", deleted_index_list);
         break;
     case 7: // operator
-        arg_strval("Beeline");
+    pthread_mutex_lock(&opts->mutex_modem);
+    send_at_cmd("AT+CIMI\0", opts);
+    pthread_mutex_unlock(&opts->mutex_modem);
+    _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+            "<value>%s %s</value>", opts->operator_cod, opts->country_cod
+);
+        //arg_strval("Beeline");
         break;
     case 8: // sigLevel
-        send_at_cmd("AT+CSQ\0", opts);
-        arg_intval(opts->rssi_val);
+    pthread_mutex_lock(&opts->mutex_modem);
+    send_at_cmd("AT+CSQ\0", opts);
+    pthread_mutex_unlock(&opts->mutex_modem);
+    if (opts->rssi_val != 0)
+    {
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+            "<value>%d</value>", ((113 + opts->rssi_val) * 5)
+        );
+    } else {
+        _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+            "<value>0</value>"
+        );
+    }
+        //arg_intval(opts->rssi_val);
         break;
     case 9: // localTime
         _moment_time = time(NULL);
@@ -881,7 +901,7 @@ process_get(options_t* opts, xml_tag_t *tag)
     if(NULL != p) {
         ++p;
         if (0 == strcasecmp(p, "1")) {
-            _sendbuflen = sprintf(_sendbuf, xmls[XML_SMS], opts->r_uuid);
+            _sendbuflen = sprintf(_sendbuf, "<?xml version=\"1.0\" encoding=\"UTF-8\"?><scpd urn=\"%s\"> <actionList> <action> <name>putSMS</name> <argumentList> <argument> <name>SMS</name> <direction>IN</direction> </argument> <argument> <name>index</name> <direction>OUT</direction> </argument> </argumentList> </action> <action> <name>getSMS</name> <argumentList> <argument> <name>SMS</name> <direction>OUT</direction> </argument> <argument> <name>index</name> <direction>IN</direction> </argument> </argumentList> </action> <action> <name>delSMS</name> <argumentList> <argument> <name>index</name> <direction>IN</direction> </argument> </argumentList> </action> <action> <name>removeSMS</name> <argumentList> <argument> <name>index</name> <direction>IN</direction> </argument> </argumentList> </action> <action> <name>clearOutQueue</name> </action> <action> <name>clearInQueue</name> </action> </actionList> <serviceStateTable> <stateVariable> <name>index</name> <friendlyName>идентификатор СМС</friendlyName> <dataType>int</dataType> </stateVariable> <stateVariable> <name>SMS</name> <friendlyName>SMS сообщение</friendlyName> <dataType>struct</dataType> <struct> <stateVariable> <name>data</name> <friendlyName>текст SMS сообщения</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable> <name>callNumber</name> <friendlyName>номер абонента</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable> <name>priority</name> <friendlyName>приоритет</friendlyName> <dataType>int</dataType> <allowedValueRange> <minimum>0</minimum> <maximum>7</maximum> <step>1</step> </allowedValueRange> </stateVariable> <stateVariable> <name>TTL</name> <friendlyName>время жизни</friendlyName> <dataType>int</dataType> <allowedValueRange> <minimum>0</minimum> <maximum>255</maximum> <step>1</step> </allowedValueRange> </stateVariable> </struct> </stateVariable> <stateVariable sendEvents=\"YES\"> <name>inQueue</name> <friendlyName>очередь входящих СМС</friendlyName> <dataType>list</dataType> <list> <stateVariable> <name>index</name> <friendlyName>индекс СМС</friendlyName> <dataType>int</dataType> </stateVariable> </list> </stateVariable> <stateVariable sendEvents=\"YES\"> <name>outQueue</name> <friendlyName>очередь исходящих СМС</friendlyName> <dataType>list</dataType> <list> <stateVariable><name>index</name> <friendlyName>индекс СМС</friendlyName> <dataType>int</dataType> </stateVariable> </list> </stateVariable> <stateVariable sendEvents=\"YES\"> <name>sended</name> <friendlyName>индекс отправленной СМС</friendlyName> <dataType>list</dataType> <list> <stateVariable> <name>index</name> <friendlyName>индекс СМС</friendlyName> <dataType>int</dataType> </stateVariable> </list> </stateVariable> <stateVariable sendEvents=\"YES\"> <name>recived</name> <friendlyName>индекс полученной СМС</friendlyName> <dataType>int</dataType> </stateVariable> <stateVariable sendEvents=\"YES\"> <name>deleted</name> <friendlyName>индекс CМС с истекшим временем жизни</friendlyName> <dataType>list</dataType> <list> <stateVariable> <name>index</name> <friendlyName>индекс СМС</friendlyName> <dataType>int</dataType> </stateVariable> </list> </stateVariable> <stateVariable> <name>operator</name> <friendlyName>оператор</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable sendEvents=\"YES\"> <name>sigLevel</name> <friendlyName>уровень сигнала</friendlyName> <dataType>int</dataType> <allowedValueRange> <minimum>0</minimum> <maximum>255</maximum> <step>1</step> </allowedValueRange> </stateVariable> <stateVariable sendEvents=\"YES\"> <name>localTime</name> <friendlyName>местное время</friendlyName> <dataType>struct</dataType> <struct> <stateVariable> <name>DT</name> <friendlyName>строка даты и времени</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable> <name>FORMAT</name> <friendlyName>формат</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable> <name>STATUS</name> <friendlyName>состояние</friendlyName> <dataType>string</dataType> <allowedValueList> <allowedValue> <value>NORMAL</value> <describe>Норма</describe> </allowedValue> <allowedValue> <value>NA</value> <describe>Неопределенное</describe> </allowedValue> </allowedValueList> </stateVariable> </struct> </stateVariable> </serviceStateTable></scpd>\r\n\r\n", opts->r_uuid);
         }
         else if (0 == strcasecmp(p, "2")) {
             _sendbuflen = sprintf(_sendbuf, xmls[XML_GPRS], opts->r_uuid);
@@ -890,7 +910,7 @@ process_get(options_t* opts, xml_tag_t *tag)
             _sendbuflen = sprintf(_sendbuf, xmls[XML_CONFIG], opts->r_uuid);
         }
         else if(0 == strcasecmp(p, "4")) {
-            _sendbuflen = sprintf(_sendbuf, xmls[XML_GPSGLONASS], opts->r_uuid);
+            _sendbuflen = sprintf(_sendbuf, "<?xml version=\"1.0\" encoding=\"UTF-8\"?> <scpd urn=\"%s\"> <actionList> <action> <name>setOdometerValue</name> <argumentList> <argument> <name>TotalOdometer</name> <direction>IN</direction> </argument> <argument> <name>password</name> <direction>IN</direction> </argument> </argumentList> </action> <action> <name>resetCurrentOdometer</name> </action> <action> <name>setPassword</name> <argumentList> <argument> <name>old_password</name> <direction>IN</direction> </argument> <argument> <name>password</name> <direction>IN</direction> </argument> </argumentList> </action> </actionList> <serviceStateTable> <stateVariable> <name>TotalOdometer</name> <friendlyName>Общий пробег (км)</friendlyName> <dataType>double</dataType> </stateVariable> <stateVariable> <name>CurrentOdometer</name> <friendlyName>Текущий пробег (км)</friendlyName> <dataType>double</dataType> </stateVariable> <stateVariable> <name>password</name> <friendlyName>пароль для установки значения полного пробега</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable> <name>old_password</name> <friendlyName>текущий пароль, для установки значения нового пароля</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable sendEvents=\"YES\"> <name>GPS_STATE</name> <friendlyName>наличие связи со спутниками</friendlyName> <dataType>string</dataType> <allowedValueList> <allowedValue> <value>A</value> <describe>достоверно</describe> </allowedValue> <allowedValue> <value>V</value> <describe>недостоверно</describe> </allowedValue> <allowedValue> <value>NOT_AVAILABLE</value> <describe>недоступен канал связи</describe> </allowedValue> </allowedValueList> </stateVariable> <stateVariable> <name>NMEA_DATA</name> <friendlyName>текущие координаты</friendlyName> <dataType>struct</dataType> <struct> <stateVariable> <name>GGA</name> <friendlyName>Global Positioning System Fixed Data</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable> <name>GSA</name> <friendlyName>GNSS DOP and Active Satellites</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable> <name>RMC</name> <friendlyName>Recommended Minimum Specific GNSS Data</friendlyName> <dataType>string</dataType> </stateVariable> </struct> </stateVariable> <stateVariable sendEvents=\"YES\"> <name>SPEED</name> <friendlyName>текущая скорость (км/ч)</friendlyName> <dataType>double</dataType> </stateVariable> <stateVariable> <name>CURRENT_XYZ</name> <friendlyName>текущие координаты</friendlyName> <dataType>struct</dataType> <struct> <stateVariable> <name>latitude</name> <friendlyName>широта</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable> <name>longitude</name> <friendlyName>долгота</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable> <name>altitude</name> <friendlyName>высота</friendlyName> <dataType>string</dataType> </stateVariable> </struct> </stateVariable> <stateVariable> <name>DATETIME</name> <friendlyName>дата время</friendlyName> <dataType>struct</dataType> <struct> <stateVariable> <name>DT</name> <friendlyName>строка даты и времени</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable> <name>FORMAT</name> <friendlyName>формат</friendlyName> <dataType>string</dataType> </stateVariable> </struct> </stateVariable> </serviceStateTable> </scpd>\r\n\r\n", opts->r_uuid);
         }
 //        else if(0 == strcasecmp(p, "WEB")) {
 //            _sendbuflen = sprintf(_sendbuf, xmls[XML_WEB], opts->r_uuid);
@@ -1026,6 +1046,17 @@ do_action(options_t *opts, xml_tag_t *params)
     arglist = xml_find_tag(action, "argumentList", 1);
     if(NULL == arglist) {
         d_log("Malformed action packet (NO ARGLIST)\n");
+        if(0 == strcasecmp(name->content, "clearOutQueue")) {
+            clear_out_queue(opts->get_single_sms);
+            save_sms_struct("/data/smsstruct.dat", opts->get_single_sms, UPVS_SMS_LEN);
+            _sendbuflen = sprintf(_sendbuf,
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                "<body urn=\"%s\">\n"
+                    "<action>\n"
+                        "<name>clearOutQueue</name>\n"
+                    "</action>\n"
+                "</body>\r\n\r\n", urn
+            );}
         return;
     }
 
@@ -1065,16 +1096,26 @@ do_action(options_t *opts, xml_tag_t *params)
             snprintf(ttl, sizeof(ttl), arg_param(sms_ttl));
         }
         printf("Phone: %s\nText: %s\nPriority: %s\nTTL: %s\n\n", phone_num, sms_data, priority, ttl);
-        int res = send_upvs_sms(phone_num, sms_data, strlen(sms_data), 0);
-        int sms_ind;
+        //send_at_cmd("AT+CSQ\0", opts);
+        printf("Rssi: %d\n", opts->rssi_val);
+        int res = -1;
+        pthread_mutex_lock(&opts->mutex_sms);
+        if (opts->rssi_val < 0 && opts->rssi_val > -70)
+        {
+            res = send_upvs_sms(phone_num, sms_data, strlen(sms_data), 0);
+        }
+        printf ("%s", res == 0 ? "SENDED\n" : "QUEUE\n");
+        int sms_ind = -1;
         SingleSMS_status status;
         if (res == 0){
             status = SSMS_SENDED;
-            sms_ind = sms_add(phone_num, sms_data, ttl, priority, opts, SSMS_SENDED);
+            sms_ind = sms_add(phone_num, sms_data, ttl, priority, opts, status);
         } else {
             status = SSMS_QUEUE;
-            sms_ind = sms_add(phone_num, sms_data, ttl, priority, opts, SSMS_QUEUE);
+            sms_ind = sms_add(phone_num, sms_data, ttl, priority, opts, status);
         }
+        pthread_mutex_unlock(&opts->mutex_sms);
+        //printf ("SMS index %d\n", sms_ind);
         //int sms_ind = sms_add(phone_num, sms_data, ttl, priority, opts, SSMS_SENDED);
         if(sms_ind != -1){
             _sendbuflen = sprintf(_sendbuf,
@@ -1100,7 +1141,34 @@ do_action(options_t *opts, xml_tag_t *params)
         get_sms_index = xml_find_tag(arglist, "index", 1);
         snprintf(sms_index, sizeof(sms_index), arg_param(get_sms_index));
         int res = get_sms_by_xml(atoi(sms_index), opts, opts->one_sms.phone, opts->one_sms.text, opts->one_sms.ttl, opts->one_sms.priority);
-
+        if(res == 0){
+            _sendbuflen = sprintf(_sendbuf,
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                "<body urn=\"%s\">\n"
+                    "<action>\n"
+                        "<name>getSMS</name>\n"
+                        "<argumentList>\n"
+                            "<SMS>\n"
+                                "<struct>\n"
+                                    "<data>\n"
+                                        "<value>%s</value>\n"
+                                    "</data>\n"
+                                    "<callNumber>\n"
+                                        "<value>%s</value>\n"
+                                    "</callNumber>\n"
+                                    "<priority>\n"
+                                        "<value>%s</value>\n"
+                                    "</priority>\n"
+                                    "<ttl>\n"
+                                        "<value>%s</value>\n"
+                                    "</ttl>\n"
+                                "</struct>\n"
+                            "</SMS>\n"
+                        "</argumentList>\n"
+                    "</action>\n"
+                "</body>\r\n\r\n", urn,  opts->one_sms.text, opts->one_sms.phone, opts->one_sms.priority, opts->one_sms.ttl
+            );
+        }
     } else if(0 == strcasecmp(name->name, "setodometervalue")) {
     }
 
@@ -1695,6 +1763,10 @@ static void* tcp_web_thread_main(void* arg)
     }*/
     nwy_sms_add_mtmessage_handler(test_sms_evt_handler, NULL);    //Добавить обработчик события получения смс
     Read_smsFrom_txt("sms_memory.txt\0", opts);
+    load_sms_struct("/data/smsstruct.dat",opts->get_single_sms, UPVS_SMS_LEN);
+    count_sms(opts->get_single_sms);
+
+
     int count_to_save_sms = 0;
     //Работа с клиентом
     while (1)
@@ -1837,7 +1909,9 @@ static void* tcp_web_thread_main(void* arg)
                 strcat(fullpath, opts->web_dir_i_path);   //собираем адрсс из PATH в neowayhelper.conf
                 strcat(fullpath, "/");                    //слэша
                 strcat(fullpath, "sysconf.txt");               //и имени файла
+                #ifdef WEBPOSTGETINCONSOLE
                 printf("Fopen: %s\n", fullpath);
+                #endif
                 fp = fopen(fullpath, "wb");
                 if (NULL == fp) {
                     //perror("fopen()");
@@ -1914,7 +1988,15 @@ static void* tcp_web_thread_main(void* arg)
             switch (user_id)
             {
             case 0:
-                if (!strcmp(fullfileadrr, "index.html\0") || !strcmp(filetype, "ico\0") || !strcmp(filetype, "png\0") || !strcmp(fullfileadrr, "blocked.html\0") || !strcmp(fullfileadrr, "login.js\0") || !strcmp(fullfileadrr, "picnic.css\0") || !strcmp(fullfileadrr, "sms_memory.txt"))
+                if (!strcmp(fullfileadrr, "index.html\0") ||
+                    !strcmp(filetype, "ico\0") ||
+                    !strcmp(filetype, "png\0") ||
+                    !strcmp(fullfileadrr, "blocked.html\0") ||
+                    !strcmp(fullfileadrr, "login.js\0") ||
+                    !strcmp(fullfileadrr, "picnic.css\0") ||
+                    !strcmp(fullfileadrr, "sms_memory.txt") ||
+                    !strcmp(fullfileadrr, "Keyboard.js") ||
+                    !strcmp(fullfileadrr, "Keyboard.css"))
                 {
                     d_log("Guest Ok\n");
                 }
@@ -2350,7 +2432,9 @@ static void* tcp_web_thread_main(void* arg)
                 strcat(fullpath, opts->web_dir_i_path);   //собираем адрсс из PATH в neowayhelper.conf
                 strcat(fullpath, "/");                    //слэша
                 strcat(fullpath, fullfileadrr);               //и имени файла
+                #ifdef WEBPOSTGETINCONSOLE
                 d_log("Fopen: %s\n", fullpath);
+                #endif
                 sFile = fopen(fullpath, "r");
                 if (sFile == NULL) {
                     d_log("File open: Error\n");
@@ -2875,9 +2959,10 @@ main(int argc, char* argv[])
         uart_read_thread_main,
         uart_write_thread_main,
         network_thread_main,
-        tcp_web_thread_main,
-        watchdog_thread_main,
-        try_send_sms_from_queue
+        //tcp_web_thread_main,
+        watchdog_thread_main//,
+        //out_from_queue//
+        //try_send_sms_from_queue
     };
 
     options_init(&opts);
