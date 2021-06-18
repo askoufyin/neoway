@@ -133,10 +133,10 @@ process_command(options_t *opts, char *buffer) {
                 //strcpy(opts->nmea_rmc, nm);
                 printf("3. %s\n", opts->nmea_rmc);
             }
-            pthread_mutex_lock(&opts->mutex);
+            //pthread_mutex_lock(&opts->mutex);
             nmea_parse(reply+_gps_prefix_len, &opts->last_nmea_msg);
             //printf("%.2f, %.2f alt %.2f\n", opts->last_nmea_msg.gga.latitude, opts->last_nmea_msg.gga.longitude, opts->last_nmea_msg.gga.altitude);
-            pthread_mutex_unlock(&opts->mutex);
+            //pthread_mutex_unlock(&opts->mutex);
         }
 
         if(NULL != status) {
