@@ -6,7 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Вход в систему</title>
     <link rel="stylesheet" href="picnic.css">
-	<script src = "login.js"></script>
+	<link rel="stylesheet" href="Keyboard.css">
+	<script src="login.js"></script>
+  <script src="Keyboard.js"></script>
   </head>
   <body>
     <div class="flex center middle" >
@@ -23,11 +25,11 @@
           <fieldset>
             <div class="pure-control-group">
 				  <label for="username">Логин:</label>
-                  <input id="username" type="text" placeholder="username">
+                  <input id="username" type="text" placeholder="username" class="use-keyboard-input">
             </div>
             <div class="pure-control-group">
                   <label for="password">Пароль:</label>
-                  <input id="password" type="password" placeholder="password">
+                  <input id="password" type="password" placeholder="password" class="use-keyboard-input">
             </div>
             <div class="center" >
               <p id ="msg" style="color:#dd2525"></p>
