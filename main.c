@@ -650,9 +650,30 @@ querySMSvar(options_t* opts, xml_tag_t *tag)
     //pthread_mutex_unlock(&opts->mutex_modem);
     if (opts->rssi_val != 0)
     {
-        _sendbuflen += sprintf(_sendbuf+_sendbuflen,
-            "<value>%d</value>", 4
-        );
+        if (opts->rssi_val >= -50 && opts->rssi_val < -30) {
+            _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+                "<value>%d</value>", 25
+            );
+        }
+        else if (opts->rssi_val >= -70 && opts->rssi_val < -50) {
+            _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+                "<value>%d</value>", 20
+            );
+        }
+        else if (opts->rssi_val >= -85 && opts->rssi_val < -70) {
+            _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+                "<value>%d</value>", 16
+            );
+        }
+        else if (opts->rssi_val > -110 && opts->rssi_val < -85) {
+            _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+                "<value>%d</value>", 11
+            );
+        } else if (opts->rssi_val <= -110){
+            _sendbuflen += sprintf(_sendbuf+_sendbuflen,
+                "<value>%d</value>", 4
+            );
+        }
     } else {
         _sendbuflen += sprintf(_sendbuf+_sendbuflen,
             "<value>0</value>"
