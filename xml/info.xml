@@ -25,6 +25,10 @@
                 <serviceType>GPS/ГЛОНАСС</serviceType>
                 <serviceID>4</serviceID>
             </service>
+            <service>
+                <serviceType>WEB</serviceType>
+                <serviceID>WEB</serviceID>
+            </service>
         </serviceList>
     </device>
 </root>

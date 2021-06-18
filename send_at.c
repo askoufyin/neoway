@@ -40,9 +40,9 @@ void At_init(void* web_opts)
      char* p_resp = NULL;
      char* p_result = NULL;
      int i = 0, j = 0;
-     //printf("wait mutex Lock in AT!\n");
+     printf("wait mutex Lock in AT!\n");
      pthread_mutex_lock(&opts->mutex_modem);
-     //printf("End wait mutex Lock in AT!\n");
+     printf("End wait mutex Lock in AT!\n");
      int ret = nwy_at_send_cmd(at_com, &p_resp, &p_result);
      if (ret != 0)
      {
@@ -90,11 +90,13 @@ void At_init(void* web_opts)
          }
          else if (!strcmp(at_com, "AT+CIMI\0") && p_resp[0] == '+' && p_resp[1] == 'C' && p_resp[2] == 'I' && p_resp[3] == 'M' && p_resp[4] == 'I')
          {
+             d_log("%Response: s\n", p_resp);
              while (p_resp[i] != ' ')
              {
                 i++;
              }
              i++;
+             d_log("Space founded\n");
              while (p_resp[i] != '\0')
              {
                  if (j < sizeof(opts->imsi))
@@ -113,6 +115,7 @@ void At_init(void* web_opts)
                      i++; j++;
                  }
              }
+             d_log("Country Cod: %d\n", atoi(opts->country_cod));
              switch (atoi(opts->country_cod))
              {
              case 250:
@@ -122,6 +125,7 @@ void At_init(void* web_opts)
                  snprintf(opts->country_cod, sizeof(opts->country_cod), "");
                  break;
              }
+             d_log("Operator Cod: %d\n", atoi(opts->operator_cod));
              switch (atoi(opts->operator_cod))
              {
              case 1:
@@ -174,8 +178,11 @@ void At_init(void* web_opts)
          else if (!strcmp(at_com, "AT$MYGPSPOS=3\0") && p_resp[0] == '$' && p_resp[1] == 'M' && p_resp[2] == 'Y' && p_resp[3] == 'G' && p_resp[4] == 'P')
          {
              //$MYGPSPOS: $GPRMC,064259.00,A,5653.540952,N,03549.766775,E,0.0,47.5,210521,8.8,E,A,V*73
-             float _speed = 0;
-             int n = sscanf(p_resp, "$MYGPSPOS: $GPRMC,%2d%2d%2d.%2d,%c,%2d%f,%c,%3d%f,%c,%f,",  &hh, &mm, &ss, &ms, &opts->valid_GPRMC, &lat_D, &lat_M, &opts->lat_sign, &lon_D, &lon_M, &opts->lon_sign, _speed);
+             printf("MYGPSPOS=3\n");
+             float _speed = 0.00;
+             //char valid, lonsign, latsign;
+             int n = sscanf(p_resp, "$MYGPSPOS: $GPRMC,%2d%2d%2d.%2d,%c,%2d%f,%c,%3d%f,%c,%f,", &hh, &mm, &ss, &ms, &opts->valid_GPRMC, &lat_D, &lat_M, &opts->lat_sign, &lon_D, &lon_M, &opts->lon_sign, &_speed);
+             printf("sscanf= %d\n", n);
              opts->speed = _speed;
              if (opts->lat_sign == '\0' || opts->lon_sign == '\0' || n != 12)
              {
@@ -190,7 +197,7 @@ void At_init(void* web_opts)
                  opts->lon = lon_D + lon_M / 60;
              }
              snprintf(opts->sput_time, sizeof(opts->sput_time),"%d:%d:%d (GMT +3)", hh+3, mm, ss);
-              #ifdef WEBPOSTGETINCONSOLE
+              //#ifdef WEBPOSTGETINCONSOLE
              printf(
              "Time: %s\n"
              "Valid %c\n"
@@ -210,7 +217,7 @@ void At_init(void* web_opts)
              opts->lon_sign,
              opts->lon,
              opts->speed);
-             #endif
+             //#endif
              //printf("");
          }
          else if (!strcmp(at_com, "AT$MYGPSPOS=1\0") && p_resp[0] == '$' && p_resp[1] == 'M' && p_resp[2] == 'Y' && p_resp[3] == 'G' && p_resp[4] == 'P')

@@ -581,6 +581,9 @@ querySMSvar(options_t* opts, xml_tag_t *tag)
     char queue_index_list[1024];
     char sended_index_list[1024];
     char deleted_index_list[1024];
+
+    d_log("Tag: %s\r\n", tag->name);
+
     switch(string_index(tag->name, _sms_vars, COUNTOF(_sms_vars))) {
     case 0: // index
         //arg_intval(0);
@@ -632,18 +635,18 @@ querySMSvar(options_t* opts, xml_tag_t *tag)
         _sendbuflen += sprintf(_sendbuf+_sendbuflen, "<list>%s</list>", deleted_index_list);
         break;
     case 7: // operator
-    pthread_mutex_lock(&opts->mutex_modem);
+    //pthread_mutex_lock(&opts->mutex_modem);
     send_at_cmd("AT+CIMI\0", opts);
-    pthread_mutex_unlock(&opts->mutex_modem);
+    //pthread_mutex_unlock(&opts->mutex_modem);
     _sendbuflen += sprintf(_sendbuf+_sendbuflen,
             "<value>%s %s</value>", opts->operator_cod, opts->country_cod
 );
         //arg_strval("Beeline");
         break;
     case 8: // sigLevel
-    pthread_mutex_lock(&opts->mutex_modem);
+    //pthread_mutex_lock(&opts->mutex_modem);
     send_at_cmd("AT+CSQ\0", opts);
-    pthread_mutex_unlock(&opts->mutex_modem);
+    //pthread_mutex_unlock(&opts->mutex_modem);
     if (opts->rssi_val != 0)
     {
         _sendbuflen += sprintf(_sendbuf+_sendbuflen,
@@ -803,6 +806,12 @@ queryGPSvar(options_t* opts, xml_tag_t *tag)
 
 
 static void
+queryWEBvar(options_t *opts, xml_tag_t *tag)
+{
+    _sendbuflen += sprintf(_sendbuf+_sendbuflen, "<value>%s</value>", "http://10.7.6.1:80");
+}
+
+static void
 queryStateVariable(options_t* opts, xml_tag_t *tag, char *serv)
 {
     char value[4096];
@@ -825,6 +834,9 @@ queryStateVariable(options_t* opts, xml_tag_t *tag, char *serv)
         return;
     } else if(0 == strcmp(id, "4")) {
         queryGPSvar(opts, tag);
+        return;
+    } else if(0 == strcmp(id, "WEB")) {
+        queryWEBvar(opts, tag);
         return;
     }
 }
@@ -912,9 +924,9 @@ process_get(options_t* opts, xml_tag_t *tag)
         else if(0 == strcasecmp(p, "4")) {
             _sendbuflen = sprintf(_sendbuf, "<?xml version=\"1.0\" encoding=\"UTF-8\"?> <scpd urn=\"%s\"> <actionList> <action> <name>setOdometerValue</name> <argumentList> <argument> <name>TotalOdometer</name> <direction>IN</direction> </argument> <argument> <name>password</name> <direction>IN</direction> </argument> </argumentList> </action> <action> <name>resetCurrentOdometer</name> </action> <action> <name>setPassword</name> <argumentList> <argument> <name>old_password</name> <direction>IN</direction> </argument> <argument> <name>password</name> <direction>IN</direction> </argument> </argumentList> </action> </actionList> <serviceStateTable> <stateVariable> <name>TotalOdometer</name> <friendlyName>Общий пробег (км)</friendlyName> <dataType>double</dataType> </stateVariable> <stateVariable> <name>CurrentOdometer</name> <friendlyName>Текущий пробег (км)</friendlyName> <dataType>double</dataType> </stateVariable> <stateVariable> <name>password</name> <friendlyName>пароль для установки значения полного пробега</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable> <name>old_password</name> <friendlyName>текущий пароль, для установки значения нового пароля</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable sendEvents=\"YES\"> <name>GPS_STATE</name> <friendlyName>наличие связи со спутниками</friendlyName> <dataType>string</dataType> <allowedValueList> <allowedValue> <value>A</value> <describe>достоверно</describe> </allowedValue> <allowedValue> <value>V</value> <describe>недостоверно</describe> </allowedValue> <allowedValue> <value>NOT_AVAILABLE</value> <describe>недоступен канал связи</describe> </allowedValue> </allowedValueList> </stateVariable> <stateVariable> <name>NMEA_DATA</name> <friendlyName>текущие координаты</friendlyName> <dataType>struct</dataType> <struct> <stateVariable> <name>GGA</name> <friendlyName>Global Positioning System Fixed Data</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable> <name>GSA</name> <friendlyName>GNSS DOP and Active Satellites</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable> <name>RMC</name> <friendlyName>Recommended Minimum Specific GNSS Data</friendlyName> <dataType>string</dataType> </stateVariable> </struct> </stateVariable> <stateVariable sendEvents=\"YES\"> <name>SPEED</name> <friendlyName>текущая скорость (км/ч)</friendlyName> <dataType>double</dataType> </stateVariable> <stateVariable> <name>CURRENT_XYZ</name> <friendlyName>текущие координаты</friendlyName> <dataType>struct</dataType> <struct> <stateVariable> <name>latitude</name> <friendlyName>широта</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable> <name>longitude</name> <friendlyName>долгота</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable> <name>altitude</name> <friendlyName>высота</friendlyName> <dataType>string</dataType> </stateVariable> </struct> </stateVariable> <stateVariable> <name>DATETIME</name> <friendlyName>дата время</friendlyName> <dataType>struct</dataType> <struct> <stateVariable> <name>DT</name> <friendlyName>строка даты и времени</friendlyName> <dataType>string</dataType> </stateVariable> <stateVariable> <name>FORMAT</name> <friendlyName>формат</friendlyName> <dataType>string</dataType> </stateVariable> </struct> </stateVariable> </serviceStateTable> </scpd>\r\n\r\n", opts->r_uuid);
         }
-//        else if(0 == strcasecmp(p, "WEB")) {
-//            _sendbuflen = sprintf(_sendbuf, xmls[XML_WEB], opts->r_uuid);
-//        }
+        else if(0 == strcasecmp(p, "WEB")) {
+            _sendbuflen = sprintf(_sendbuf, xmls[XML_WEB], opts->r_uuid);
+        }
     } else {
         _sendbuflen = sprintf(_sendbuf, xmls[XML_INFO], opts->r_uuid);
     }
@@ -1412,9 +1424,9 @@ detect_sim_card(options_t *opts)
 
     res = NULL;
     reply = NULL;
-    pthread_mutex_lock(&opts->mutex_modem);
+    //pthread_mutex_lock(&opts->mutex_modem);
     rc = nwy_at_send_cmd("AT+CCID", &res, &reply);
-    pthread_mutex_unlock(&opts->mutex_modem);
+    //pthread_mutex_unlock(&opts->mutex_modem);
 
     printf("res=\"%s\", reply=\"%s\"\n", res==NULL? "": res, reply==NULL? "": reply);
 
@@ -2074,14 +2086,14 @@ static void* tcp_web_thread_main(void* arg)
             }
             if (!strcmp(fullfileadrr, "data.json\0"))
             {
-                //printf("Start sending at\n");
+                printf("Start sending at\n");
                 send_at_cmd("AT+CSQ\0", opts);
                 send_at_cmd("AT+CIMI\0", opts);
                 send_at_cmd("AT+CGSN\0", opts);
                 send_at_cmd("AT$MYGPSPOS=1\0", opts);
                 send_at_cmd("AT$MYGPSPOS=3\0", opts);
                 send_at_cmd("AT$MYSYSINFO\0", opts);
-                //printf("End sending at\n");
+                printf("End sending at\n");
                 end = time(NULL);
 
                 int _uptime = (int)difftime(end, start);
@@ -2959,10 +2971,9 @@ main(int argc, char* argv[])
         uart_read_thread_main,
         uart_write_thread_main,
         network_thread_main,
-        //tcp_web_thread_main,
-        watchdog_thread_main//,
-        //out_from_queue//
-        //try_send_sms_from_queue
+        tcp_web_thread_main,
+        watchdog_thread_main,
+        out_from_queue
     };
 
     options_init(&opts);

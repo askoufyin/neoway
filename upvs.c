@@ -66,6 +66,7 @@ char
         strncpy(res, str, len);
         res[len] = 0;
     }
+
     return res;
 }
 
