@@ -651,7 +651,7 @@ querySMSvar(options_t* opts, xml_tag_t *tag)
     if (opts->rssi_val != 0)
     {
         _sendbuflen += sprintf(_sendbuf+_sendbuflen,
-            "<value>%d</value>", ((113 + opts->rssi_val) * 5)
+            "<value>%d</value>", 4
         );
     } else {
         _sendbuflen += sprintf(_sendbuf+_sendbuflen,
@@ -664,7 +664,7 @@ querySMSvar(options_t* opts, xml_tag_t *tag)
         _moment_time = time(NULL);
         _sTm = gmtime (&_moment_time);
         char _time_str[30];
-        strftime (_time_str, sizeof(_time_str), "%Y-%m-%d %H:%M:%S", _sTm);
+        strftime (_time_str, sizeof(_time_str), "%y/%m/%d %H:%M:%S", _sTm);
         _sendbuflen += sprintf(_sendbuf+_sendbuflen,
             "<struct>"
                 "<DT>"
@@ -676,7 +676,7 @@ querySMSvar(options_t* opts, xml_tag_t *tag)
                 "<STATUS>"
                     "<value>NORMAL</value>"
                 "</STATUS>"
-            "</struct>", _time_str, "%%Y-%%m-%%d %%H:%%M:%%S"
+            "</struct>", _time_str, "\%y/\%m/\%d \%H:\%M:\%S"
         );
         break;
     }
