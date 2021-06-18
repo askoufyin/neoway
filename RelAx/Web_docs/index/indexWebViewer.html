@@ -31,14 +31,14 @@
             width: 25px;
             height: 25px;
             border-radius: 10%;
-            background: #50bbb4;
+            background: #dddddd;
             cursor: pointer;
         }
         .slider::-moz-range-thumb {
             width: 25px;
             height: 25px;
             border-radius: 10%;
-            background: #50bbb4;
+            background: #ddddd;
             cursor: pointer;
         }
     </style>
@@ -67,8 +67,6 @@
             document.getElementById('slaveip').value = '10.200.1.' + i;
         };
 
-
-
         function getDataJSON() {
             var x = new XMLHttpRequest();
             x.open('GET', '/data.json');
@@ -89,6 +87,9 @@
                     document.getElementById('carrige_mileage').innerHTML = obj.carrige_mileage;
                     document.getElementById('last_mileage').innerHTML = obj.last_mileage;
                     document.getElementById('power_type').innerHTML = obj.power_type;
+					document.getElementById('gsm_ip').innerHTML = obj.gsm_ip_state;
+					document.getElementById('gsm_time').innerHTML = obj.gsm_time;
+					document.getElementById('speed').innerHTML = obj.speed * 1,852;
                 }
             };
             x.send();
@@ -246,7 +247,7 @@
                 cln.getElementsByClassName("SMS-name")[0].innerHTML = "SMS[" + i + "]";
                 //cln.className = "flex two obj" + i + " pure-control";
                 cln.id = "Send"+i;
-
+                cln.getElementsByClassName("pure-button")[0].id = "S_del_but " +i;
                 //gelements_send[i] = cln;
                 //monitor_update_item(gelements[i], gdata["coup"][i]);
             }
@@ -256,7 +257,7 @@
                 cln.getElementsByClassName("text-n")[0].innerHTML = obj.queue[i];
                 cln.getElementsByClassName("SMS-name")[0].innerHTML = "SMS[" + i + "]";
                 cln.id = "Queue"+i;
-
+                cln.getElementsByClassName("pure-button")[0].id = "Q_del_but " +i;
                 //gelements_send[i] = cln;
                 //monitor_update_item(gelements[i], gdata["coup"][i]);
             }
@@ -266,7 +267,7 @@
                 cln.getElementsByClassName("text-n")[0].innerHTML = obj.recved[i];
                 cln.getElementsByClassName("SMS-name")[0].innerHTML = "SMS[" + i + "]";
                 cln.id = "Recv"+i;
-
+                cln.getElementsByClassName("pure-button")[0].id = "R_del_but " +i;
                 //gelements_send[i] = cln;
                 //monitor_update_item(gelements[i], gdata["coup"][i]);
             }
@@ -276,7 +277,8 @@
                 cln.getElementsByClassName("text-n")[0].innerHTML = obj.deleted[i];
                 cln.getElementsByClassName("SMS-name")[0].innerHTML = "SMS[" + i + "]";
                 cln.id = "Del"+i;
-
+                cln.getElementsByClassName("pure-button")[0].id = "D_del_but " +i;
+                cln.getElementsByClassName("pure-button")[0].innerHTML = "Удалить навсегда";
 
                 //gelements_del[i] = cln;//monitor_update_item(gelements[i], gdata["coup"][i]);
             }
@@ -316,6 +318,27 @@
             nesne.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
             nesne.send("SMS_send\n" + phone_num + " " + SMS_text);
         }
+
+        function Mileage_reset() {
+            nesne.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {}
+              };
+
+            nesne.open("post", "", true);
+            nesne.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+            nesne.send("Mileage_reset\n");
+        }
+        function GetGSM() {
+            nesne.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {}
+              };
+
+            nesne.open("post", "", true);
+            nesne.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+            nesne.send("Mileage_reset\n");
+        }
+
+
         function del_sms(id) {
             nesne.onreadystatechange = function() {
             if (this.readyState == 4 && this.status == 200) { }
@@ -398,7 +421,6 @@
 <body onload="Start_Init(); getDataJSON(); getLogJSON(); getSMSData();"> <!--getDataJSON(); getLogJSON(); getSMSData();-->
     <div class="flex center middle">
         <br>
-        <h1>Добро пожаловать в панель управления!</h1>
     </div>
     <div class="flex three">
 
@@ -407,18 +429,16 @@
                 src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMQAAAA9CAYAAADyO8a6AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyFpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuNi1jMTQyIDc5LjE2MDkyNCwgMjAxNy8wNy8xMy0wMTowNjozOSAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENDIChXaW5kb3dzKSIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDoxNkVBM0UxNDQzMUIxMUU5OTVBQ0JEMkI3NDg4ODYxNiIgeG1wTU06RG9jdW1lbnRJRD0ieG1wLmRpZDoxNkVBM0UxNTQzMUIxMUU5OTVBQ0JEMkI3NDg4ODYxNiI+IDx4bXBNTTpEZXJpdmVkRnJvbSBzdFJlZjppbnN0YW5jZUlEPSJ4bXAuaWlkOjE2RUEzRTEyNDMxQjExRTk5NUFDQkQyQjc0ODg4NjE2IiBzdFJlZjpkb2N1bWVudElEPSJ4bXAuZGlkOjE2RUEzRTEzNDMxQjExRTk5NUFDQkQyQjc0ODg4NjE2Ii8+IDwvcmRmOkRlc2NyaXB0aW9uPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiA8P3hwYWNrZXQgZW5kPSJyIj8+WQNehgAACrJJREFUeNrsnX+UVVUVx/e7jDADYiw0f0BQ4yzIlHCUFEQNlcrSBrDxB5qpSy3Nfq90ZatW2uqvVvyhoiup0Up0mVkiglbir/wVCoKgohHKj/iRAjUqIA34Xvs7d9/lY9a8eXefc+7c8+59e63NLNY7595z7j2f82vvs29hxqKFlEMZwno96w9Z96ZUhgbWg1iHs45gPVDKFbC+x9rJupF1O+tW1v/1U7kaWX/Ceh3rnrw1jAaH18KLnCMv9f0qafdjfYL11hTqPIj1H6wjWaewnhCjvC5kAGsz61TWdtZTlc9/JeufWB9kfYV1dwJlxHtZwTqW9XOsE/vp2fSUa1gnxAASz3Qz69WublxwOEI0KHuUF1g/lQIMrwsMkSxJGIoPs14kve4BDq+Lzucm1lUOYXhZYIhkOetxKUCBRn6YsjMuuerVXQkKtEOR/tUUYFjbAwaSF/6c9DYupYV1HutbrLMcwwC5QkaKZTLSFSxheKUHDJBjWJcm8GyqyQpF2tdd3jigfEgEQ6VeZ4JDKLAm+C3rGtYZ/VC3Y2T6CTCONIQBndOYCr+3pgRFKhLUYdgHiiWWL/7Lsgi+OIV6tkovP0sauQaGlhjXXpYHKIIcwLBeMR+NpgjazYYm1r+y3ulBnb9P4Q7V4VXSDZTNhZaY1x3P+mLWoQhyAMMhBj3tHsWcfDTrLgp3ZXyRwTK3/kKF39GosY3brLzuuKxDkVUgsJe+wQCGSNpj7lp8UqDzVR6i3nfyiqxfNbwmoFiZVSiCjMKARnqwYf6TWe+Lke5oaRg+y68p3DrtKYC9w2LRj8X7y+TWjlUHIiEY/mUJw9Mx0jXL1MFnuYf1a9S3DWE+63TD6x/B+lLWoGjIIAwHGeY/ifWZGOn2Z33DUZmflcU47ruN9V2ZzmANcKCsZ6YaNNpFrDNjpn1Arj/fEArsbB1F6bnA1IGosIDeRKENIEkYILaWYYwsP2V9jPWdKmmfYp0t9QMc18aY5mDr+HRlmQDFNPmrlbFZgiLICAzrLWA4UQEDHN5GGd7nNWnU2Nq9PwYM5YIdIRgOz6LQEbDS9u5q1klk5sawQKAgQyhWZaGDDTIAg81u0okybYkjcPm43vA+F8lCdIWDOm9h/QqFLifl8iaFO0BFi2sDijbDvGMEiv3qQKS3ZthgsYDWwBBNX0wEBrK55Mj5rEyWylpjm/z/Y+TGXXuhJRSv1jIUDdLLDojRswQyR+zKwAJ6MuvfFemx+6Q1YnXK9GpHgs/hPRm58DxcuoMDijMpdDXXSotA8Qny4zzFIIrnDdvdvvEPzPc75eH2pTuVPaqvMJyghIFkzq+VkQnDEEmXcj0SV2DUO8Mwb4u0q7RHioLMInbFbN9PA4iBihukbZ1scgDDYmWeVoMF+yHyEmpd/sz6ecO8zZ5AoVnoNwCI7YoMb6cMw8Z+hgFygzI95t9vUXYEdpLTLaEYmGL5Ne27s1YW1REMw/sZBhjhpijSPyfz76zJw2TuvAgoXksZitgS1AgMmy1gmGQIA+Q0ZfpplF2B9fuzWYciqBEYhhnmnyi9tqlcqki7IGNTpd7kkaxD4TMQ2GP/twUMx7M+b3F/bCBofIh+QPkQQDHVAorVPkMReAwDLLKmB/NhxV1iWQaN9Xu39H55kccsoPioz1AEnsLwpgUMOBCz1EE5WhRpEV+qRPkSWyjW+AhF4CkM+xvmR6CAFxyV5eOKtLkMfyhQnGaYd5SPUASewbDVAoZjKYwM4UoOV6T9J+VXHreE4g2foAg8ufcQgWGw4bXgUr3ccflGKNK+TfkWQHGqYV64uKyj0Oco10BEjl/wVv2PIQzrZa6fxHFOze5WF9XlCQrPmZtsPSNM0IayZ17MIxDRWd8vWgyZW8jdcc6eovGBKdV56JaV0rmZCDrGk3u0jVwB0Sh/b2f9nuE1YIW+N6HyaZzzBtRZ6PYshYvHEYb5L6PQuElpTp/SBKJ8WIQD3XcNr3M2he7ZBcfl26pI21SHgZ4kcyv2pdIxUp6nTD3lRtZvG+aFRXmeYyg2KNIeWoehO1CDKQy/8aUyvtkhZnsEhWYrdUJOYQgsYbjEJxh8BCKC4lsWUMx3BMVqZS+XRxj+ZgEDIqT/zsdK+Sg3s37TMG+bIyg0MVs/nbN1BNrNUxYwIGrIHb5WzFe5hfWqFKFAFL0tivTtOYNhsgUMd/pcOZ/ll5ZQLLCEokNZ1kIdhj7lQp9hqAUgoob2dcO8Z1pC8XtFWvhgnVuHoaJcwHpXLVSyFuTWlKBAfKGiEqBBdRh6heHuWqko5QSK+wzywSXjx8o8CzIIwzMWMJxfKzBElR2nSD/FAyiuNMyLqNkmFu2blelhrf1OxmCYZJh/pnLamYSM0bRvOLDBh+Rgqu6ghobkw+ej5khZ5xjkjewU0ym+Q967shC8UHEfuKLA0j2vxmFApMaJFjDck3Id8I7xPe/hMdv3OgBxew2+rF+VwaGVNgMorlICQTJFQ9TvuQk/C3xYEYeZbqnD0GdbydwaoreKXmGYV7sli1HiOoP7wPgEH62kvpsASB+SaV2bQxgWW8BwnkcwZHpRXQkK069pYqG9UAHFz8jMCxO+WTgn3uqw3jhQ83CP0Qdf/znFEQzHWcDwh1pfNNW6dFhAcYb0sHGgKCkXaOWCOSyOuCJO6lFkbheBV+0vKAze1pur9eMWjRlt4fk8w5AVIGyhQHTrv8RspDidd6VFOREfFZ+zhSftNyiM7NHYx70ROXuUNDY40sGV5Ooq90CjPtKgHSB0j6nX7rlZgIEoW18h7aAPvr9s0lCjKNfVFtpYyJ9ksMgulxbadzsXIf5xLnyb3B8xqXDybJzh9fERRETJWxcj7QCBodUChnuz0oiy9uHt26RB3WaQF1OQKKBvNSiwe4SdncmOyj2KzD/mWEnWUhg5ZEuCMJzD+scsNaCsfbgdgm3kywzzIhLdozGmTwAGB+Kf9fxZbKbKnwJDZ7isDkP2gYigMD20g/hCnTGgKMrUyffpQleFkQFhgMbXYcgHEBAcTbzEMO+PYqYryRz6Gg/rD+MjwvtsqgDztYbXbc8qDFkHAoIjihcr88yQBa8m1tIsMjdkJSGXSz329AHyzyk8rKORL5GZk2QdCI/kDlkEx5Fp0rOaCLY7EX1wdop1XSyL87ibCvDRuiBm2rOotn2z6kCUydwYvSFgsHXdxuddYZkeS6HdoL8EO0mfofBbehuVeeGafX6MUfP+PDSUIMXr9TeMfXmstpHbcwwwvJ1CoYEsyfk2RgTYUD5C4e6YqcBFe2aF36ZbjJo1145cXqxAuoDFrSl0AHf1MkVAbNmkvu+AE3fYkRkuDe5JB9dEeByE6RkpI8IichPpDg555/Uyaj6Qwns6XpG22dldiyWnhrm9FBqr4G5QLVgttv06UxoV7xZwO6T3e7Af7vlfaXBQnL2GpRp2jPHyd3QvnclemQrB1gErNo5w4pvP2ym54Mpwv2iUzYh241GzwH3jQG4GXbymLxbD/+sEI+vQmO1ot/p5lEphmYYOoULTICqhnLt2U+FDQ6kwY1FeP37TbcXd7NHUFR1J1EGhIeyRnj+NyOKHkS4Ez74wDG4i2rmLaBi36fe5Cu/s+OC3tAWADjuAQWik0vJVVFy7iQrNI6kwegSV1qyn/wswACqJNtsGZ2ybAAAAAElFTkSuQmCC" />
         </div>
 
-        <div class="tabs five middle" style="width: 650px;">
+        <div class="tabs four middle" style="width: 650px;">
             <!--<label class="" for="tab-1">Меню:</label>-->
             <input id='tab-1' type='radio' name='t' checked />
             <label class="pseudo button toggle" for="tab-1">Монитор<br>параметров</label>
             <input id='tab-2' type='radio' name='t'>
             <label class="pseudo button toggle" for="tab-2">Сетевые<br>настройки</label>
             <input id='tab-3' type='radio' name='t'>
-            <label class="pseudo button toggle" for="tab-3">УПВС</label>
+            <label class="pseudo button toggle" for="tab-3">Система</label>
             <input id='tab-4' type='radio' name='t'>
-            <label class="pseudo button toggle" for="tab-4">Система</label>
-            <input id='tab-5' type='radio' name='t'>
-            <label class="pseudo button toggle" for="tab-5">СМС</label>
+            <label class="pseudo button toggle" for="tab-4">СМС</label>
             <div class="row">
                 <div>
                     <!-- tab master -->
@@ -431,6 +451,7 @@
                                         <label style="width: 11em;">RSSI:</label>
                                         <label style="width: auto;" id="rssi"></label>
                                     </div>
+									<br>
                                     <div class="pure-control-group">
                                         <label style="width: 11em;">3D FIX:</label>
                                         <label style="width: auto;" id="3d_fix"></label>
@@ -447,6 +468,7 @@
                                         <label style="width: 11em;">Количество спутников:</label>
                                         <label style="width: auto;" id="num_sput"></label>
                                     </div>
+									<br>
                                     <div class="pure-control-group">
                                         <label style="width: 11em;">Регистрация в сети:</label>
                                         <label style="width: auto;" id="reg_in_mesh"></label>
@@ -463,8 +485,14 @@
                                         <label style="width: 11em;">IMEI:</label>
                                         <label style="width: auto;" id="imei"></label>
                                     </div>
+									<div class="pure-control-group">
+                                        <label style="width: 11em;">Дата от оператора:</label>
+                                        <label style="width: auto;" id="gsm_time"></label>
+                                    </div>
+									<br>
+									<br>
                                     <div class="pure-control-group">
-                                        <label style="width: 11em;">UPTIME:</label>
+                                        <label style="width: 11em;">Время работы:</label>
                                         <label style="width: auto;" id="uptime"></label>
                                     </div>
                                     <div class="pure-control-group">
@@ -474,6 +502,10 @@
                                     <div class="pure-control-group">
                                         <label style="width: 11em;">Промежуточный пробег:</label>
                                         <label style="width: auto;" id="last_mileage"></label>
+                                    </div>
+									<div class="pure-control-group">
+                                        <label style="width: 11em;">Текущая скорость:</label>
+                                        <label style="width: auto;" id="speed"></label>
                                     </div>
                                     <div class="pure-control-group">
                                         <label style="width: 11em;">Тип питания(Бат/сеть):</label>
@@ -508,7 +540,7 @@
                                     <option>10.7.254.45</option>
                                     <option>10.7.254.47</option>
                                 </select>
-                                <span class="pure-form-message-inline">Адрес со стороны КУД</span>
+                                <span class="pure-form-message-inline">Адрес со стороны КДУСВ</span>
                             </div>
 
                             <div class="pure-control-group">
@@ -528,7 +560,7 @@
                                 <label for="slaven">Интервал связи со спутником GPS</label>
                                 <label>
                                     <div class="slidecontainer" onclick="sliderRef()" onmousemove="sliderRef()">
-                                        <input type="range" min="5" max="20" value="12" class="slider" id="myRange" readonly>
+                                        <input type="range" min="5" max="20" value="5" class="slider" id="myRange" disabled="Недоступно" readonly>
                                     </div>
                                     <span class="pure-form-message-inline" id="gps_time">x</span>
                                 </label>
@@ -569,55 +601,13 @@
 
                             <div class="pure-controls">
                                 <br>
-                                <button type="button" onclick="save_netstat()" class="pure-button pure-button-primary" disabled="Недоступно">
+                                <button type="button" onclick="" class="pure-button pure-button-primary" disabled="Недоступно">
                                     Сохранить</button>
                             </div>
                         </fieldset>
                     </form>
                 </div> <!-- tab slave -->
-                <div>
-                    <!-- tab slave -->
-                    <br>
-                    <form class="pure-form pure-form-aligned">
-                        <fieldset>
-
-                            <div class="pure-control-group">
-
-                                <label for="slaveip">Broadcast IP</label>
-                                <input id="slaveip" type="text" placeholder="10.7.255.255" readonly>
-                            </div>
-                            <div class="pure-control-group">
-                                <label for="slaveip">Broadcast PORT</label>
-                                <input id="slaveip" type="text" placeholder="19000" readonly>
-                            </div>
-
-                            <div class="pure-control-group">
-                                <label style="width: 11em;">Версия УПВС:</label>
-                                <label style="width: auto;" id="map_st">???</label>
-                            </div>
-                            <div class="pure-control-group">
-                                <label style="width: 11em;">Тип устройства:</label>
-                                <label style="width: auto;" id="map_st">???</label>
-                            </div>
-                            <div class="pure-control-group">
-                                <label style="width: 11em;">Имя устройства:</label>
-                                <label style="width: auto;" id="map_st">???</label>
-                            </div>
-                            <div class="pure-control-group">
-                                <label style="width: 11em;">Производитель:</label>
-                                <label style="width: auto;" id="map_st">ООО "КСК" Элком</label>
-                            </div>
-                            <div class="pure-control-group">
-                                <label style="width: 11em;">Страна производства:</label>
-                                <label style="width: auto;" id="map_st">Россия</label>
-                            </div>
-                            <div class="pure-controls">
-                                <br>
-                                <button type="button" onclick="sm()" class="pure-button pure-button-primary" disabled="Недоступно">Сохранить</button>
-                            </div>
-                        </fieldset>
-                    </form>
-                </div> <!-- tab slave -->
+               
                 <div>
                     <!-- tab slave -->
                     <br>
@@ -629,35 +619,7 @@
                             </div>
                             <div class="pure-controls">
                                 <label for="modal_1" class="button" disabled="Недоступно">Отправить SMS</label>
-                                <div class="modal">
-                                    <input id="modal_1" type="checkbox" />
-                                    <label for="modal_1" class="overlay"></label>
-                                    <article style="resize:none; width : 450px;">
-                                        <header>
-                                            <h3>Отправка SMS</h3>
-                                            <label for="modal_1" class="close">&times;</label>
-                                        </header>
-                                        <section class="content">
-                                            <div class="pure-control-group">
-                                                <label for="phone_num">Номер:</label><br>
-                                                <input id="phone_num" type="text" placeholder="+79101234567" maxlength="12">
-                                            </div>
-                                            <div class="pure-control-group">
-                                                <label for="slaven">Текст SMS:</label><br>
-                                                <textarea placeholder="Textarea" style="resize:none; width : 420px; max-height: 110px; min-height: 110px " id="SMS_text" maxlength="140" onkeydown="sms_length_update()"></textarea>
-                                                <br>
-                                                <p class="pure-form-message-inline" id = "sms_length" style="float: right;">0/140</p>
-                                                <br>
-                                            </div>
-                                        </section>
-                                        <footer>
-                                            <button type="button" onclick="SMS_send()" class="pure-button pure-button-primary">Отправить</button>
-                                            <label for="modal_1" class="button dangerous">
-                                                Отменить
-                                            </label>
-                                        </footer>
-                                    </article>
-                                </div>
+ 
                             </div>
                             <div class="pure-controls">
                                 <button type="button" onclick="" class="pure-button pure-button-primary" disabled="Недоступно">Сбросить ВСЕ настройки</button>

@@ -578,6 +578,7 @@ static void
 querySMSvar(options_t* opts, xml_tag_t *tag)
 {
     time_t _moment_time;
+    struct tm *_sTm;
     char queue_index_list[1024];
     char sended_index_list[1024];
     char deleted_index_list[1024];
@@ -661,18 +662,21 @@ querySMSvar(options_t* opts, xml_tag_t *tag)
         break;
     case 9: // localTime
         _moment_time = time(NULL);
+        _sTm = gmtime (&_moment_time);
+        char _time_str[30];
+        strftime (_time_str, sizeof(_time_str), "%Y-%m-%d %H:%M:%S", _sTm);
         _sendbuflen += sprintf(_sendbuf+_sendbuflen,
             "<struct>"
                 "<DT>"
                     "<value>%s</value>"
                 "</DT>"
                 "<FORMAT>"
-                    "<value>DD:MM:YY HH:MM:SS</value>"
+                    "<value>%s</value>"
                 "</FORMAT>"
                 "<STATUS>"
                     "<value>NORMAL</value>"
                 "</STATUS>"
-            "</struct>", ctime(&_moment_time)
+            "</struct>", _time_str, "%%Y-%%m-%%d %%H:%%M:%%S"
         );
         break;
     }
@@ -795,7 +799,7 @@ queryGPSvar(options_t* opts, xml_tag_t *tag)
                     "<value>%s</value>\n"
                 "</DT>\n"
                 "<FORMAT>\n"
-                    "<value>DD:MM:YY HH:MM:SS</value>\n"
+                    "<value>%%Y-%%m-%%d %%H:%%M:%%S</value>\n"
                 "</FORMAT>\n"
             "</struct>",
             ctime(&_moment_time)
@@ -1068,7 +1072,17 @@ do_action(options_t *opts, xml_tag_t *params)
                         "<name>clearOutQueue</name>\n"
                     "</action>\n"
                 "</body>\r\n\r\n", urn
-            );}
+            );
+        } else if (0 == strcasecmp(name->content, "clearInQueue")){
+            _sendbuflen = sprintf(_sendbuf,
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                "<body urn=\"%s\">\n"
+                    "<action>\n"
+                        "<name>clearInQueue</name>\n"
+                    "</action>\n"
+                "</body>\r\n\r\n", urn
+            );
+        }
         return;
     }
 
@@ -1127,8 +1141,6 @@ do_action(options_t *opts, xml_tag_t *params)
             sms_ind = sms_add(phone_num, sms_data, ttl, priority, opts, status);
         }
         pthread_mutex_unlock(&opts->mutex_sms);
-        //printf ("SMS index %d\n", sms_ind);
-        //int sms_ind = sms_add(phone_num, sms_data, ttl, priority, opts, SSMS_SENDED);
         if(sms_ind != -1){
             _sendbuflen = sprintf(_sendbuf,
                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
@@ -1146,10 +1158,6 @@ do_action(options_t *opts, xml_tag_t *params)
         }
     } else if(0 == strcasecmp(name->content, "getSMS")) {
         char sms_index[20];
-        //char phone[13];
-        //char text[500];
-        //char priority[5];
-        //char ttl[5];
         get_sms_index = xml_find_tag(arglist, "index", 1);
         snprintf(sms_index, sizeof(sms_index), arg_param(get_sms_index));
         int res = get_sms_by_xml(atoi(sms_index), opts, opts->one_sms.phone, opts->one_sms.text, opts->one_sms.ttl, opts->one_sms.priority);
@@ -1181,7 +1189,32 @@ do_action(options_t *opts, xml_tag_t *params)
                 "</body>\r\n\r\n", urn,  opts->one_sms.text, opts->one_sms.phone, opts->one_sms.priority, opts->one_sms.ttl
             );
         }
+    } else if(0 == strcasecmp(name->content, "delSMS")) {
+        char sms_index[20];
+        get_sms_index = xml_find_tag(arglist, "index", 1);
+        snprintf(sms_index, sizeof(sms_index), arg_param(get_sms_index));
+        _sendbuflen = sprintf(_sendbuf,
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            "<body urn=\"%s\">\n"
+                "<action>\n"
+                    "<name>delSMS</name>\n"
+                "</action>\n"
+            "</body>\r\n\r\n", urn
+        );
+    } else if(0 == strcasecmp(name->content, "removeSMS")) {
+        char sms_index[20];
+        get_sms_index = xml_find_tag(arglist, "index", 1);
+        snprintf(sms_index, sizeof(sms_index), arg_param(get_sms_index));
+        _sendbuflen = sprintf(_sendbuf,
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            "<body urn=\"%s\">\n"
+                "<action>\n"
+                    "<name>removeSMS</name>\n"
+                "</action>\n"
+            "</body>\r\n\r\n", urn
+        );
     } else if(0 == strcasecmp(name->name, "setodometervalue")) {
+
     }
 
     /*_sendbuflen = sprintf(_sendbuf,
@@ -2829,7 +2862,7 @@ static void del_sms_num(char* but_type, int num, void* web_opts)
     }
 }
 
-static void* try_send_sms_from_queue(void* web_opts) {
+/*static void* try_send_sms_from_queue(void* web_opts) {
     options_t* opts = (options_t*)web_opts;
     int s_p, i;
     char phone[13];
@@ -2865,7 +2898,7 @@ static void* try_send_sms_from_queue(void* web_opts) {
             }
         }
     }
-}
+}*/
 
 int check_GPRS_state(void* web_opts)
 {
@@ -2886,11 +2919,6 @@ int check_GPRS_state(void* web_opts)
         #ifdef WEBPOSTGETINCONSOLE
         printf("/var/run/gsm.connected open: OK\n");
         #endif
-        //fseek(gsmipFile, 0, SEEK_END);                                    //Открываем файл и перемещаем каретку в конечное положение
-        //int gsmipFileLen = ftell(gsmipFile);                                      //Получаем текущее значение указателя
-        //fseek(gsmipFile, 0, SEEK_SET);                                    //Перемещаем каретку в начало, чтобы корректно работать с файлом
-        //for (i = 0; (_oneChar = getc(gsmipFile)) != EOF && i < gsmipFileLen; opts->gsm_ip_state[i++] = rc);    //Посимвольно считываем все биты из файла пока они не закончатся или не переполнится буффер
-        //opts->gsm_ip_state[i] = '\0';
 
             fgets(opts->gsm_ip_state, 126, gsmipFile);
             int j = 0;
@@ -2912,19 +2940,6 @@ int check_GPRS_state(void* web_opts)
                 }
             }
         //
-        //
-        //
-
-        //long int ttime;
-
-        // Считываем текущее время
-        //ttime = time (NULL);
-
-        // С помощью функции ctime преобразуем считанное время в
-        // локальное, а затем в строку и выводим в консоль.
-        //printf ("Время: %s\n",ctime (&ttime) );
-
-
         // Закрываем файл
         #ifdef WEBPOSTGETINCONSOLE
         printf("Закрытие файла /var/run/gsm.connected: ");
