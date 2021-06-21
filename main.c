@@ -1209,6 +1209,16 @@ do_action(options_t *opts, xml_tag_t *params)
                     "</action>\n"
                 "</body>\r\n\r\n", urn,  opts->one_sms.text, opts->one_sms.phone, opts->one_sms.priority, opts->one_sms.ttl
             );
+        } else {
+            _sendbuflen = sprintf(_sendbuf,
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                "<body urn=\"%s\">\n"
+                    "<fault>\n"
+                        "<code>1501</code>\n"
+                        "<detail>Запрашиваемый индекс находится за пределами допустимых значений</detail>\n"
+                    "</fault>\n"
+                "</body>\r\n\r\n", urn
+            );
         }
     } else if(0 == strcasecmp(name->content, "delSMS")) {
         char sms_index[20];

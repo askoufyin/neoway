@@ -117,6 +117,8 @@ textarea { overflow: auto; }
 /** Don't inherit the `font-weight` (applied by a rule above). NOTE: the default cannot safely be changed in Chrome and Safari on OS X. */
 optgroup { font-weight: bold; }
 
+
+
 /* Tables ========================================================================== */
 /** Remove most spacing between table cells. */
 table { border-collapse: collapse; border-spacing: 0; }
@@ -455,7 +457,7 @@ button[disabled], .button[disabled], [disabled][type=submit] { cursor: default; 
     border-radius: 0;
     background: rgba(17, 17, 17, 0.6);
     transition: all 0.3s;
-    z-index: 100000; }
+    z-index: 10; }
     .modal .overlay:before, .modal .overlay:after {
       display: none; }
     .modal .overlay ~ * {
@@ -464,7 +466,7 @@ button[disabled], .button[disabled], [disabled][type=submit] { cursor: default; 
       top: 50%;
       left: 50%;
       transform: translateX(-50%) translateY(-50%) scale(0.2, 0.2);
-      z-index: 1000000;
+      z-index: 15;
       transition: all 0.3s; }
   .modal > input:checked ~ * {
     display: block;
@@ -476,6 +478,9 @@ button[disabled], .button[disabled], [disabled][type=submit] { cursor: default; 
     overflow: auto;
     -webkit-transform: translateX(-50%) translateY(-50%) scale(1, 1);
     transform: translateX(-50%) translateY(-50%) scale(1, 1); }
+	
+	
+
 
 @media (max-width: 60em) {
   .modal .overlay ~ * {
@@ -490,3 +495,6 @@ button[disabled], .button[disabled], [disabled][type=submit] { cursor: default; 
   .pure-form-aligned .pure-control-group label { margin-bottom: .3em; text-align: left; display: block; width: 100%; }
   .pure-form-aligned .pure-controls { margin: 0 0 0 0; }
   .pure-form .pure-help-inline, .pure-form-message, .pure-form-message-inline { display: block; font-size: .75em; padding: .2em 0 .8em; } }
+  
+  
+
