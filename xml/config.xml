@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <scpd urn="%s">
   <actionList>
-    <action>
-      <argumentList>
-        <argument>
-          <name>DATETIME</name>
-          <direction>IN</direction>
-        </argument>
-      </argumentList>
-    </action>
+      <action>
+        <argumentList>
+  	         <name>setDateTime</name>
+             <argument>
+                 <name>DATETIME</name>
+                 <direction>IN</direction>
+             </argument>
+        </argumentList>
+      </action>
   </actionList>
   <serviceStateTable>
     <stateVariable>

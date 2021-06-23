@@ -1996,7 +1996,6 @@ static void* tcp_web_thread_main(void* arg)
                 }
                 fwrite(&sysconf, 1, sizeof(sysconf), fp);
                 fclose(fp);
-                //Write_sysconfto_txt("sysconf.txt\0", opts);
                 system(sys_com);
                 wb_i += snprintf(&web_log[wb_i], 64000, "[%s] Конфигурация сохранена!\\nip:%s\\nnetmask:%s\\n", opts->up_time_string, inet_web, netmask_web);
                 //d_log("%s", sys_com);
